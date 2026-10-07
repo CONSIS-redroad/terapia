@@ -4,9 +4,11 @@ Stan na 2026-10-08. Decyzje: `.ai/DECISIONS.md` D005–D007.
 
 ## Założenia (Bartek 07–08.10.2026)
 - Własna aplikacja, nie gotowiec (Classroom/Sites odrzucone).
-- Backend: **Supabase** (darmowy plan, region UE). Baza kodu: **otwarty Atomic CRM** (`marmelab/atomic-crm`) —
-  ma już logowanie Google, panel admina użytkowników (funkcja `users`), załączniki do Storage, notatki (→ rozmowy).
-  Doświadczenie i pułapki z CRM Aliny (ten sam stos) — w MEMO, kodu Aliny nie kopiujemy.
+- Backend: **Supabase** (darmowy plan, region UE). Baza kodu: **Luna2** (React 19 + Vite + Tailwind, PWA, polski,
+  panele/okna, kalendarz, logowanie Google). Firebase w Lunie jest odizolowany w 3 plikach (`services/firebase.ts`,
+  `hooks/useFirebaseAuth.ts`, `firebaseErrors.ts`), dane idą przez `services/storage.ts` + `hooks/useAuth.ts` → to podmieniamy na Supabase.
+  Z CRM Aliny bierzemy tylko wzorce (RLS, keepalive, kopia), nie kod.
+- Do dopisania od zera (Luna tego nie ma): grupy i członkostwa, ekran admina „Do akceptacji”, rozmowa grupy, upload materiałów.
 - Logowanie: Google albo link na e-mail. **Każde dołączenie akceptuje admin.** Do akceptu użytkownik widzi tylko „poczekaj”.
 - Pliki: Supabase Storage 1 GB — tylko materiały wrzucane raz (PDF, karty pracy, obrazy), z limitem rozmiaru.
   **Wideo/audio = link do zewnętrznego źródła**, nie plik na naszym serwerze.
@@ -15,12 +17,12 @@ Stan na 2026-10-08. Decyzje: `.ai/DECISIONS.md` D005–D007.
 - Prywatny Dzienniczek nie jest dostępny przez członkostwo w grupie (D002).
 
 ## FAZA 1 — Panel jednej grupy
-1. **Start projektu**: projekt Supabase (UE), kopia Atomic CRM do `frontend/`, odchudzenie z modułów CRM (firmy, deale).
+1. **Start projektu**: projekt Supabase (UE), kopia Luna2 do `frontend/`, usunięcie części „sen/księżyc/pogoda”, zostaje powłoka, panele, kalendarz, i18n, PWA.
 2. **Logowanie + akceptacja**: Google + magic link; tabela członkostw ze statusem `pending/approved/blocked`;
-   ekran admina „Do akceptacji” (na bazie funkcji `users` z Atomica); RLS: dane grupy tylko dla `approved`.
+   ekran admina „Do akceptacji” (nowy, prosty: lista oczekujących + Przyjmij/Odrzuć); RLS: dane grupy tylko dla `approved`.
 3. **Kalendarz grupy**: spotkania (data, temat, link do spotkania online).
 4. **Materiały**: upload PDF/obrazów do Storage (limit rozmiaru, lista typów), linki do wideo/audio z podglądem (YouTube/Vimeo).
-5. **Ogłoszenia + rozmowa grupy**: wątek wiadomości (na bazie notatek Atomica), Supabase Realtime.
+5. **Ogłoszenia + rozmowa grupy**: wątek wiadomości (nowa tabela wiadomości), Supabase Realtime.
 6. **Okna**: powłoka z `window-manager`, na telefonie pełny ekran.
 7. **Testy**: osoba niezaakceptowana nic nie widzi; osoba z grupy A nie widzi grupy B; złośliwy plik/HTML w wiadomości nie wykonuje się.
 8. **Utrzymanie**: keepalive (darmowy Supabase usypia po tygodniu — dopisać adres do istniejącego automatu RedRoad),

@@ -13,3 +13,4 @@
 
 ## 2026-10-08 — Plan i decyzje
 - `docs/PLAN-SKLADANIA.md` (fazy 1–4), decyzje D005–D007 (Supabase + Atomic CRM, akceptacja admina, pliki/wideo).
+- 2026-10-08: D005 poprawione — baza kodu Luna2 zamiast Atomic CRM.
