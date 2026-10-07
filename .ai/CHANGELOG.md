@@ -19,3 +19,4 @@
 - `frontend/` = Luna2 przerobiona na panel grupy: Mój profil (pseudonim, awatar ikonka/zdjęcie, przełączniki „pokaż grupie”), Spotkania, Ogłoszenia, Rozmowa grupy, Materiały, Uczestnicy i akceptacja (podgląd prowadzącej).
 - Dane fikcyjne za warstwą `services/groupData.ts`; usunięte Firebase/three/pogoda/księżyc.
 - GitHub Pages przez Actions. Testy: tsc 0, build 0, headless (desktop + 390 px) bez błędów konsoli; poprawiony błąd dat przy zmianie czasu.
+- 2026-10-08: tryb jasny i ciemny (zmienne motywu w `index.css`, przełącznik: jak w urządzeniu → jasny → ciemny).

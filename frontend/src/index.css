@@ -1,5 +1,62 @@
 @import "tailwindcss";
 
+/* Motyw: zmienne --t-* (jasny domyślnie, ciemny pod [data-theme="dark"]).
+   Klasy semantyczne: bg-bg, bg-head, bg-surf, bg-surf2, border-line, text-fg, text-fg2, text-mut, text-mut2,
+   text-acc, text-ok, text-warn, text-bad. Nowych kolorów zinc/white na sztywno NIE dodajemy. */
+@theme {
+  --color-bg: var(--t-bg);
+  --color-head: var(--t-head);
+  --color-surf: var(--t-surf);
+  --color-surf2: var(--t-surf2);
+  --color-line: var(--t-line);
+  --color-fg: var(--t-fg);
+  --color-fg2: var(--t-fg2);
+  --color-mut: var(--t-mut);
+  --color-mut2: var(--t-mut2);
+  --color-acc: var(--t-acc);
+  --color-ok: var(--t-ok);
+  --color-warn: var(--t-warn);
+  --color-bad: var(--t-bad);
+}
+
+:root {
+  color-scheme: light;
+  --t-bg: #f4f6f8;
+  --t-head: rgba(255, 255, 255, 0.82);
+  --t-surf: rgba(15, 23, 42, 0.035);
+  --t-surf2: rgba(15, 23, 42, 0.075);
+  --t-line: rgba(15, 23, 42, 0.12);
+  --t-fg: #0f172a;
+  --t-fg2: #334155;
+  --t-mut: #475569;
+  --t-mut2: #64748b;
+  --t-acc: #0369a1;
+  --t-ok: #047857;
+  --t-warn: #92400e;
+  --t-bad: #be123c;
+  --t-glow1: rgba(56, 189, 248, 0.16);
+  --t-glow2: rgba(167, 139, 250, 0.12);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --t-bg: #070b10;
+  --t-head: rgba(6, 8, 13, 0.7);
+  --t-surf: rgba(255, 255, 255, 0.035);
+  --t-surf2: rgba(255, 255, 255, 0.08);
+  --t-line: rgba(255, 255, 255, 0.08);
+  --t-fg: #f4f4f5;
+  --t-fg2: #d4d4d8;
+  --t-mut: #a1a1aa;
+  --t-mut2: #8b8b94;
+  --t-acc: #7dd3fc;
+  --t-ok: #6ee7b7;
+  --t-warn: #fcd34d;
+  --t-bad: #fda4af;
+  --t-glow1: rgba(56, 189, 248, 0.10);
+  --t-glow2: rgba(167, 139, 250, 0.08);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -8,8 +65,8 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
-}
-
-.perspective-1000 {
-  perspective: 1000px;
+  body {
+    background: var(--t-bg);
+    color: var(--t-fg);
+  }
 }

@@ -18,7 +18,7 @@ export default defineConfig(() => {
           name: 'TERAPIA — panel grupy',
           short_name: 'TERAPIA',
           description: 'Panel grupy terapeutycznej (demo).',
-          theme_color: '#070b10',
+          theme_color: '#0f172a',
           background_color: '#070b10',
           display: 'standalone',
           start_url: './',
