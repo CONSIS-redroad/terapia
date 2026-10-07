@@ -1,0 +1,12 @@
+module:
+  id: media
+  version: 0.1.0
+  status: prototype
+purpose: "Materiały i źródła."
+depends_on:
+  - sessions
+provides:
+  - MediaItem
+files:
+  entry: []
+  tests: []

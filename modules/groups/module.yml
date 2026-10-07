@@ -1,0 +1,13 @@
+module:
+  id: groups
+  version: 0.1.0
+  status: prototype
+purpose: "Grupy terapeutyczne."
+depends_on:
+  - identity
+  - authorization
+provides:
+  - Group
+files:
+  entry: []
+  tests: []

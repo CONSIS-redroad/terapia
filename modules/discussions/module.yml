@@ -1,0 +1,13 @@
+module:
+  id: discussions
+  version: 0.1.0
+  status: prototype
+purpose: "Dyskusje grupowe i sesji."
+depends_on:
+  - groups
+  - sessions
+provides:
+  - Discussion
+files:
+  entry: []
+  tests: []

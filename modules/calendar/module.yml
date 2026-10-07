@@ -1,0 +1,12 @@
+module:
+  id: calendar
+  version: 0.1.0
+  status: prototype
+purpose: "Centralny kalendarz."
+depends_on:
+  - groups
+provides:
+  - CalendarEvent
+files:
+  entry: []
+  tests: []

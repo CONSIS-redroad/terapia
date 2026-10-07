@@ -1,0 +1,9 @@
+schema:
+  id: role
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: code
+    type: TODO

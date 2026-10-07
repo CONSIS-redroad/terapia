@@ -1,0 +1,19 @@
+schema:
+  id: media-item
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: session_id
+    type: TODO
+  - name: assignment_id
+    type: TODO
+  - name: title
+    type: TODO
+  - name: source_type
+    type: TODO
+  - name: source_url
+    type: TODO
+  - name: storage_id
+    type: TODO

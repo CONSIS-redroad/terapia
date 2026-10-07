@@ -1,0 +1,27 @@
+project:
+  id: terapia-platform
+  status: prototype
+repositories:
+  diary: CONSIS-redroad/dzienniczek
+modules:
+  - identity
+  - authorization
+  - groups
+  - calendar
+  - sessions
+  - assignments
+  - media
+  - discussions
+  - attendance
+workflow:
+  - ANALIZA
+  - PLAN
+  - ZMIANA
+  - TEST
+  - RAPORT
+  - HANDOFF
+rules:
+  - private_diary_is_not_group_data
+  - server_side_authorization
+  - no_secrets_in_git
+  - every_module_has_index_and_contract

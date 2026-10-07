@@ -1,0 +1,17 @@
+schema:
+  id: calendar-event
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: group_id
+    type: TODO
+  - name: session_id
+    type: TODO
+  - name: starts_at
+    type: TODO
+  - name: ends_at
+    type: TODO
+  - name: title
+    type: TODO

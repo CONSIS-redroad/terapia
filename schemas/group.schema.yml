@@ -1,0 +1,15 @@
+schema:
+  id: group
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: name
+    type: TODO
+  - name: description
+    type: TODO
+  - name: therapist_id
+    type: TODO
+  - name: status
+    type: TODO

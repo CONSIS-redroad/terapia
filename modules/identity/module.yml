@@ -1,0 +1,12 @@
+module:
+  id: identity
+  version: 0.1.0
+  status: prototype
+purpose: "Tożsamość użytkowników."
+depends_on:
+  - none
+provides:
+  - User
+files:
+  entry: []
+  tests: []

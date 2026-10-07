@@ -1,0 +1,13 @@
+schema:
+  id: attendance
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: session_id
+    type: TODO
+  - name: participant_id
+    type: TODO
+  - name: status
+    type: TODO

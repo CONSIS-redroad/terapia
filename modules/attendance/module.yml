@@ -1,0 +1,13 @@
+module:
+  id: attendance
+  version: 0.1.0
+  status: prototype
+purpose: "Obecność."
+depends_on:
+  - groups
+  - sessions
+provides:
+  - Attendance
+files:
+  entry: []
+  tests: []

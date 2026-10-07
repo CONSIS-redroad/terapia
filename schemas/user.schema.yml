@@ -1,0 +1,15 @@
+schema:
+  id: user
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: display_name
+    type: TODO
+  - name: email
+    type: TODO
+  - name: auth_provider
+    type: TODO
+  - name: created_at
+    type: TODO

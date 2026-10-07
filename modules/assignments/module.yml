@@ -1,0 +1,12 @@
+module:
+  id: assignments
+  version: 0.1.0
+  status: prototype
+purpose: "Prace domowe."
+depends_on:
+  - sessions
+provides:
+  - Assignment
+files:
+  entry: []
+  tests: []

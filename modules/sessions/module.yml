@@ -1,0 +1,13 @@
+module:
+  id: sessions
+  version: 0.1.0
+  status: prototype
+purpose: "Sesje terapeutyczne."
+depends_on:
+  - groups
+  - calendar
+provides:
+  - Session
+files:
+  entry: []
+  tests: []

@@ -1,0 +1,15 @@
+schema:
+  id: session
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: group_id
+    type: TODO
+  - name: calendar_event_id
+    type: TODO
+  - name: topic
+    type: TODO
+  - name: description
+    type: TODO

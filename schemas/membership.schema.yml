@@ -1,0 +1,17 @@
+schema:
+  id: membership
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: user_id
+    type: TODO
+  - name: group_id
+    type: TODO
+  - name: role
+    type: TODO
+  - name: joined_at
+    type: TODO
+  - name: active
+    type: TODO

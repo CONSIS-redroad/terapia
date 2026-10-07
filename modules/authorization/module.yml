@@ -1,0 +1,14 @@
+module:
+  id: authorization
+  version: 0.1.0
+  status: prototype
+purpose: "Role i uprawnienia."
+depends_on:
+  - identity
+provides:
+  - Role
+  - Membership
+  - Permission
+files:
+  entry: []
+  tests: []

@@ -1,0 +1,15 @@
+schema:
+  id: discussion
+  version: 0.1.0
+  status: draft
+fields:
+  - name: id
+    type: TODO
+  - name: session_id
+    type: TODO
+  - name: author_id
+    type: TODO
+  - name: body
+    type: TODO
+  - name: created_at
+    type: TODO
