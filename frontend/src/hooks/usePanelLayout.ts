@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { PanelConfig, PanelId, DEFAULT_PANELS } from '../types/panelLayout';
 
-const STORAGE_KEY = 'terapia_panels_config_v1';
+const STORAGE_KEY = 'terapia_panels_config_v2';
 
 export function usePanelLayout() {
   const [panels, setPanels] = useState<PanelConfig[]>(() => {
@@ -10,7 +10,8 @@ export function usePanelLayout() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return DEFAULT_PANELS;
       const parsed = JSON.parse(raw);
-      return DEFAULT_PANELS.map(def => parsed.find((p: PanelConfig) => p.id === def.id) || def);
+      const saved = (parsed as PanelConfig[]).filter(p => DEFAULT_PANELS.some(d => d.id === p.id)).map(p => ({ ...DEFAULT_PANELS.find(d => d.id === p.id)!, isCollapsed: p.isCollapsed, isVisible: p.isVisible }));
+      return [...saved, ...DEFAULT_PANELS.filter(d => !saved.some(p => p.id === d.id))];
     } catch {
       return DEFAULT_PANELS;
     }

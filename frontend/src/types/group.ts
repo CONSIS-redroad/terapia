@@ -2,7 +2,7 @@
 // Kontrakty zgodne z `schemas/*.schema.yml` (wersja robocza). W fazie 1 te same typy wypełnia Supabase.
 
 export type Role = 'therapist' | 'participant';
-export type MembershipStatus = 'pending' | 'approved' | 'blocked';
+export type MembershipStatus = 'pending' | 'approved' | 'blocked' | 'removed';
 
 export interface Member {
   id: string;
@@ -14,6 +14,7 @@ export interface Member {
   color?: string;
   photo?: string;
   about?: string;
+  email?: string; // widzi tylko admin
 }
 
 export interface Group {

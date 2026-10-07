@@ -14,6 +14,7 @@ export interface GroupDataSource {
   group(): Promise<Group>;
   members(): Promise<Member[]>;
   setMemberStatus(memberId: string, status: MembershipStatus): Promise<void>;
+  addMember(name: string, email: string): Promise<Member>;
   meetings(): Promise<Meeting[]>;
   materials(): Promise<Material[]>;
   announcements(): Promise<Announcement[]>;
@@ -27,6 +28,7 @@ const LOCAL_KEY = 'terapia_demo_local_v1';
 interface LocalState {
   extraMessages: Message[];
   memberStatus: Record<string, MembershipStatus>;
+  addedMembers?: Member[];
 }
 
 function readLocal(): LocalState {
@@ -48,13 +50,22 @@ class DemoSource implements GroupDataSource {
 
   async members() {
     const { memberStatus } = readLocal();
-    return DEMO_MEMBERS.map(m => (memberStatus[m.id] ? { ...m, status: memberStatus[m.id] } : m));
+    const { addedMembers = [] } = readLocal();
+    return [...DEMO_MEMBERS, ...addedMembers].map(m => (memberStatus[m.id] ? { ...m, status: memberStatus[m.id] } : m));
   }
 
   async setMemberStatus(memberId: string, status: MembershipStatus) {
     const s = readLocal();
     s.memberStatus[memberId] = status;
     writeLocal(s);
+  }
+
+  async addMember(name: string, email: string) {
+    const m: Member = { id: `local-m-${Date.now()}`, name: name.trim().slice(0, 40) || 'Nowa osoba', email: email.trim().slice(0, 120), role: 'participant', status: 'approved', joinedAt: new Date().toISOString(), emoji: '🙂', color: '#94a3b8' };
+    const s = readLocal();
+    s.addedMembers = [...(s.addedMembers ?? []), m];
+    writeLocal(s);
+    return m;
   }
 
   async meetings() { return [...DEMO_MEETINGS].sort((a, b) => a.date.localeCompare(b.date)); }

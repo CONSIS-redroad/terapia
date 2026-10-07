@@ -7,3 +7,6 @@ D005 (2026-10-08): Backend = Supabase (plan darmowy, region UE), baza kodu = **L
 D006 (2026-10-08): Logowanie Google lub link na e-mail; KAŻDE dołączenie do grupy akceptuje admin (status `pending` → `approved`), do akceptu zero danych grupy (RLS).
 D007 (2026-10-08): Pliki w Supabase Storage (1 GB free) tylko dla materiałów wrzucanych raz (PDF, karty pracy, obrazy) z limitem rozmiaru pliku. Wideo i audio (mp4/mp3) NIE na naszym serwerze — wyłącznie link do zewnętrznego źródła (YouTube, Vimeo, Dysk autora itd.).
 D008 (2026-10-08): Najpierw FAZA 0 — publiczne demo bez logowania, wyłącznie fikcyjne dane, za wymienną warstwą danych (później Supabase).
+D009 (2026-10-08): Panel zarządzania ludźmi (wpuszczanie, dodawanie, usuwanie) widzi WYŁĄCZNIE admin; w fazie 1 egzekwuje to baza (RLS), przełącznik widoku istnieje tylko w demo.
+D010 (2026-10-08): Materiał zawsze należy do konkretnych zajęć cyklu; kalendarz jest główną drogą do materiałów (D001: kalendarz = oś).
+D011 (2026-10-08): Profil uczestnika — pseudonim domyślnie; reszta (zdjęcie, imię, opis) widoczna dla grupy tylko po włączeniu przez uczestnika. Dwa motywy: jasny i ciemny.

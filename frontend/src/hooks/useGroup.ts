@@ -41,6 +41,11 @@ export function useGroup() {
     await load();
   };
 
+  const addMember = async (name: string, email: string) => {
+    await groupData.addMember(name, email);
+    await load();
+  };
+
   const resetDemo = async () => {
     groupData.resetDemo?.();
     await load();
@@ -50,6 +55,6 @@ export function useGroup() {
     ...state,
     isDemo: groupData.isDemo,
     currentUserId: groupData.currentUserId(),
-    sendMessage, setMemberStatus, resetDemo,
+    sendMessage, setMemberStatus, addMember, resetDemo,
   };
 }
