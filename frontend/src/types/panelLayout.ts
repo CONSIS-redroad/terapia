@@ -1,5 +1,5 @@
 // PATH: src/types/panelLayout.ts | REQ-ID: PANEL-TYPES-01 (z Luna2, panele TERAPIA)
-export type PanelId = 'profile' | 'meetings' | 'announcements' | 'chat' | 'materials' | 'members';
+export type PanelId = 'meetings' | 'announcements' | 'chat' | 'materials' | 'members';
 
 export interface PanelConfig {
   id: PanelId;
@@ -9,7 +9,6 @@ export interface PanelConfig {
 }
 
 export const DEFAULT_PANELS: PanelConfig[] = [
-  { id: 'profile', title: 'Mój profil', isCollapsed: true, isVisible: true },
   { id: 'meetings', title: 'Kalendarz zajęć', isCollapsed: false, isVisible: true },
   { id: 'announcements', title: 'Ogłoszenia', isCollapsed: false, isVisible: true },
   { id: 'chat', title: 'Rozmowa grupy', isCollapsed: false, isVisible: true },

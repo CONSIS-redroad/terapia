@@ -31,5 +31,5 @@ export function useTheme() {
   }, [mode]);
 
   const cycle = () => setMode(m => (m === 'system' ? 'light' : m === 'light' ? 'dark' : 'system'));
-  return { mode, cycle };
+  return { mode, cycle, setMode };
 }

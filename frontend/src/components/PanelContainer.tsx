@@ -22,7 +22,7 @@ export const PanelContainer: React.FC<ContainerProps> = ({
       draggable onDragStart={onDragStart}
       onDragOver={e => { e.preventDefault(); setIsOver(true); onDragOver(e); }}
       onDragLeave={() => setIsOver(false)} onDrop={e => { setIsOver(false); onDrop(e); }}
-      className={`group mb-5 rounded-2xl transition-all duration-300 backdrop-blur-md ${isOver ? 'border border-mut scale-[1.005]' : 'border border-line'}`}
+      className={`group mb-5 rounded-2xl transition-all duration-300 backdrop-blur-md bg-panel shadow-sm ${isOver ? 'border border-mut scale-[1.005]' : 'border border-line'}`}
     >
       <div className="flex items-center justify-between px-4 py-2 bg-surf backdrop-blur-xl rounded-t-2xl border-b border-line select-none">
         <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing text-mut hover:text-fg">

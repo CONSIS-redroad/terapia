@@ -6,6 +6,7 @@
 @theme {
   --color-bg: var(--t-bg);
   --color-head: var(--t-head);
+  --color-panel: var(--t-panel);
   --color-surf: var(--t-surf);
   --color-surf2: var(--t-surf2);
   --color-line: var(--t-line);
@@ -23,6 +24,7 @@
   color-scheme: light;
   --t-bg: #f4f6f8;
   --t-head: rgba(255, 255, 255, 0.82);
+  --t-panel: rgba(255, 255, 255, 0.78);
   --t-surf: rgba(15, 23, 42, 0.035);
   --t-surf2: rgba(15, 23, 42, 0.075);
   --t-line: rgba(15, 23, 42, 0.12);
@@ -42,6 +44,7 @@
   color-scheme: dark;
   --t-bg: #070b10;
   --t-head: rgba(6, 8, 13, 0.7);
+  --t-panel: rgba(10, 14, 22, 0.74);
   --t-surf: rgba(255, 255, 255, 0.035);
   --t-surf2: rgba(255, 255, 255, 0.08);
   --t-line: rgba(255, 255, 255, 0.08);

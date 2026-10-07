@@ -23,3 +23,4 @@
 - 2026-10-08: tryb admina (tylko admin widzi panel: wpuść / odrzuć / dodaj osobę / usuń / przywróć), w demo przełącznik „Uczestnik / Admin”.
 - 2026-10-08: kalendarz zajęć — cykl (demo: 24 wtorki), kropki w dniach zajęć, klik = temat, miejsce, link i materiały TYCH zajęć; każdy materiał przypięty do zajęć (`meetingId`).
 - 2026-10-08: telefon / tablet / komputer — układ 2 kolumny od 1024 px, przycisk „Zainstaluj” (PWA) z instrukcją dla iOS, Androida i komputera.
+- 2026-10-08: tapety z folderu `src/themes/` (wiśnia na śniegu z opadającymi płatkami, deszcz, świt) z ruchem jak w Luna (paralaksa + obracanie przeciąganiem); ustawienia użytkownika w oknie z zakładkami jak w Luna (Profil, Wygląd, Panele, Dane), otwierane awatarem w nagłówku.
