@@ -11,7 +11,8 @@ import { usePanelLayout } from './hooks/usePanelLayout';
 import { useGroup } from './hooks/useGroup';
 import { PanelContainer } from './components/PanelContainer';
 import { PWAReloadPrompt } from './components/PWAReloadPrompt';
-import { AnnouncementsPanel, ChatPanel, MaterialsPanel, MeetingsPanel, MembersPanel } from './components/panels';
+import { AnnouncementsPanel, ChatPanel, MeetingsPanel, MembersPanel } from './components/panels';
+import { MediaLibrary } from './components/MediaLibrary';
 import type { PanelId } from './types/panelLayout';
 import type { Member } from './types/group';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, Profile, publicView, saveProfile } from './services/profile';
@@ -22,6 +23,14 @@ export default function App() {
   const wall = useWallpaper();
   const dark = useIsDark();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [meetingId, setMeetingId] = useState<string | undefined>();
+  const openMeeting = (id: string) => {
+    setMeetingId(id);
+    const cal = panels.find(x => x.id === 'meetings');
+    if (cal && !cal.isVisible) toggleVisibility('meetings');
+    if (cal?.isCollapsed) toggleCollapse('meetings');
+    setTimeout(() => document.getElementById('panel-meetings')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
   // FAZA 0: przełącznik widoku tylko w demo. FAZA 1: rola z bazy (członkostwo + RLS), bez przełącznika.
   const [isAdmin, setIsAdmin] = useState<boolean>(() => { try { return localStorage.getItem('terapia_demo_view') === 'admin'; } catch { return false; } });
   const setView = (admin: boolean) => { setIsAdmin(admin); try { localStorage.setItem('terapia_demo_view', admin ? 'admin' : 'user'); } catch { /* ignoruj */ } };
@@ -40,10 +49,10 @@ export default function App() {
 
   const content = (id: PanelId) => {
     switch (id) {
-      case 'meetings': return <MeetingsPanel meetings={g.meetings} materials={g.materials} />;
+      case 'meetings': return <MeetingsPanel meetings={g.meetings} materials={g.materials} selectedId={meetingId} onSelect={setMeetingId} />;
       case 'announcements': return <AnnouncementsPanel items={g.announcements} members={members} />;
       case 'chat': return <ChatPanel messages={g.messages} members={members} currentUserId={g.currentUserId} isDemo={g.isDemo} onSend={g.sendMessage} />;
-      case 'materials': return <MaterialsPanel items={g.materials} meetings={g.meetings} />;
+      case 'materials': return <MediaLibrary items={g.materials} meetings={g.meetings} onOpenMeeting={openMeeting} />;
       case 'members': return <MembersPanel members={members} onSetStatus={g.setMemberStatus} onAdd={g.addMember} selfId={g.currentUserId} />;
     }
   };
@@ -101,7 +110,7 @@ export default function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 items-start pb-16">
           {visible.map((p, idx) => (
-            <div key={p.id} className={p.id === 'members' || p.id === 'meetings' ? 'lg:col-span-2' : ''}>
+            <div key={p.id} id={`panel-${p.id}`} className={`scroll-mt-24 ${p.id === 'members' || p.id === 'meetings' || p.id === 'materials' ? 'lg:col-span-2' : ''}`}>
             <PanelContainer
               config={p} canMoveUp={idx > 0} canMoveDown={idx < visible.length - 1}
               onToggleCollapse={() => toggleCollapse(p.id)} onHide={() => toggleVisibility(p.id)}

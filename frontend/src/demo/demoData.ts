@@ -64,16 +64,26 @@ export const DEMO_MEETINGS: Meeting[] = [
 ];
 
 export const DEMO_MATERIALS: Material[] = [
-  { id: 'mt-1', title: 'Zasady grupy (1 strona)', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-6, 12), meetingId: 'sp-1' },
-  { id: 'mt-2', title: 'Karta pracy: mapa napięcia w ciele', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-5, 12), meetingId: 'sp-2' },
-  { id: 'mt-3', title: 'Ćwiczenie oddechowe 4-7-8 (nagranie)', kind: 'audio', url: 'https://example.com/nagranie-demo', addedAt: tuesday(-4, 12), meetingId: 'sp-3', note: 'Link zewnętrzny — nagrania nie trzymamy na naszym serwerze.' },
-  { id: 'mt-4', title: 'Film: jak działa reakcja stresowa', kind: 'video', url: 'https://www.youtube.com/', addedAt: tuesday(-4, 13), meetingId: 'sp-3' },
-  { id: 'mt-5', title: 'Dzienniczek myśli — wzór', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-3, 9), meetingId: 'sp-4' },
-  { id: 'mt-6', title: 'Grafika: koło emocji', kind: 'image', url: '#demo-plik', addedAt: tuesday(-2, 9), meetingId: 'sp-5' },
-  { id: 'mt-7', title: 'Lista praw asertywnych', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-1, 9), meetingId: 'sp-6' },
-  { id: 'mt-8', title: 'Higiena snu — 10 zasad', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(0, 9), meetingId: 'sp-7' },
-  { id: 'mt-9', title: 'Relaksacja przed snem (nagranie)', kind: 'audio', url: 'https://example.com/relaks-demo', addedAt: tuesday(0, 9), meetingId: 'sp-7' },
-  { id: 'mt-10', title: 'Plan na trudne dni — szablon', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-6, 12), meetingId: 'sp-22', note: 'Dodany z wyprzedzeniem.' },
+  { id: 'mt-1', category: 'zajecia', title: 'Zasady grupy (1 strona)', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-6, 12), meetingId: 'sp-1' },
+  { id: 'mt-2', category: 'zajecia', title: 'Karta pracy: mapa napięcia w ciele', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-5, 12), meetingId: 'sp-2' },
+  { id: 'mt-3', category: 'podcast', title: 'Ćwiczenie oddechowe 4-7-8 (nagranie)', kind: 'audio', url: 'https://example.com/nagranie-demo', addedAt: tuesday(-4, 12), meetingId: 'sp-3', note: 'Link zewnętrzny — nagrania nie trzymamy na naszym serwerze.' },
+  { id: 'mt-4', category: 'film', title: 'Film: jak działa reakcja stresowa', kind: 'video', url: 'https://www.youtube.com/', addedAt: tuesday(-4, 13), meetingId: 'sp-3' },
+  { id: 'mt-5', category: 'zajecia', title: 'Dzienniczek myśli — wzór', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-3, 9), meetingId: 'sp-4' },
+  { id: 'mt-6', category: 'zajecia', title: 'Grafika: koło emocji', kind: 'image', url: '#demo-plik', addedAt: tuesday(-2, 9), meetingId: 'sp-5' },
+  { id: 'mt-7', category: 'poradnik', title: 'Lista praw asertywnych', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-1, 9), meetingId: 'sp-6' },
+  { id: 'mt-8', category: 'poradnik', title: 'Higiena snu — 10 zasad', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(0, 9), meetingId: 'sp-7' },
+  { id: 'mt-9', category: 'podcast', title: 'Relaksacja przed snem (nagranie)', kind: 'audio', url: 'https://example.com/relaks-demo', addedAt: tuesday(0, 9), meetingId: 'sp-7' },
+  { id: 'mt-10', category: 'zajecia', title: 'Plan na trudne dni — szablon', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-6, 12), meetingId: 'sp-22', note: 'Dodany z wyprzedzeniem.' },
+  // --- luźne media (bez zajęć) i kilka przypiętych do zajęć — WSZYSTKO FIKCYJNE ---
+  { id: 'mb-1', category: 'ksiazka', title: 'Spokojniej każdego dnia (przykładowa książka)', author: 'A. Przykładowa', kind: 'link', url: 'https://example.com/ksiazka-1', addedAt: tuesday(-5, 15) },
+  { id: 'mb-2', category: 'ksiazka', title: 'Myśli to nie fakty (przykładowa książka)', author: 'J. Demo', kind: 'link', url: 'https://example.com/ksiazka-2', addedAt: tuesday(-3, 15), meetingId: 'sp-4' },
+  { id: 'mb-3', category: 'poradnik', title: 'Jak rozmawiać o granicach — poradnik', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-1, 16), meetingId: 'sp-6' },
+  { id: 'mb-4', category: 'poradnik', title: 'Pierwsza pomoc przy ataku paniki', kind: 'pdf', url: '#demo-plik', addedAt: tuesday(-4, 16) },
+  { id: 'mb-5', category: 'podcast', title: 'Podcast „Cisza w głowie” — odc. 12: Sen', kind: 'audio', url: 'https://example.com/podcast-12', addedAt: tuesday(0, 8), meetingId: 'sp-7' },
+  { id: 'mb-6', category: 'podcast', title: 'Podcast „Cisza w głowie” — odc. 3: Złość', kind: 'audio', url: 'https://example.com/podcast-3', addedAt: tuesday(-6, 8) },
+  { id: 'mb-7', category: 'film', title: 'Film: 10 minut uważności', kind: 'video', url: 'https://www.youtube.com/', addedAt: tuesday(-2, 18) },
+  { id: 'mb-8', category: 'film', title: 'Wykład: lęk — jak działa i co pomaga', kind: 'video', url: 'https://www.youtube.com/', addedAt: tuesday(-1, 19), meetingId: 'sp-11', note: 'Na zajęcia 11 — obejrzyj przed spotkaniem.' },
+  { id: 'mb-9', category: 'inne', title: 'Lista telefonów zaufania i wsparcia', kind: 'link', url: 'https://example.com/telefony', addedAt: tuesday(-6, 10), note: 'Warto mieć pod ręką.' },
 ];
 
 export const DEMO_ANNOUNCEMENTS: Announcement[] = [

@@ -19,15 +19,23 @@ function nameOf(members: Member[], id: string) {
 const WEEKDAYS = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb', 'Nd'];
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
-export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[] }> = ({ meetings, materials }) => {
+export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[]; selectedId?: string; onSelect?: (id: string) => void }> = ({ meetings, materials, selectedId: ctrlId, onSelect }) => {
   const next = meetings.find(m => !isPast(m.date, m.durationMin)) ?? meetings[meetings.length - 1];
-  const [selectedId, setSelectedId] = useState<string | undefined>(next?.id);
+  const [ownId, setOwnId] = useState<string | undefined>(next?.id);
+  const selectedId = ctrlId ?? ownId;
+  const setSelectedId = (id: string) => { setOwnId(id); onSelect?.(id); };
   const selected = meetings.find(m => m.id === selectedId) ?? next;
   const selIdx = selected ? meetings.indexOf(selected) : -1;
   const [month, setMonth] = useState(() => {
     const d = selected ? new Date(selected.date) : new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
+  // wybór z zewnątrz (biblioteka) → pokaż miesiąc tych zajęć
+  useEffect(() => {
+    if (!ctrlId) return;
+    const m = meetings.find(x => x.id === ctrlId);
+    if (m) { const d = new Date(m.date); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }
+  }, [ctrlId, meetings]);
 
   if (!selected) return <div className="p-4 text-sm text-mut2">Brak zajęć.</div>;
 

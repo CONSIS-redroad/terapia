@@ -34,14 +34,18 @@ export interface Meeting {
 }
 
 export type MaterialKind = 'pdf' | 'image' | 'video' | 'audio' | 'link';
+/** Kategoria w bibliotece mediów. 'zajecia' = materiał roboczy do zajęć (karta pracy itp.). */
+export type MediaCategory = 'zajecia' | 'ksiazka' | 'poradnik' | 'podcast' | 'film' | 'inne';
 
 export interface Material {
   id: string;
   title: string;
   kind: MaterialKind;
+  category: MediaCategory;
+  author?: string;
   url: string; // pdf/obraz: plik w magazynie; wideo/audio: ZAWSZE link zewnętrzny (D007)
   addedAt: string;
-  meetingId?: string;
+  meetingId?: string; // brak = materiał luźny
   note?: string;
 }
 
