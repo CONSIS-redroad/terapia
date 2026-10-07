@@ -1,6 +1,5 @@
 # Current Task
 
-Etap: FAZA 1 — panel jednej grupy (plan: `docs/PLAN-SKLADANIA.md`).
-Status: decyzje D005–D007 podjęte (Supabase + baza kodu Luna2, akceptacja admina, pliki 1 GB / wideo jako linki).
-Następny krok: założenie projektu Supabase (UE) i kopia Luna2 do `frontend/` i podmiana warstwy danych na Supabase.
-Otwarte: konto firmowe Google, wybór konta Supabase.
+Etap: FAZA 0 — demo bez logowania z fikcyjnymi danymi (plan: `docs/PLAN-SKLADANIA.md`).
+Następny krok: kopia Luna2 do `frontend/`, ekrany grupy na danych demo, wydanie na GitHub Pages.
+Potem: FAZA 1 — przepięcie warstwy danych na Supabase + logowanie z akceptacją admina (D005–D007).

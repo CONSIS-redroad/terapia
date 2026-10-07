@@ -16,7 +16,16 @@ Stan na 2026-10-08. Decyzje: `.ai/DECISIONS.md` D005–D007.
 - Dane zdrowotne (RODO art. 9): w publicznym repo tylko kod; sekrety tylko w zmiennych środowiska.
 - Prywatny Dzienniczek nie jest dostępny przez członkostwo w grupie (D002).
 
-## FAZA 1 — Panel jednej grupy
+## FAZA 0 — Demo bez logowania (Bartek 08.10 00:20)
+Jak dzienniczek: wchodzisz na stronę i od razu widzisz **fikcyjną grupę** — kalendarz spotkań, materiały, ogłoszenia,
+przykładowe rozmowy. Zero logowania, zero serwera, zero prawdziwych danych.
+- Baza: kopia Luna2 → `frontend/`, część sen/księżyc/pogoda usunięta.
+- Dane demo w jednym pliku (`src/demo/demoData.ts`) za warstwą `services/` — w fazie 1 ta warstwa przepina się na Supabase,
+  ekrany zostają bez zmian.
+- Napisy w demo jasno: „Dane przykładowe”.
+- Wydanie: GitHub Pages (`consis-redroad.github.io/terapia`), budowane przez GitHub Actions (Vite).
+
+## FAZA 1 — Panel jednej grupy (przepięcie demo na Supabase + logowanie)
 1. **Start projektu**: projekt Supabase (UE), kopia Luna2 do `frontend/`, usunięcie części „sen/księżyc/pogoda”, zostaje powłoka, panele, kalendarz, i18n, PWA.
 2. **Logowanie + akceptacja**: Google + magic link; tabela członkostw ze statusem `pending/approved/blocked`;
    ekran admina „Do akceptacji” (nowy, prosty: lista oczekujących + Przyjmij/Odrzuć); RLS: dane grupy tylko dla `approved`.
