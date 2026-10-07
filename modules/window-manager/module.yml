@@ -1,0 +1,25 @@
+module: window-manager
+version: 1.0.0
+status: ready
+source_design: CONSIS-redroad/Luna2
+source_components:
+  - src/components/PanelContainer.tsx
+  - src/components/CustomizePanelsModal.tsx
+  - src/components/SettingsModal.tsx
+  - src/hooks/usePanelLayout.ts
+  - src/types/panelLayout.ts
+responsibilities:
+  - window lifecycle
+  - drag
+  - resize
+  - z-index
+  - minimize
+  - maximize
+  - persistence
+  - responsive mobile fallback
+not_responsible_for:
+  - calendar
+  - sessions
+  - permissions
+  - authentication
+  - business data

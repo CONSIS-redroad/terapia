@@ -1,0 +1,60 @@
+/* Luna2-derived visual language, adapted for the independent TERAPIA window engine. */
+.terapia-window-layer { position: relative; }
+.terapia-window {
+  position: fixed;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: #f4f4f5;
+  background: rgba(9, 12, 18, 0.90);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 1rem;
+  box-shadow: 0 25px 70px rgba(0,0,0,.42), 0 8px 24px rgba(0,0,0,.22);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  transition: box-shadow .2s ease, opacity .2s ease, border-color .2s ease;
+  min-width: 320px;
+  min-height: 220px;
+}
+.terapia-window:hover { border-color: rgba(255,255,255,.14); }
+.terapia-window__titlebar {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 14px;
+  background: rgba(24,24,27,.40);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  user-select: none;
+  cursor: grab;
+}
+.terapia-window__titlebar:active { cursor: grabbing; }
+.terapia-window__titlegroup { display:flex; align-items:center; gap:8px; min-width:0; }
+.terapia-window__grip { color:#71717a; font-size:12px; letter-spacing:-3px; opacity:0; transition:opacity .2s ease; }
+.terapia-window:hover .terapia-window__grip { opacity:1; }
+.terapia-window__title { margin:0; font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:#d4d4d8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.terapia-window__controls { display:flex; gap:3px; opacity:0; transition:opacity .2s ease; }
+.terapia-window:hover .terapia-window__controls, .terapia-window:focus-within .terapia-window__controls { opacity:1; }
+.terapia-window__controls button { width:28px; height:26px; border:0; border-radius:7px; background:transparent; color:#a1a1aa; cursor:pointer; font-size:15px; line-height:1; }
+.terapia-window__controls button:hover { background:rgba(255,255,255,.08); color:#fff; }
+.terapia-window__body { height:calc(100% - 42px); overflow:auto; padding:16px; box-sizing:border-box; }
+.terapia-window.is-minimized { height:42px !important; min-height:42px; }
+.terapia-window.is-minimized .terapia-window__body { display:none; }
+.terapia-window.is-maximized { border-radius:0; }
+.terapia-window__resize-handle { position:absolute; z-index:3; }
+.terapia-window__resize-handle--n,.terapia-window__resize-handle--s { left:10px; right:10px; height:7px; cursor:ns-resize; }
+.terapia-window__resize-handle--n { top:-2px; }.terapia-window__resize-handle--s { bottom:-2px; }
+.terapia-window__resize-handle--e,.terapia-window__resize-handle--w { top:10px; bottom:10px; width:7px; cursor:ew-resize; }
+.terapia-window__resize-handle--e { right:-2px; }.terapia-window__resize-handle--w { left:-2px; }
+.terapia-window__resize-handle--ne,.terapia-window__resize-handle--sw,.terapia-window__resize-handle--se,.terapia-window__resize-handle--nw { width:12px; height:12px; }
+.terapia-window__resize-handle--ne { top:-2px; right:-2px; cursor:nesw-resize; }
+.terapia-window__resize-handle--sw { bottom:-2px; left:-2px; cursor:nesw-resize; }
+.terapia-window__resize-handle--se { right:-2px; bottom:-2px; cursor:nwse-resize; }
+.terapia-window__resize-handle--nw { left:-2px; top:-2px; cursor:nwse-resize; }
+@media (max-width:700px) {
+  .terapia-window { min-width:0; border-radius:0; }
+  .terapia-window__resize-handle { display:none; }
+  .terapia-window__controls { opacity:1; }
+  .terapia-window__grip { opacity:1; }
+}
