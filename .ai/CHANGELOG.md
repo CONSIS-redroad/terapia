@@ -10,3 +10,6 @@
 - dodano persystencję układu w localStorage
 - dodano fallback mobile full-screen
 - nie powiązano modułu z żadnym modułem domenowym TERAPIA
+
+## 2026-10-08 — Plan i decyzje
+- `docs/PLAN-SKLADANIA.md` (fazy 1–4), decyzje D005–D007 (Supabase + Atomic CRM, akceptacja admina, pliki/wideo).

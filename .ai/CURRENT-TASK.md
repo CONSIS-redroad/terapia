@@ -1,7 +1,6 @@
 # Current Task
 
-Status: Window Manager — pierwszy działający wkład.
-
-Źródło designu: `CONSIS-redroad/Luna2`.
-
-Następny krok: integracja modułu z frontendem TERAPIA i testy interakcji.
+Etap: FAZA 1 — panel jednej grupy (plan: `docs/PLAN-SKLADANIA.md`).
+Status: decyzje D005–D007 podjęte (Supabase + Atomic CRM, akceptacja admina, pliki 1 GB / wideo jako linki).
+Następny krok: założenie projektu Supabase (UE) i kopia Atomic CRM do `frontend/`.
+Otwarte: konto firmowe Google, wybór konta Supabase.
