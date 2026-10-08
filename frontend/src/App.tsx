@@ -2,7 +2,7 @@
 // Układ jak w Luna2: pierwszy ekran = sama tapeta z nazwą grupy; panele dopiero po przewinięciu.
 // Komputer: siatka paneli (kalendarz = sedno, media zwijane). Telefon/tablet: karuzela ekranów przesuwanych palcem.
 import React, { useEffect, useRef, useState } from 'react';
-import { BookHeart, CalendarDays, ChevronDown, Eye, Settings, ShieldCheck, User, Users } from 'lucide-react';
+import { BookHeart, CalendarDays, ChevronDown, Eye, LogOut, Settings, ShieldCheck, User, Users } from 'lucide-react';
 import { HomeworkPanel } from './components/HomeworkPanel';
 import { Wallpaper } from './components/Wallpaper';
 import { SettingsModal } from './components/SettingsModal';
@@ -120,7 +120,8 @@ export default function App() {
     if (g.loading) return <div className="p-4 text-sm text-mut2">Wczytywanie…</div>;
     switch (id) {
       case 'meetings': return <MeetingsPanel meetings={meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId} />;
-      case 'homework': return <HomeworkPanel homework={g.homework} meetings={meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting} />;
+      case 'homework': return <HomeworkPanel homework={g.homework} meetings={meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting}
+        isAdmin={isAdmin} onAdd={g.addHomework} onUpdate={g.updateHomework} onDelete={g.deleteHomework} />;
       case 'chat': return <ChatPanel messages={g.messages} members={members} announcements={g.announcements} currentUserId={g.currentUserId} isAdmin={isAdmin} isDemo={g.isDemo}
         onSend={g.sendMessage} onReact={g.react} onDeleteAttachment={g.deleteAttachment} onDeleteMessage={g.deleteMessage} />;
       case 'materials': return <MediaLibrary items={g.materials} meetings={meetings} onOpenMeeting={openMeeting} />;
@@ -145,8 +146,8 @@ export default function App() {
         <header className="sticky top-[max(0.75rem,env(safe-area-inset-top))] z-40 max-w-[820px] mx-auto px-3 sm:px-4 py-2 rounded-full bg-head backdrop-blur-3xl border border-line shadow-2xl flex items-center justify-between">
           <div className="flex items-center gap-2 pl-1 sm:pl-2 select-none min-w-0">
             <span className="w-2 h-2 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.7)] shrink-0" />
-            <span className="font-extrabold text-sm tracking-[0.2em] sm:tracking-[0.25em]">TERAPIA</span>
-            {isAdmin && <span className="inline-flex items-center gap-1 text-xs font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-500/15 text-acc border border-sky-400/30" title="Jesteś zalogowany jako admin grupy"><ShieldCheck className="w-3.5 h-3.5" />ADMIN</span>}
+            <span className={`font-extrabold text-sm tracking-[0.2em] sm:tracking-[0.25em] ${isAdmin ? 'hidden sm:inline' : ''}`}>TERAPIA</span>
+            {isAdmin && <span className="inline-flex items-center gap-1 text-xs font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-500/15 text-acc border border-sky-400/30" title="Jesteś zalogowany jako admin grupy"><ShieldCheck className="w-4 h-4 sm:w-3.5 sm:h-3.5" />ADMIN</span>}
             {g.isDemo && <span className="hidden sm:inline text-xs font-mono tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-warn border border-amber-300/25">DEMO</span>}
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5">
@@ -162,6 +163,12 @@ export default function App() {
             {hiddenCount > 0 && !mobile && (
               <button onClick={resetLayout} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-surf border border-line text-fg2 hover:bg-surf2 cursor-pointer" title="Pokaż ukryte panele">
                 <Eye className="w-3 h-3" />{hiddenCount}
+              </button>
+            )}
+            {live && (
+              <button onClick={() => { if (confirm('Wylogować się z grupy na tym urządzeniu?')) void auth.signOut(); }}
+                className="flex items-center justify-center gap-1 text-xs font-semibold min-w-10 h-10 lg:h-auto lg:min-w-0 px-2.5 lg:py-1 rounded-full bg-surf border border-line text-fg2 hover:bg-surf2 cursor-pointer" title="Wyloguj" aria-label="Wyloguj">
+                <LogOut className="w-5 h-5 lg:w-3.5 lg:h-3.5" /><span className="hidden sm:inline">Wyloguj</span>
               </button>
             )}
             <button onClick={() => setSettingsOpen(true)} className="flex items-center gap-1.5 pl-0.5 pr-1.5 sm:pr-2 py-0.5 rounded-full hover:bg-surf2 cursor-pointer" title="Mój profil i ustawienia" aria-label="Mój profil i ustawienia">

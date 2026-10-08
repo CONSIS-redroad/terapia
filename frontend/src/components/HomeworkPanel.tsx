@@ -1,8 +1,9 @@
 // PATH: src/components/HomeworkPanel.tsx | REQ-ID: TERAPIA-HOMEWORK-01
 // Moduł „Prace domowe” (Bartek 08.10: „najważniejsze — brakuje modułu: dziś we wtorek był taki temat, sekcja praca domowa,
 // wiadomo — na następny wtorek albo za 2–3 tygodnie”). Lista według TERMINU, z odhaczaniem „zrobione” (u uczestnika).
-import React from 'react';
-import { CalendarDays, ClipboardCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { CalendarDays, ClipboardCheck, Pencil, Plus, Trash2 } from 'lucide-react';
+import { HomeworkEditor } from './HomeworkEditor';
 import type { Homework, Meeting } from '../types/group';
 import { fmtShort, isPast } from '../services/format';
 import { dueLabel } from './LessonCard';
@@ -10,7 +11,13 @@ import { dueLabel } from './LessonCard';
 export const HomeworkPanel: React.FC<{
   homework: Homework[]; meetings: Meeting[]; done: Record<string, boolean>;
   onToggleDone: (id: string) => void; onOpenMeeting: (id: string) => void;
-}> = ({ homework, meetings, done, onToggleDone, onOpenMeeting }) => {
+  /** Admin: dodawanie / edycja / usuwanie prac. */
+  isAdmin?: boolean;
+  onAdd?: (h: Omit<Homework, 'id'>) => Promise<void> | void;
+  onUpdate?: (id: string, h: Partial<Homework>) => Promise<void> | void;
+  onDelete?: (id: string) => Promise<void> | void;
+}> = ({ homework, meetings, done, onToggleDone, onOpenMeeting, isAdmin, onAdd, onUpdate, onDelete }) => {
+  const [editing, setEditing] = useState<string | null>(null); // id pracy albo 'new'
   const m = (id: string) => meetings.find(x => x.id === id);
   const no = (id: string) => meetings.findIndex(x => x.id === id) + 1;
   const withDates = homework
@@ -38,9 +45,18 @@ export const HomeworkPanel: React.FC<{
             <CalendarDays className="w-3 h-3" />termin: zajęcia {no(due!.id)} · {fmtShort(due!.date)}
           </button>
           <button onClick={() => onOpenMeeting(given!.id)} className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-surf2 text-mut border border-line cursor-pointer">
-            zadane: zajęcia {no(given!.id)} „{given!.topic}”
+            zadane: zajęcia {no(given!.id)}{given!.topic ? ` „${given!.topic}”` : ''}
           </button>
+          {isAdmin && onUpdate && (
+            <button onClick={() => setEditing(h.id)} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-line text-fg2 hover:bg-surf2 cursor-pointer"><Pencil className="w-3 h-3" />Edytuj</button>
+          )}
+          {isAdmin && onDelete && (
+            <button onClick={() => { if (confirm(`Usunąć pracę „${h.title}”?`)) void onDelete(h.id); }} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-rose-400/25 text-bad hover:bg-rose-500/10 cursor-pointer"><Trash2 className="w-3 h-3" />Usuń</button>
+          )}
         </span>
+        {editing === h.id && onUpdate && (
+          <div className="mt-2"><HomeworkEditor meetings={meetings} initial={h} onSave={async v => { await onUpdate(h.id, v); setEditing(null); }} onCancel={() => setEditing(null)} /></div>
+        )}
       </span>
     </li>
   );
@@ -51,6 +67,9 @@ export const HomeworkPanel: React.FC<{
         <ClipboardCheck className="w-5 h-5 text-warn" />
         {todo === 0 ? 'Wszystko zrobione — brawo!' : `Do zrobienia: ${todo}`}
       </p>
+      {isAdmin && onAdd && (editing === 'new'
+        ? <HomeworkEditor meetings={meetings} onSave={async v => { await onAdd(v); setEditing(null); }} onCancel={() => setEditing(null)} />
+        : <button onClick={() => setEditing('new')} className="tap inline-flex items-center gap-1.5 rounded-xl px-4 text-base font-semibold border border-sky-400/30 bg-sky-500/15 text-acc hover:bg-sky-500/25 cursor-pointer"><Plus className="w-4 h-4" />Dodaj pracę domową</button>)}
       <div>
         <h5 className="text-xs uppercase tracking-wider text-mut font-semibold">Aktualne — według terminu</h5>
         {open.length === 0 ? <p className="mt-2 text-sm text-mut2">Brak zadań.</p> : <ul className="mt-2 space-y-2">{open.map(row)}</ul>}

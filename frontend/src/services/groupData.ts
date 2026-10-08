@@ -30,6 +30,10 @@ export interface GroupDataSource {
   /** Admin: usuń spotkanie na stałe (zwykle lepiej „odwołaj”). */
   deleteMeeting(id: string): Promise<void>;
   homework(): Promise<Homework[]>;
+  /** Admin: dodaj / zmień / usuń pracę domową. */
+  addHomework(h: Omit<Homework, 'id'>): Promise<void>;
+  updateHomework(id: string, patch: Partial<Homework>): Promise<void>;
+  deleteHomework(id: string): Promise<void>;
   /** „Zrobione” — prywatne dla uczestnika. */
   homeworkDone(): Promise<Record<string, boolean>>;
   toggleHomeworkDone(id: string): Promise<void>;
@@ -62,6 +66,9 @@ interface LocalState {
   deletedMeetings?: string[];
   messagePatch?: Record<string, Partial<Message>>;
   hwDone?: Record<string, boolean>;
+  addedHomework?: Homework[];
+  hwPatch?: Record<string, Partial<Homework>>;
+  deletedHomework?: string[];
 }
 
 function readLocal(): LocalState {
@@ -126,7 +133,19 @@ class DemoSource implements GroupDataSource {
     writeLocal(s);
   }
 
-  async homework() { return DEMO_HOMEWORK; }
+  async homework() {
+    const { addedHomework = [], hwPatch = {}, deletedHomework = [] } = readLocal();
+    return [...DEMO_HOMEWORK, ...addedHomework].filter(h => !deletedHomework.includes(h.id)).map(h => ({ ...h, ...(hwPatch[h.id] ?? {}) }));
+  }
+  async addHomework(h: Omit<Homework, 'id'>) {
+    const s = readLocal(); s.addedHomework = [...(s.addedHomework ?? []), { ...h, id: `local-hw-${Date.now()}` }]; writeLocal(s);
+  }
+  async updateHomework(id: string, patch: Partial<Homework>) {
+    const s = readLocal(); s.hwPatch = { ...(s.hwPatch ?? {}), [id]: { ...(s.hwPatch?.[id] ?? {}), ...patch } }; writeLocal(s);
+  }
+  async deleteHomework(id: string) {
+    const s = readLocal(); s.deletedHomework = [...(s.deletedHomework ?? []), id]; writeLocal(s);
+  }
   async homeworkDone() { return readLocal().hwDone ?? {}; }
   async toggleHomeworkDone(id: string) {
     const s = readLocal();

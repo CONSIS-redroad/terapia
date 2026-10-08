@@ -65,6 +65,9 @@ export function useGroup() {
   const updateMeeting = async (id: string, patch: Partial<Meeting>) => { await groupData.updateMeeting(id, patch); await load(); };
   const addMeetings = async (list: Omit<Meeting, 'id'>[]) => { await groupData.addMeetings(list); await load(); };
   const deleteMeeting = async (id: string) => { await groupData.deleteMeeting(id); await load(); };
+  const addHomework = (h: Omit<Homework, 'id'>) => guard(() => groupData.addHomework(h));
+  const updateHomework = (id: string, p: Partial<Homework>) => guard(() => groupData.updateHomework(id, p));
+  const deleteHomework = (id: string) => guard(() => groupData.deleteHomework(id));
   const toggleHomeworkDone = async (id: string) => { await groupData.toggleHomeworkDone(id); await load(); };
 
   const resetDemo = async () => {
@@ -76,6 +79,6 @@ export function useGroup() {
     ...state,
     isDemo: groupData.isDemo,
     currentUserId: groupData.currentUserId(),
-    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, renameMember, decideName, addMember, updateMeeting, addMeetings, deleteMeeting, toggleHomeworkDone, resetDemo,
+    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, renameMember, decideName, addMember, updateMeeting, addMeetings, deleteMeeting, addHomework, updateHomework, deleteHomework, toggleHomeworkDone, resetDemo,
   };
 }

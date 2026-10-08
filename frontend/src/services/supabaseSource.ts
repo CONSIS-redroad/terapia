@@ -175,6 +175,23 @@ export class SupabaseSource implements GroupDataSource {
     return rows.map(r => ({ id: r.id, givenAt: r.given_meeting, dueAt: r.due_meeting, title: r.title, description: r.description }));
   }
 
+  async addHomework(h: Omit<Homework, 'id'>) {
+    must(await sb().from('homework').insert({ title: h.title, description: h.description, given_meeting: h.givenAt, due_meeting: h.dueAt }));
+  }
+
+  async updateHomework(id: string, p: Partial<Homework>) {
+    const row: Record<string, unknown> = {};
+    if (p.title !== undefined) row.title = p.title;
+    if (p.description !== undefined) row.description = p.description;
+    if (p.givenAt) row.given_meeting = p.givenAt;
+    if (p.dueAt) row.due_meeting = p.dueAt;
+    must(await sb().from('homework').update(row).eq('id', id));
+  }
+
+  async deleteHomework(id: string) {
+    must(await sb().from('homework').delete().eq('id', id));
+  }
+
   async homeworkDone(): Promise<Record<string, boolean>> {
     const rows = must(await sb().from('homework_done').select('homework_id').eq('member_id', this.uid)) as Array<{ homework_id: string }>;
     return Object.fromEntries(rows.map(r => [r.homework_id, true]));

@@ -41,3 +41,4 @@
 
 - 2026-10-08 23:1x: logowanie bez maili (D025): „Zaloguj przez Google” + e-mail i hasło (Zaloguj / Załóż konto), link e-mail tylko jako zapas prowadzącej. Admin grupy = waczynski@gmail.com.
 - 2026-10-08 23:5x: znaczek ADMIN, „Usuń całą grupę” z potwierdzeniem nazwą (zamiast „usuń konto”), tapeta na ekranach wejścia (D026); harmonogram admina — seria, odwołanie, przeniesienie, dołożenie (D027); imię zatwierdza admin + unikalne imiona (D028); zakładka Archiwum z lekturami, MP3 i plikami starej TERAPII (D029); CSP: wysyłanie plików (`blob:`), miniatury YouTube.
+- 2026-10-09 00:2x: przycisk „Wyloguj” w nagłówku (wersja grupy); admin dodaje, edytuje i usuwa prace domowe (zadane na zajęciach X, termin: następne / za 2 / za 3 tygodnie albo dowolne zajęcia); nagłówek na telefonie u admina: sama tarcza ADMIN zamiast napisu, mieści się 320–430 px.
