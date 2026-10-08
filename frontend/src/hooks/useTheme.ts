@@ -4,10 +4,12 @@
 import { useEffect, useState } from 'react';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
-const KEY = 'terapia_theme_v1';
+// Klucz WSPÓLNY z Dzienniczkiem (ten sam adres consis-redroad.github.io) — motyw wybrany w jednej aplikacji działa w drugiej.
+const KEY = 'rr_ui_theme_v1';
+const OLD_KEY = 'terapia_theme_v1'; // przejęcie starego ustawienia
 
 function read(): ThemeMode {
-  try { const v = localStorage.getItem(KEY); if (v === 'light' || v === 'dark') return v; } catch { /* ignoruj */ }
+  try { const v = localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY); if (v === 'light' || v === 'dark') return v; } catch { /* ignoruj */ }
   return 'system';
 }
 
@@ -29,6 +31,13 @@ export function useTheme() {
     mq.addEventListener('change', on);
     return () => mq.removeEventListener('change', on);
   }, [mode]);
+
+  // zmiana w Dzienniczku otwartym w innej karcie → od razu tutaj
+  useEffect(() => {
+    const on = (e: StorageEvent) => { if (e.key === KEY) setMode(read()); };
+    window.addEventListener('storage', on);
+    return () => window.removeEventListener('storage', on);
+  }, []);
 
   const cycle = () => setMode(m => (m === 'system' ? 'light' : m === 'light' ? 'dark' : 'system'));
   return { mode, cycle, setMode };

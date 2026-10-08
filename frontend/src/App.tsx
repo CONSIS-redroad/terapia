@@ -151,7 +151,7 @@ export default function App() {
             {g.isDemo && <span className="hidden sm:inline text-xs font-mono tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-warn border border-amber-300/25">DEMO</span>}
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5">
-            <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 text-xs font-semibold min-w-10 h-10 lg:h-auto lg:min-w-0 px-2.5 lg:py-1 rounded-full bg-emerald-500/15 text-ok border border-emerald-400/30 hover:bg-emerald-500/25" title="Mój prywatny dzienniczek (osobna aplikacja)" aria-label="Mój dzienniczek">
+            <a href={DZIENNICZEK_URL} className="flex items-center justify-center gap-1 text-xs font-semibold min-w-10 h-10 lg:h-auto lg:min-w-0 px-2.5 lg:py-1 rounded-full bg-emerald-500/15 text-ok border border-emerald-400/30 hover:bg-emerald-500/25" title="Mój prywatny dzienniczek (osobna aplikacja, ta sama karta — wrócisz strzałką wstecz)" aria-label="Mój dzienniczek">
               <BookHeart className="w-5 h-5 lg:w-3.5 lg:h-3.5" /><span className="hidden sm:inline">Dzienniczek</span>
             </a>
             <PWAInstallButton />
@@ -189,8 +189,8 @@ export default function App() {
               <button onClick={toContent} className="tap flex items-center gap-2 text-base font-semibold px-5 py-2.5 rounded-full bg-head backdrop-blur-xl border border-line shadow-sm hover:bg-surf2 cursor-pointer">
                 <CalendarDays className="w-4 h-4 text-acc" />Kalendarz grupy
               </button>
-              <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="tap flex items-center gap-2 text-base font-semibold px-5 py-2.5 rounded-full bg-head backdrop-blur-xl border border-line shadow-sm hover:bg-surf2">
-                <BookHeart className="w-4 h-4 text-ok" />Mój dzienniczek ↗
+              <a href={DZIENNICZEK_URL} className="tap flex items-center gap-2 text-base font-semibold px-5 py-2.5 rounded-full bg-head backdrop-blur-xl border border-line shadow-sm hover:bg-surf2">
+                <BookHeart className="w-4 h-4 text-ok" />Mój dzienniczek
               </a>
             </div>
             <p className="mt-2 text-xs text-mut drop-shadow-[0_1px_8px_var(--t-bg)]">Dzienniczek jest prywatny i osobny — grupa go nie widzi.</p>
@@ -242,7 +242,7 @@ export default function App() {
         </div>
 
         <footer className="pb-8 text-center text-xs text-mut2">
-          TERAPIA · wersja {APP_VERSION} ({APP_BUILD.slice(6, 8)}.{APP_BUILD.slice(4, 6)} {APP_BUILD.slice(9, 11)}:{APP_BUILD.slice(11, 13)} UTC) · {live ? <>grupa · <button onClick={() => void auth.signOut()} className="underline cursor-pointer">wyloguj ({auth.email})</button></> : 'faza 0 (demo)'} · <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="underline">Dzienniczek</a>
+          TERAPIA · wersja {APP_VERSION} ({APP_BUILD.slice(6, 8)}.{APP_BUILD.slice(4, 6)} {APP_BUILD.slice(9, 11)}:{APP_BUILD.slice(11, 13)} UTC) · {live ? <>grupa · <button onClick={() => void auth.signOut()} className="underline cursor-pointer">wyloguj ({auth.email})</button></> : 'faza 0 (demo)'} · <a href={DZIENNICZEK_URL} className="underline">Dzienniczek</a>
         </footer>
       </main>
       {settingsOpen && (

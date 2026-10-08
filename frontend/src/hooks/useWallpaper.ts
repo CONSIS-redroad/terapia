@@ -10,7 +10,9 @@ export interface WallpaperSettings {
   veil: number;      // 0..0.6 — zasłona tła dla czytelności
 }
 
-const KEY = 'terapia_wallpaper_v1';
+// Klucz WSPÓLNY z Dzienniczkiem (ten sam format: themeId, particles, density, motion, veil).
+const KEY = 'rr_ui_wallpaper_v1';
+const OLD_KEY = 'terapia_wallpaper_v1';
 
 function reducedMotion() {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -23,7 +25,7 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
 function load(): WallpaperSettings {
   const base = { ...DEFAULT_WALLPAPER, motion: !reducedMotion(), particles: !reducedMotion() };
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY);
     if (raw) return { ...base, ...JSON.parse(raw) };
   } catch { /* ignoruj */ }
   return base;
@@ -32,6 +34,12 @@ function load(): WallpaperSettings {
 export function useWallpaper() {
   const [settings, setSettings] = useState<WallpaperSettings>(load);
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch { /* ignoruj */ } }, [settings]);
+  // zmiana tapety w Dzienniczku (inna karta) → od razu tutaj
+  useEffect(() => {
+    const on = (e: StorageEvent) => { if (e.key === KEY) setSettings(load()); };
+    window.addEventListener('storage', on);
+    return () => window.removeEventListener('storage', on);
+  }, []);
   const reset = () => setSettings({ ...DEFAULT_WALLPAPER, motion: !reducedMotion(), particles: !reducedMotion() });
   return { settings, setSettings, reset };
 }
