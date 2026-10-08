@@ -33,3 +33,9 @@
 - 2026-10-08: czat jak WhatsApp (odpowiedzi z cytatem, reakcje, emotki, załączniki 20 MB/plik i 40 MB/osobę, autor/admin usuwa plik, admin usuwa wiadomość niezgodną z zasadami — zostaje ślad), ogłoszenia jako przypięte w czacie; zakładka Zasady (zasady grupy, regulamin, numery kryzysowe); ekran powitalny: imię obowiązkowe + zgoda (wersjonowana); admin widzi limity plików osób i grupy.
 - 2026-10-08: dokumenty: README (opis repo), docs/PLAN-SKLADANIA.md (plan rozwoju faz 0–4), docs/ARCHITECTURE.md, docs/KONFIGURACJA.md + config/group.example.yml, decyzje D018–D021.
 - 2026-10-08: konfiguracja wyglądu w `frontend/src/config/ui.config.ts` (emotki w 5 kategoriach, reakcje, kolory i emotki awatarów, ikony/nazwy ekranów, kategorie mediów); Ustawienia → Powiadomienia (zgoda, 5 rodzajów, wibracja, dźwięk, wyciszenie 1 h/8 h/do jutra, godziny ciszy, powiadomienie testowe); dokumenty: STRUKTURA, WYGLAD, CONTRIBUTING, INSTRUKCJA-ADMINA; test telefonu `frontend/tests/mobile_check.py`; opis i tematy repo na GitHubie.
+
+## 2026-10-08 — Faza 2: Supabase grupy (prawdziwe dane)
+- `supabase/migrations/0001_init.sql`: 15 tabel z RLS (członkostwo + status, zaproszenia, admini z e-maili, zajęcia + zdjęcia z sali, prace domowe + „zrobione” prywatne, materiały, ogłoszenia, wiadomości + reakcje + załączniki, zgody z wersją zasad), funkcje `group_members`, `delete_message`, `delete_attachment`, `storage_usage`; bucket `group-files` 20 MB/plik + limit 40 MB/osobę w bazie; Realtime czatu. Wgrane do projektu grupy, kontrola doradcy bezpieczeństwa Supabase.
+- `services/supabaseSource.ts` — druga implementacja `GroupDataSource` (ekrany bez zmian), `components/AuthGate.tsx` — logowanie linkiem e-mail (Google po włączeniu), imię + zgoda, ekran „czekasz na akceptację” (sam się otwiera po wpuszczeniu).
+- Wydanie: demo bez zmian pod `/terapia/`, wersja z bazą pod `/terapia/grupa/` (decyzje D022–D024).
+

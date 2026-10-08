@@ -36,7 +36,7 @@ export interface Meeting {
   /** Rozwinięcie „Więcej”: przebieg, ćwiczenia, wnioski. */
   details?: string;
   /** Zdjęcia z sali (np. tablica) — dodaje prowadząca/admin. */
-  photos?: { url: string; caption: string }[];
+  photos?: { url: string; caption: string; id?: string }[]; // id = wiersz w bazie (faza 2)
 }
 
 /** Praca domowa: zadana na zajęciach `givenAt`, do oddania/omówienia na zajęciach `dueAt`. */

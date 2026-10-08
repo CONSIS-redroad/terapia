@@ -1,12 +1,15 @@
 // PATH: src/services/groupData.ts | REQ-ID: TERAPIA-DATA-01
 // JEDYNE miejsce, z którego ekrany biorą dane grupy.
 // FAZA 0: źródło demo (dane fikcyjne + zmiany tylko w tej przeglądarce).
-// FAZA 1: ten sam interfejs zaimplementuje Supabase — ekrany się nie zmieniają.
+// FAZA 2: ten sam interfejs implementuje Supabase (services/supabaseSource.ts) — ekrany się nie zmieniają.
+// Wybór źródła: zmienna budowania VITE_DATA_SOURCE=supabase (+ VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY); brak = demo.
 import type { Announcement, Attachment, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
 import {
   DEMO_ANNOUNCEMENTS, DEMO_CURRENT_USER_ID, DEMO_GROUP, DEMO_HOMEWORK, DEMO_MATERIALS,
   DEMO_MEETINGS, DEMO_MEMBERS, DEMO_MESSAGES,
 } from '../demo/demoData';
+import { DATA_MODE } from './supabaseClient';
+import { SupabaseSource } from './supabaseSource';
 
 export interface GroupDataSource {
   readonly isDemo: boolean;
@@ -32,6 +35,10 @@ export interface GroupDataSource {
   /** Moderacja: admin usuwa wiadomość niezgodną z zasadami (zostaje ślad „usunięta”). */
   deleteMessage(messageId: string, by: 'admin' | 'author', reason?: string): Promise<void>;
   resetDemo?(): void;
+  /** Supabase: zajętość plików na osobę (bajty) — panel limitów admina. */
+  storageUsage?(): Promise<Record<string, number>>;
+  /** Supabase: zmiany na żywo (czat). Zwraca funkcję wyłączającą. */
+  subscribe?(onChange: () => void): () => void;
 }
 
 const LOCAL_KEY = 'terapia_demo_local_v1';
@@ -159,4 +166,7 @@ class DemoSource implements GroupDataSource {
   }
 }
 
-export const groupData: GroupDataSource = new DemoSource();
+/** Jedno źródło danych całej aplikacji — demo albo Supabase grupy (decyduje build). */
+export const groupData: GroupDataSource = DATA_MODE === 'supabase' ? new SupabaseSource() : new DemoSource();
+/** Dostęp do implementacji Supabase (logowanie ustawia zalogowanego użytkownika). */
+export const supabaseSource = groupData instanceof SupabaseSource ? groupData : null;

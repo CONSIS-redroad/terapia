@@ -25,6 +25,13 @@ import type { PanelId } from './types/panelLayout';
 import { NAV_SCREENS } from './config/ui.config';
 import type { Member } from './types/group';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, Profile, publicView, saveProfile } from './services/profile';
+import { useAuth, type MemberRow } from './components/AuthGate';
+
+/** Faza 2: profil z bazy (wiersz members) w kształcie profilu aplikacji. */
+function profileFromMember(m: MemberRow): Profile {
+  return { ...DEFAULT_PROFILE, pseudonym: m.name, emoji: m.emoji, color: m.color, realName: m.real_name, about: m.about,
+    show: { photo: m.show_photo, realName: m.show_real_name, about: m.show_about } };
+}
 
 /** Prywatny dzienniczek samoobserwacji — osobna aplikacja (GitHub Pages). */
 export const DZIENNICZEK_URL = 'https://consis-redroad.github.io/dzienniczek/';
@@ -46,6 +53,8 @@ function useIsMobile() {
 
 export default function App() {
   const g = useGroup();
+  const auth = useAuth();
+  const live = auth.mode === 'supabase';
   const theme = useTheme();
   const wall = useWallpaper();
   const dark = useIsDark();
@@ -54,33 +63,42 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [meetingId, setMeetingId] = useState<string | undefined>();
   // FAZA 0: przełącznik widoku tylko w demo. FAZA 1: rola z bazy (członkostwo + RLS), bez przełącznika.
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => { try { return localStorage.getItem('terapia_demo_view') === 'admin'; } catch { return false; } });
+  const [demoAdmin, setIsAdmin] = useState<boolean>(() => { try { return localStorage.getItem('terapia_demo_view') === 'admin'; } catch { return false; } });
   const setView = (admin: boolean) => { setIsAdmin(admin); try { localStorage.setItem('terapia_demo_view', admin ? 'admin' : 'user'); } catch { /* ignoruj */ } };
+  const isAdmin = live ? auth.isAdmin : demoAdmin;
   const { panels, toggleCollapse, toggleVisibility, reorderPanels, movePanelStep, resetLayout } = usePanelLayout();
   const [draggedId, setDraggedId] = useState<PanelId | null>(null);
-  const [profile, setProfileState] = useState<Profile>(loadProfile);
+  const [localProfile, setProfileState] = useState<Profile>(loadProfile);
+  const profile = live && auth.member ? { ...localProfile, ...profileFromMember(auth.member), avatarKind: localProfile.avatarKind, photoDataUrl: localProfile.photoDataUrl } : localProfile;
   // Zgoda na zasady + regulamin — wersjonowana: zmiana zasad (RULES_VERSION) = ponowna akceptacja.
   const [consent, setConsent] = useState<{ version: string; at: string } | null>(() => { try { return JSON.parse(localStorage.getItem('terapia_consent_v1') ?? 'null'); } catch { return null; } });
   const [consentAgain, setConsentAgain] = useState(false);
-  const needOnboarding = consentAgain || !consent || consent.version !== RULES_VERSION || !!validateFirstName(profile.pseudonym);
+  // Faza 2: imię i zgodę pilnuje bramka logowania (AuthGate); tu tylko ponowne pokazanie z zakładki Zasady.
+  const needOnboarding = consentAgain || (!live && (!consent || consent.version !== RULES_VERSION || !!validateFirstName(profile.pseudonym)));
   const finishOnboarding = (firstName: string) => {
     const c = { version: RULES_VERSION, at: new Date().toISOString() };
     try { localStorage.setItem('terapia_consent_v1', JSON.stringify(c)); } catch { /* ignoruj */ }
     setConsent(c); setConsentAgain(false);
     const p = { ...profile, pseudonym: firstName.trim() }; setProfileState(p); saveProfile(p);
+    if (live) void auth.accept(firstName);
   };
-  const setProfile = (p: Profile) => { setProfileState(p); saveProfile(p); };
+  const setProfile = (p: Profile) => {
+    setProfileState(p); saveProfile(p);
+    // Faza 2: imię, ikonka i przełączniki „pokaż grupie” idą do bazy (zdjęcie na razie tylko w tym urządzeniu)
+    if (live) void auth.saveMember({ name: p.pseudonym.trim() || auth.member?.name, emoji: p.emoji, color: p.color, real_name: p.realName, about: p.about,
+      show_photo: false, show_real_name: p.show.realName, show_about: p.show.about }).catch(e => alert(`Nie zapisano profilu: ${e.message}`));
+  };
   const pub = publicView(profile);
   // „Ty” jako członek grupy — wyłącznie z danych, które uczestnik pokazał (publicView).
   const me: Member = { id: g.currentUserId, name: pub.name, role: 'participant', status: 'approved', emoji: profile.emoji, color: profile.color, photo: pub.usePhoto ? profile.photoDataUrl : undefined, about: pub.about || undefined };
-  const members = [...g.members, me];
+  const members = live ? g.members : [...g.members, me];
   const allowed = (id: PanelId) => id !== 'members' || isAdmin;
   const visible = panels.filter(p => p.isVisible && allowed(p.id));
   const hiddenCount = panels.filter(p => !p.isVisible && allowed(p.id)).length;
   const pendingCount = members.filter(m => m.status === 'pending').length;
   // zajętość plików na osobę (do limitu 40 MB) — widok admina
-  const usage: Record<string, number> = {};
-  for (const m of g.messages) if (m.attachment && !m.attachmentDeleted && !m.deleted) usage[m.authorId] = (usage[m.authorId] ?? 0) + m.attachment.size;
+  const usage: Record<string, number> = g.usage ? { ...g.usage } : {};
+  if (!g.usage) for (const m of g.messages) if (m.attachment && !m.attachmentDeleted && !m.deleted) usage[m.authorId] = (usage[m.authorId] ?? 0) + m.attachment.size;
   const hwTodo = g.homework.filter(h => !g.hwDone[h.id] && g.meetings.some(m => m.id === h.dueAt && new Date(m.date).getTime() + m.durationMin * 60000 > Date.now())).length;
 
   const openMeeting = (id: string) => {
@@ -102,7 +120,7 @@ export default function App() {
         onSend={g.sendMessage} onReact={g.react} onDeleteAttachment={g.deleteAttachment} onDeleteMessage={g.deleteMessage} />;
       case 'materials': return <MediaLibrary items={g.materials} meetings={g.meetings} onOpenMeeting={openMeeting} />;
       case 'members': return <MembersPanel members={members} onSetStatus={g.setMemberStatus} onAdd={g.addMember} selfId={g.currentUserId} usage={usage} />;
-      case 'rules': return <RulesPanel acceptedAt={consent?.at} onShowConsent={() => setConsentAgain(true)} />;
+      case 'rules': return <RulesPanel acceptedAt={live ? auth.acceptedAt : consent?.at} onShowConsent={() => setConsentAgain(true)} />;
     }
   };
 
@@ -208,7 +226,7 @@ export default function App() {
         </div>
 
         <footer className="pb-8 text-center text-xs text-mut2">
-          TERAPIA · wersja {APP_VERSION} ({APP_BUILD.slice(6, 8)}.{APP_BUILD.slice(4, 6)} {APP_BUILD.slice(9, 11)}:{APP_BUILD.slice(11, 13)} UTC) · faza 0 (demo) · <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="underline">Dzienniczek</a>
+          TERAPIA · wersja {APP_VERSION} ({APP_BUILD.slice(6, 8)}.{APP_BUILD.slice(4, 6)} {APP_BUILD.slice(9, 11)}:{APP_BUILD.slice(11, 13)} UTC) · {live ? <>grupa · <button onClick={() => void auth.signOut()} className="underline cursor-pointer">wyloguj ({auth.email})</button></> : 'faza 0 (demo)'} · <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="underline">Dzienniczek</a>
         </footer>
       </main>
       {settingsOpen && (

@@ -1,4 +1,4 @@
-name: Pages (frontend demo)
+name: Pages (demo + grupa)
 on:
   push:
     branches: [main]
@@ -27,6 +27,15 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run build
+      # Wersja z prawdziwymi danymi (faza 2) -> /grupa/. Klucz PUBLICZNY z zmiennych repo; service_role nigdy.
+      - name: Build grupa (Supabase)
+        if: ${{ vars.VITE_SUPABASE_URL != '' && vars.VITE_SUPABASE_ANON_KEY != '' }}
+        env:
+          VITE_DATA_SOURCE: supabase
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_AUTH_GOOGLE: ${{ vars.VITE_AUTH_GOOGLE }}
+        run: npx vite build --outDir dist-grupa --emptyOutDir && mv dist-grupa dist/grupa
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist

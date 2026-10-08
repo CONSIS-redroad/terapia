@@ -46,14 +46,16 @@ menedżer haseł albo zeszyt na hasła. **Koszt:** 0 zł (darmowe plany).
 ## KROK 3 — Wgranie „szuflad” do sejfu *(po fazie 2)*
 
 1. W Supabase po lewej: **SQL Editor** → **New query**.
-2. W swojej kopii na GitHubie otwórz plik `supabase/schema.sql` → przycisk **Copy raw file**.
+2. W swojej kopii na GitHubie otwórz plik `supabase/migrations/0001_init.sql` → przycisk **Copy raw file**.
 3. Wklej do okna SQL Editor → **Run**. Ma się pojawić „Success”. To robi się **raz**.
+4. Wpisz siebie jako admina (zamień adres na swój, małymi literami) → **Run**:
+   `insert into public.admins (email) values ('twoj.adres@gmail.com');`
 
 ## KROK 4 — Logowanie uczestników *(po fazie 2)*
 
 **A. Logowanie linkiem na e-mail (działa od razu):**
 1. Supabase → **Authentication** → **URL Configuration**.
-2. *Site URL*: wklej adres strony z kroku 1 (np. `https://twoja-nazwa.github.io/terapia/`).
+2. *Site URL*: wklej adres strony grupy (np. `https://twoja-nazwa.github.io/terapia/grupa/`).
 3. *Redirect URLs* → **Add URL** → ten sam adres. **Save**.
 4. Uwaga: darmowa wysyłka maili ma mały limit na godzinę — przy pierwszym zapraszaniu wpuszczaj ludzi
    partiami albo poproś o pomoc w podpięciu własnej skrzynki do wysyłki.

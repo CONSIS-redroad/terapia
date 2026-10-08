@@ -8,6 +8,8 @@ import { readFileSync } from 'fs';
 // Wersja = package.json, budowa = znacznik czasu builda (UTC). Każde wydanie ma INNY numer budowy
 // bez ręcznego podbijania — strażnik w aplikacji (services/appUpdate.tsx) porównuje go z version.json.
 const APP_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')).version as string;
+// Wersja z prawdziwymi danymi (faza 2) budowana do podkatalogu /grupa/ obok demo.
+const LIVE = process.env.VITE_DATA_SOURCE === 'supabase';
 const APP_BUILD = new Date().toISOString().replace(/[-:]/g, '').slice(0, 13); // np. 20261008T1512
 
 
@@ -22,18 +24,24 @@ export default defineConfig(() => {
           this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ version: APP_VERSION, build: APP_BUILD }) });
         },
       },
+      {
+        // wersja z bazą (/grupa/) bez dopisku „(demo)” w tytule i opisie strony
+        name: 'terapia-live-html',
+        transformIndexHtml: (html: string) => (LIVE ? html.replace(/ \(demo\)/g, '').replace(/ Wersja demo z danymi przykładowymi\./g, '') : html),
+      },
       react(),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: false, // rejestruje strażnik wersji (UpdateGuard)
-        workbox: { globIgnores: ['version.json'], cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true },
+        // demo (katalog główny) NIE może podawać swojej strony zamiast /grupa/ — inaczej SW demo przejmie wersję z bazą
+        workbox: { globIgnores: ['version.json'], navigateFallbackDenylist: LIVE ? [] : [/\/grupa\//], cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true },
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: './',
-          name: 'TERAPIA — panel grupy',
+          name: LIVE ? 'TERAPIA — grupa' : 'TERAPIA — panel grupy (demo)',
           short_name: 'TERAPIA',
-          description: 'Panel grupy terapeutycznej (demo).',
+          description: LIVE ? 'Panel grupy terapeutycznej.' : 'Panel grupy terapeutycznej (demo).',
           theme_color: '#0f172a',
           background_color: '#070b10',
           display: 'standalone',

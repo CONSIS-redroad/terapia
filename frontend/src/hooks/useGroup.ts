@@ -13,29 +13,35 @@ export interface GroupState {
   messages: Message[];
   homework: Homework[];
   hwDone: Record<string, boolean>;
+  /** Zajętość plików na osobę (Supabase; w demo liczona z wiadomości w App). */
+  usage: Record<string, number> | null;
 }
 
 const EMPTY: GroupState = {
-  loading: true, group: null, members: [], meetings: [], materials: [], announcements: [], messages: [], homework: [], hwDone: {},
+  loading: true, group: null, members: [], meetings: [], materials: [], announcements: [], messages: [], homework: [], hwDone: {}, usage: null,
 };
 
 export function useGroup() {
   const [state, setState] = useState<GroupState>(EMPTY);
 
   const load = useCallback(async () => {
-    const [group, members, meetings, materials, announcements, messages, homework, hwDone] = await Promise.all([
+    const [group, members, meetings, materials, announcements, messages, homework, hwDone, usage] = await Promise.all([
       groupData.group(), groupData.members(), groupData.meetings(),
       groupData.materials(), groupData.announcements(), groupData.messages(),
       groupData.homework(), groupData.homeworkDone(),
+      groupData.storageUsage ? groupData.storageUsage() : Promise.resolve(null),
     ]);
-    setState({ loading: false, group, members, meetings, materials, announcements, messages, homework, hwDone });
+    setState({ loading: false, group, members, meetings, materials, announcements, messages, homework, hwDone, usage });
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  // Supabase: czat na żywo (nowe wiadomości, reakcje, pliki innych osób)
+  useEffect(() => groupData.subscribe?.(() => { void load(); }), [load]);
 
   const sendMessage = async (body: string, opts: { replyTo?: string; attachment?: Attachment } = {}) => {
     if (!body.trim() && !opts.attachment) return;
-    await groupData.sendMessage(body, opts);
+    try { await groupData.sendMessage(body, opts); }
+    catch (e) { alert(`Nie wysłano: ${e instanceof Error ? e.message : String(e)}`); } // np. limit 40 MB pilnowany przez bazę
     await load();
   };
   const react = async (id: string, emoji: string) => { await groupData.react(id, emoji); await load(); };
