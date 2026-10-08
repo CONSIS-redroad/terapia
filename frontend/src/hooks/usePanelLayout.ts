@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { PanelConfig, PanelId, DEFAULT_PANELS } from '../types/panelLayout';
 
-const STORAGE_KEY = 'terapia_panels_config_v5';
+const STORAGE_KEY = 'terapia_panels_config_v7';
 
 export function usePanelLayout() {
   const [panels, setPanels] = useState<PanelConfig[]>(() => {

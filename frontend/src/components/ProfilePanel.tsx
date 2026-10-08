@@ -2,6 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Eye, EyeOff, Lock, Trash2 } from 'lucide-react';
 import { COLORS, EMOJIS, Profile, publicView, shrinkImage } from '../services/profile';
+import { validateFirstName } from './Onboarding';
 
 export const Avatar: React.FC<{ emoji?: string; color?: string; photo?: string; size?: number }> = ({ emoji = '🙂', color = '#94a3b8', photo, size = 28 }) =>
   photo
@@ -21,6 +22,7 @@ const label = 'block text-xs uppercase tracking-widest text-mut font-semibold mb
 export const ProfilePanel: React.FC<{ profile: Profile; onChange: (p: Profile) => void; onClear: () => void; isDemo: boolean }> = ({ profile: p, onChange, onClear, isDemo }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState('');
+  const lastGood = useRef(p.pseudonym);
   const set = (patch: Partial<Profile>) => onChange({ ...p, ...patch });
   const pub = publicView(p);
 
@@ -36,9 +38,9 @@ export const ProfilePanel: React.FC<{ profile: Profile; onChange: (p: Profile) =
     <div className="p-4 grid gap-5 sm:grid-cols-[1fr_220px]">
       <div className="space-y-4">
         <div>
-          <label className={label} htmlFor="pseudo">Pseudonim w grupie</label>
-          <input id="pseudo" className={input} maxLength={30} value={p.pseudonym} onChange={e => set({ pseudonym: e.target.value || 'Gość' })} />
-          <p className="mt-1 text-xs text-mut2">Domyślnie grupa zna Cię tylko pod pseudonimem.</p>
+          <label className={label} htmlFor="pseudo">Imię (wymagane — widzi je grupa)</label>
+          <input id="pseudo" className={input} maxLength={30} value={p.pseudonym} onChange={e => set({ pseudonym: e.target.value })} onBlur={e => { if (validateFirstName(e.target.value)) set({ pseudonym: lastGood.current }); else lastGood.current = e.target.value.trim(); }} />
+          <p className="mt-1 text-xs text-mut2">Minimum, które widzi grupa: imię (może być zdrobnienie). Reszta — tylko jeśli sam(a) włączysz.</p>
         </div>
 
         <div>

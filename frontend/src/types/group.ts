@@ -73,9 +73,25 @@ export interface Announcement {
   pinned?: boolean;
 }
 
+export type AttachmentKind = 'image' | 'video' | 'audio' | 'pdf' | 'doc' | 'txt';
+
+export interface Attachment {
+  name: string;
+  type: string;
+  size: number; // bajty — do limitu 20 MB/plik i 40 MB/osobę
+  kind: AttachmentKind;
+  url: string;
+}
+
 export interface Message {
   id: string;
   authorId: string;
   date: string;
   body: string;
+  replyTo?: string;                      // id wiadomości, na którą to odpowiedź
+  reactions?: Record<string, string[]>;  // emotka -> kto zareagował
+  attachment?: Attachment;
+  attachmentDeleted?: 'admin' | 'author';
+  /** Moderacja: wiadomość usunięta (treść znika, zostaje ślad). */
+  deleted?: { by: 'admin' | 'author'; reason?: string };
 }

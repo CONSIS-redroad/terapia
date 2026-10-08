@@ -1,53 +1,56 @@
-# Plan składania TERAPIA
+# Plan rozwoju TERAPIA
 
-Stan na 2026-10-08. Decyzje: `.ai/DECISIONS.md` D005–D007.
+Stan: **2026-10-08, wersja 0.9 — faza 0 (demo) gotowa.** Decyzje: `.ai/DECISIONS.md` (D001–D021).
 
-## Założenia (Bartek 07–08.10.2026)
-- Własna aplikacja, nie gotowiec (Classroom/Sites odrzucone).
-- Backend: **Supabase** (darmowy plan, region UE). Baza kodu: **Luna2** (React 19 + Vite + Tailwind, PWA, polski,
-  panele/okna, kalendarz, logowanie Google). Firebase w Lunie jest odizolowany w 3 plikach (`services/firebase.ts`,
-  `hooks/useFirebaseAuth.ts`, `firebaseErrors.ts`), dane idą przez `services/storage.ts` + `hooks/useAuth.ts` → to podmieniamy na Supabase.
-  Z CRM Aliny bierzemy tylko wzorce (RLS, keepalive, kopia), nie kod.
-- Do dopisania od zera (Luna tego nie ma): grupy i członkostwa, ekran admina „Do akceptacji”, rozmowa grupy, upload materiałów.
-- Logowanie: Google albo link na e-mail. **Każde dołączenie akceptuje admin.** Do akceptu użytkownik widzi tylko „poczekaj”.
-- Pliki: Supabase Storage 1 GB — tylko materiały wrzucane raz (PDF, karty pracy, obrazy), z limitem rozmiaru.
-  **Wideo/audio = link do zewnętrznego źródła**, nie plik na naszym serwerze.
-- Wygląd: moduł `window-manager` (design Luna2).
-- Dane zdrowotne (RODO art. 9): w publicznym repo tylko kod; sekrety tylko w zmiennych środowiska.
-- Prywatny Dzienniczek nie jest dostępny przez członkostwo w grupie (D002).
+## Założenia (ustalenia z Bartkiem, 07–08.10.2026)
 
-## FAZA 0 — Demo bez logowania (Bartek 08.10 00:20)
-Jak dzienniczek: wchodzisz na stronę i od razu widzisz **fikcyjną grupę** — kalendarz spotkań, materiały, ogłoszenia,
-przykładowe rozmowy. Zero logowania, zero serwera, zero prawdziwych danych.
-- Baza: kopia Luna2 → `frontend/`, część sen/księżyc/pogoda usunięta.
-- Dane demo w jednym pliku (`src/demo/demoData.ts`) za warstwą `services/` — w fazie 1 ta warstwa przepina się na Supabase,
-  ekrany zostają bez zmian.
-- Napisy w demo jasno: „Dane przykładowe”.
-- Wydanie: GitHub Pages (`consis-redroad.github.io/terapia`), budowane przez GitHub Actions (Vite).
+1. **Jedna aplikacja = jedna grupa.** Każda grupa stawia własną kopię: kod z GitHuba + własne darmowe konto Supabase
+   (1 GB). Grupa do ~20 osób × limit 40 MB/osobę = maks. 800 MB → mieści się w darmowym planie (D018).
+2. **Admin = e-mail z konfiguracji grupy.** Zalogowanie tym adresem daje opcje admina (D019).
+3. **Konfiguracja w pliku YAML** (`group.yml`): nazwa, admini, cykl zajęć (dni, godziny, liczba), zasady grupy.
+   Edycja w aplikacji (panel admina) **albo lokalnie z AI** (edycja pliku) — oba wejścia, jedno źródło (D020).
+4. **Mały konfigurator startowy** prowadzi przez: konto Supabase → klucze → wgranie schematu bazy → e-mail admina →
+   pierwszy `group.yml` → wydanie (D021).
+5. Telefon najpierw (D015), wymuszona aktualizacja (D016), kalendarz = oś, praca domowa ma termin = zajęcia (D017).
+6. Prywatność: grupa widzi minimum = **imię**; reszta tylko za zgodą uczestnika; dzienniczek osobno (D002, D011).
+7. Odpowiedzialność za treść: autor wiadomości/pliku (regulamin akceptowany przy wejściu, wersjonowany).
 
-## FAZA 1 — Panel jednej grupy (przepięcie demo na Supabase + logowanie)
-1. **Start projektu**: projekt Supabase (UE), kopia Luna2 do `frontend/`, usunięcie części „sen/księżyc/pogoda”, zostaje powłoka, panele, kalendarz, i18n, PWA.
-2. **Logowanie + akceptacja**: Google + magic link; tabela członkostw ze statusem `pending/approved/blocked`;
-   ekran admina „Do akceptacji” (nowy, prosty: lista oczekujących + Przyjmij/Odrzuć); RLS: dane grupy tylko dla `approved`.
-3. **Kalendarz grupy**: spotkania (data, temat, link do spotkania online).
-4. **Materiały**: upload PDF/obrazów do Storage (limit rozmiaru, lista typów), linki do wideo/audio z podglądem (YouTube/Vimeo).
-5. **Ogłoszenia + rozmowa grupy**: wątek wiadomości (nowa tabela wiadomości), Supabase Realtime.
-6. **Okna**: powłoka z `window-manager`, na telefonie pełny ekran.
-7. **Testy**: osoba niezaakceptowana nic nie widzi; osoba z grupy A nie widzi grupy B; złośliwy plik/HTML w wiadomości nie wykonuje się.
-8. **Utrzymanie**: keepalive (darmowy Supabase usypia po tygodniu — dopisać adres do istniejącego automatu RedRoad),
-   nocna kopia bazy (wzór kopii Aliny).
-9. **Pilot**: jedna prawdziwa grupa.
+## FAZA 0 — Demo bez logowania ✅ (wersja 0.9)
 
-## FAZA 2 — Grupa żyje
-Obecność, prace domowe (termin + oddanie linku/pliku), dyskusja przy konkretnym spotkaniu.
+Gotowe: start z tapetą (motywy z folderu), kalendarz cyklu z kartą zajęć (praca domowa → streszczenie + zdjęcia →
+materiały), ekran Prace, czat jak WhatsApp (odpowiedzi, reakcje, emotki, pliki 20/40 MB, moderacja), Media,
+Zasady + zgoda przy wejściu (imię obowiązkowe), panel admina (ludzie + limity), ustawienia jak w Luna2,
+motyw jasny/ciemny, karuzela na telefonie, wymuszona aktualizacja. Dane: `frontend/src/demo/` (zmyślone).
 
-## FAZA 3 — Terapeuta i powielanie grup
-Wiele grup na terapeutę (izolacja RLS), „utwórz grupę jak X” (kopiuje kalendarz cykliczny i materiały, bez ludzi),
-panel terapeuty, role `co_therapist`/`coordinator`.
+## FAZA 1 — Konfiguracja grupy w YAML (następny krok)
 
-## FAZA 4 — Dzienniczek (opcjonalnie)
-Tylko świadome udostępnienie przez uczestnika; nigdy automatycznie.
+1. Specyfikacja `group.yml` — `docs/KONFIGURACJA.md` (+ przykład `config/group.example.yml`).
+2. Aplikacja czyta grupę, cykl zajęć, zasady z `group.yml` zamiast z danych demo (walidacja + czytelne błędy).
+3. Generator cyklu: „wtorki 18:00–19:30, 24 zajęcia od 2026-09-01, przerwy: …” → lista zajęć.
+4. Edytor w panelu admina (zasady, harmonogram, tematy) — zapis do tego samego modelu.
+5. Instrukcja „konfiguracja z AI”: jak poprosić AI o zmianę `group.yml` lokalnie i wydać zmianę.
 
-## Otwarte
-- Konto firmowe Google (Workspace?) — czy terapia pod RedRoad czy osobny podmiot; ewentualny magazyn plików na później.
-- Konto Supabase dla projektu (redroadai@ w miejsce pustego `dkfk…` czy osobne).
+## FAZA 2 — Supabase grupy (dane prawdziwe)
+
+1. Schemat bazy (SQL): członkostwa, zajęcia, streszczenia, prace domowe, wiadomości, reakcje, pliki, zgody.
+2. **RLS:** nic dla niezaakceptowanych; admin = e-mail z konfiguracji; uczestnik usuwa tylko swoje.
+3. Logowanie: Google + link na e-mail (Supabase Auth); ekran „czekasz na akceptację”.
+4. Storage: pliki czatu i zdjęcia z sali; limity 20 MB/plik, 40 MB/osobę egzekwowane w bazie (nie tylko w UI).
+5. Realtime czatu; podmiana `services/groupData.ts` (demo → Supabase) bez zmian ekranów.
+6. Keepalive (darmowy Supabase usypia po tygodniu) i kopia zapasowa.
+
+## FAZA 3 — Konfigurator startowy
+
+Kreator w aplikacji (przy pierwszym uruchomieniu bez konfiguracji): wklej URL i klucz publiczny Supabase →
+sprawdzenie połączenia → wgranie schematu → e-mail admina → podstawowy `group.yml` → gotowe.
+Instrukcja krok po kroku: fork repo, włączenie Pages, konto Supabase.
+
+## FAZA 4 — Dopracowanie
+
+Powiadomienia (nowe zajęcia, termin pracy, wiadomość), obecność, eksport streszczeń, kolejne grupy jako osobne
+kopie („utwórz grupę jak X”), opcjonalne udostępnienie wpisu z dzienniczka (tylko z woli uczestnika).
+
+## Przed prawdziwym startem (poza kodem)
+
+- Regulamin + polityka prywatności — weryfikacja prawna (dane zdrowotne, RODO art. 9).
+- Kto jest administratorem danych (prowadząca / ośrodek) i umowa powierzenia z Supabase.

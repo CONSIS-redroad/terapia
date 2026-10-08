@@ -25,3 +25,10 @@ rules:
   - server_side_authorization
   - no_secrets_in_git
   - every_module_has_index_and_contract
+config:
+  group: config/group.example.yml   # spec: docs/KONFIGURACJA.md
+frontend:
+  data_layer: frontend/src/services/groupData.ts
+  demo_data: frontend/src/demo/
+  themes: frontend/src/themes/
+deploy: github-pages (.github/workflows/pages.yml)

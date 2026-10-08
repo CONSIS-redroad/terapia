@@ -111,11 +111,13 @@ export const DEMO_ANNOUNCEMENTS: Announcement[] = [
 ];
 
 export const DEMO_MESSAGES: Message[] = [
-  { id: 'r-1', authorId: 'm-1', date: at(-3, 19, 12), body: 'Ćwiczenie 4-7-8 przed snem naprawdę pomaga, zasnęłam szybciej niż zwykle.' },
+  { id: 'r-1', authorId: 'm-1', date: at(-3, 19, 12), body: 'Ćwiczenie 4-7-8 przed snem naprawdę pomaga, zasnęłam szybciej niż zwykle.', reactions: { '👍': ['m-ter', 'm-3'], '❤️': ['m-5'] } },
   { id: 'r-2', authorId: 'm-2', date: at(-3, 19, 40), body: 'U mnie przy liczeniu do 7 się gubię 😅 ale próbuję dalej.' },
-  { id: 'r-3', authorId: 'm-ter', date: at(-3, 20, 5), body: 'Wędrowcze, można zacząć od 3-4-5 i wydłużać. Liczy się regularność, nie rekord.' },
+  { id: 'r-3', authorId: 'm-ter', date: at(-3, 20, 5), body: 'Wędrowcze, można zacząć od 3-4-5 i wydłużać. Liczy się regularność, nie rekord.', replyTo: 'r-2', reactions: { '🙏': ['m-2'] } },
   { id: 'r-4', authorId: 'm-3', date: at(-2, 8, 30), body: 'Czy kartę z myślami mamy wypełniać codziennie, czy wystarczy kilka razy?' },
-  { id: 'r-5', authorId: 'm-ter', date: at(-2, 9, 2), body: 'Kilka sytuacji w tygodniu wystarczy. Najlepiej te, które wywołały silniejszą emocję.' },
+  { id: 'r-5', authorId: 'm-ter', date: at(-2, 9, 2), body: 'Kilka sytuacji w tygodniu wystarczy. Najlepiej te, które wywołały silniejszą emocję.', replyTo: 'r-4' },
+  { id: 'r-5b', authorId: 'm-3', date: at(-2, 9, 30), body: 'Tak wygląda moja karta z wczoraj 🙂', replyTo: 'r-5', attachment: { name: 'karta-mysli.svg', type: 'image/svg+xml', size: 48211, kind: 'image', url: board('Moja karta', ['sytuacja: spóźniony autobus', 'myśl: „znowu wszystko psuję”', 'emocja: złość 70', 'inna myśl: „to nie moja wina”']) }, reactions: { '❤️': ['m-ter', 'm-1'], '💪': ['m-5'] } },
+  { id: 'r-5c', authorId: 'm-ter', date: at(-2, 10, 5), body: 'Wrzucam jeszcze krótki poradnik w PDF.', attachment: { name: 'Pułapki-myślenia.pdf', type: 'application/pdf', size: 1834221, kind: 'pdf', url: '#demo-plik' } },
   { id: 'r-6', authorId: 'm-5', date: at(-1, 21, 15), body: 'Do zobaczenia we wtorek! Będę 5 minut później, przepraszam z góry.' },
 ];
 

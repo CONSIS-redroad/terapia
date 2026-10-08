@@ -1,7 +1,7 @@
 // PATH: src/hooks/useGroup.ts | REQ-ID: TERAPIA-HOOK-01
 import { useCallback, useEffect, useState } from 'react';
 import { groupData } from '../services/groupData';
-import type { Announcement, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
+import type { Announcement, Attachment, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
 
 export interface GroupState {
   loading: boolean;
@@ -33,11 +33,14 @@ export function useGroup() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const sendMessage = async (body: string) => {
-    if (!body.trim()) return;
-    await groupData.sendMessage(body);
+  const sendMessage = async (body: string, opts: { replyTo?: string; attachment?: Attachment } = {}) => {
+    if (!body.trim() && !opts.attachment) return;
+    await groupData.sendMessage(body, opts);
     await load();
   };
+  const react = async (id: string, emoji: string) => { await groupData.react(id, emoji); await load(); };
+  const deleteAttachment = async (id: string, by: 'admin' | 'author') => { await groupData.deleteAttachment(id, by); await load(); };
+  const deleteMessage = async (id: string, by: 'admin' | 'author', reason?: string) => { await groupData.deleteMessage(id, by, reason); await load(); };
 
   const setMemberStatus = async (id: string, status: MembershipStatus) => {
     await groupData.setMemberStatus(id, status);
@@ -61,6 +64,6 @@ export function useGroup() {
     ...state,
     isDemo: groupData.isDemo,
     currentUserId: groupData.currentUserId(),
-    sendMessage, setMemberStatus, addMember, updateMeeting, toggleHomeworkDone, resetDemo,
+    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, addMember, updateMeeting, toggleHomeworkDone, resetDemo,
   };
 }

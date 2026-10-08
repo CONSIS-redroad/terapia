@@ -2,7 +2,7 @@
 // JEDYNE miejsce, z którego ekrany biorą dane grupy.
 // FAZA 0: źródło demo (dane fikcyjne + zmiany tylko w tej przeglądarce).
 // FAZA 1: ten sam interfejs zaimplementuje Supabase — ekrany się nie zmieniają.
-import type { Announcement, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
+import type { Announcement, Attachment, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
 import {
   DEMO_ANNOUNCEMENTS, DEMO_CURRENT_USER_ID, DEMO_GROUP, DEMO_HOMEWORK, DEMO_MATERIALS,
   DEMO_MEETINGS, DEMO_MEMBERS, DEMO_MESSAGES,
@@ -25,17 +25,25 @@ export interface GroupDataSource {
   materials(): Promise<Material[]>;
   announcements(): Promise<Announcement[]>;
   messages(): Promise<Message[]>;
-  sendMessage(body: string): Promise<Message>;
+  sendMessage(body: string, opts?: { replyTo?: string; attachment?: Attachment }): Promise<Message>;
+  react(messageId: string, emoji: string): Promise<void>;
+  /** Autor (swój) albo admin (każdy) — sam plik; wiadomość zostaje. */
+  deleteAttachment(messageId: string, by: 'admin' | 'author'): Promise<void>;
+  /** Moderacja: admin usuwa wiadomość niezgodną z zasadami (zostaje ślad „usunięta”). */
+  deleteMessage(messageId: string, by: 'admin' | 'author', reason?: string): Promise<void>;
   resetDemo?(): void;
 }
 
 const LOCAL_KEY = 'terapia_demo_local_v1';
+/** Pliki wysłane w tej karcie (adresy blob:) — żyją do odświeżenia strony. */
+const liveBlobs = new Set<string>();
 
 interface LocalState {
   extraMessages: Message[];
   memberStatus: Record<string, MembershipStatus>;
   addedMembers?: Member[];
   meetingPatch?: Record<string, Partial<Meeting>>;
+  messagePatch?: Record<string, Partial<Message>>;
   hwDone?: Record<string, boolean>;
 }
 
@@ -100,15 +108,45 @@ class DemoSource implements GroupDataSource {
   }
 
   async messages() {
-    return [...DEMO_MESSAGES, ...readLocal().extraMessages].sort((a, b) => a.date.localeCompare(b.date));
+    const { extraMessages, messagePatch = {} } = readLocal();
+    return [...DEMO_MESSAGES, ...extraMessages]
+      .map(m => ({ ...m, ...(messagePatch[m.id] ?? {}) }))
+      // pliki z tej sesji żyją jako blob: — po odświeżeniu nie istnieją, więc pokazujemy je jako niedostępne
+      .map(m => (m.attachment?.url.startsWith('blob:') && !liveBlobs.has(m.attachment.url) ? { ...m, attachment: { ...m.attachment, url: '#demo-wygasl' } } : m))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  async sendMessage(body: string) {
+  private patchMessage(id: string, patch: Partial<Message>) {
+    const s = readLocal();
+    s.messagePatch = { ...(s.messagePatch ?? {}), [id]: { ...(s.messagePatch?.[id] ?? {}), ...patch } };
+    writeLocal(s);
+  }
+
+  async react(messageId: string, emoji: string) {
+    const me = this.currentUserId();
+    const msg = (await this.messages()).find(m => m.id === messageId);
+    if (!msg) return;
+    const r: Record<string, string[]> = Object.fromEntries(Object.entries(msg.reactions ?? {}).map(([k, v]) => [k, v.filter(x => x !== me)]));
+    const had = (msg.reactions?.[emoji] ?? []).includes(me);
+    if (!had) r[emoji] = [...(r[emoji] ?? []), me]; // jedna reakcja na osobę — jak w WhatsAppie
+    this.patchMessage(messageId, { reactions: r });
+  }
+
+  async deleteAttachment(messageId: string, by: 'admin' | 'author') { this.patchMessage(messageId, { attachmentDeleted: by }); }
+
+  async deleteMessage(messageId: string, by: 'admin' | 'author', reason?: string) {
+    this.patchMessage(messageId, { deleted: { by, reason }, body: '', attachmentDeleted: by, reactions: {} });
+  }
+
+  async sendMessage(body: string, opts: { replyTo?: string; attachment?: Attachment } = {}) {
+    if (opts.attachment?.url.startsWith('blob:')) liveBlobs.add(opts.attachment.url);
     const msg: Message = {
       id: `local-${Date.now()}`,
       authorId: this.currentUserId(),
       date: new Date().toISOString(),
       body: body.trim().slice(0, 2000),
+      replyTo: opts.replyTo,
+      attachment: opts.attachment,
     };
     const s = readLocal();
     s.extraMessages.push(msg);

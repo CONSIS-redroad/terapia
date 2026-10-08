@@ -2,7 +2,7 @@
 // Układ jak w Luna2: pierwszy ekran = sama tapeta z nazwą grupy; panele dopiero po przewinięciu.
 // Komputer: siatka paneli (kalendarz = sedno, media zwijane). Telefon/tablet: karuzela ekranów przesuwanych palcem.
 import React, { useEffect, useRef, useState } from 'react';
-import { BookHeart, CalendarDays, ChevronDown, ClipboardCheck, Eye, Library, Megaphone, MessagesSquare, Settings, ShieldCheck, User, Users } from 'lucide-react';
+import { BookHeart, CalendarDays, ChevronDown, ClipboardCheck, Eye, Library, MessagesSquare, ScrollText, Settings, ShieldCheck, User, Users } from 'lucide-react';
 import { HomeworkPanel } from './components/HomeworkPanel';
 import { Wallpaper } from './components/Wallpaper';
 import { SettingsModal } from './components/SettingsModal';
@@ -15,7 +15,11 @@ import { usePanelLayout } from './hooks/usePanelLayout';
 import { useGroup } from './hooks/useGroup';
 import { PanelContainer } from './components/PanelContainer';
 import { APP_BUILD, APP_VERSION, UpdateGuard } from './services/appUpdate';
-import { AnnouncementsPanel, ChatPanel, MeetingsPanel, MembersPanel } from './components/panels';
+import { MeetingsPanel, MembersPanel } from './components/panels';
+import { ChatPanel } from './components/ChatPanel';
+import { RulesPanel } from './components/RulesPanel';
+import { Onboarding, validateFirstName } from './components/Onboarding';
+import { RULES_VERSION } from './demo/rules';
 import { MediaLibrary } from './components/MediaLibrary';
 import type { PanelId } from './types/panelLayout';
 import type { Member } from './types/group';
@@ -28,8 +32,8 @@ const SHORT: Record<PanelId, { label: string; icon: React.FC<{ className?: strin
   meetings: { label: 'Kalendarz', icon: CalendarDays },
   homework: { label: 'Prace', icon: ClipboardCheck },
   materials: { label: 'Media', icon: Library },
-  announcements: { label: 'Tablica', icon: Megaphone },
   chat: { label: 'Czat', icon: MessagesSquare },
+  rules: { label: 'Zasady', icon: ScrollText },
   members: { label: 'Admin', icon: ShieldCheck },
 };
 
@@ -60,6 +64,16 @@ export default function App() {
   const { panels, toggleCollapse, toggleVisibility, reorderPanels, movePanelStep, resetLayout } = usePanelLayout();
   const [draggedId, setDraggedId] = useState<PanelId | null>(null);
   const [profile, setProfileState] = useState<Profile>(loadProfile);
+  // Zgoda na zasady + regulamin — wersjonowana: zmiana zasad (RULES_VERSION) = ponowna akceptacja.
+  const [consent, setConsent] = useState<{ version: string; at: string } | null>(() => { try { return JSON.parse(localStorage.getItem('terapia_consent_v1') ?? 'null'); } catch { return null; } });
+  const [consentAgain, setConsentAgain] = useState(false);
+  const needOnboarding = consentAgain || !consent || consent.version !== RULES_VERSION || !!validateFirstName(profile.pseudonym);
+  const finishOnboarding = (firstName: string) => {
+    const c = { version: RULES_VERSION, at: new Date().toISOString() };
+    try { localStorage.setItem('terapia_consent_v1', JSON.stringify(c)); } catch { /* ignoruj */ }
+    setConsent(c); setConsentAgain(false);
+    const p = { ...profile, pseudonym: firstName.trim() }; setProfileState(p); saveProfile(p);
+  };
   const setProfile = (p: Profile) => { setProfileState(p); saveProfile(p); };
   const pub = publicView(profile);
   // „Ty” jako członek grupy — wyłącznie z danych, które uczestnik pokazał (publicView).
@@ -69,6 +83,9 @@ export default function App() {
   const visible = panels.filter(p => p.isVisible && allowed(p.id));
   const hiddenCount = panels.filter(p => !p.isVisible && allowed(p.id)).length;
   const pendingCount = members.filter(m => m.status === 'pending').length;
+  // zajętość plików na osobę (do limitu 40 MB) — widok admina
+  const usage: Record<string, number> = {};
+  for (const m of g.messages) if (m.attachment && !m.attachmentDeleted && !m.deleted) usage[m.authorId] = (usage[m.authorId] ?? 0) + m.attachment.size;
   const hwTodo = g.homework.filter(h => !g.hwDone[h.id] && g.meetings.some(m => m.id === h.dueAt && new Date(m.date).getTime() + m.durationMin * 60000 > Date.now())).length;
 
   const openMeeting = (id: string) => {
@@ -86,10 +103,11 @@ export default function App() {
     switch (id) {
       case 'meetings': return <MeetingsPanel meetings={g.meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId} />;
       case 'homework': return <HomeworkPanel homework={g.homework} meetings={g.meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting} />;
-      case 'announcements': return <AnnouncementsPanel items={g.announcements} members={members} />;
-      case 'chat': return <ChatPanel messages={g.messages} members={members} currentUserId={g.currentUserId} isDemo={g.isDemo} onSend={g.sendMessage} />;
+      case 'chat': return <ChatPanel messages={g.messages} members={members} announcements={g.announcements} currentUserId={g.currentUserId} isAdmin={isAdmin} isDemo={g.isDemo}
+        onSend={g.sendMessage} onReact={g.react} onDeleteAttachment={g.deleteAttachment} onDeleteMessage={g.deleteMessage} />;
       case 'materials': return <MediaLibrary items={g.materials} meetings={g.meetings} onOpenMeeting={openMeeting} />;
-      case 'members': return <MembersPanel members={members} onSetStatus={g.setMemberStatus} onAdd={g.addMember} selfId={g.currentUserId} />;
+      case 'members': return <MembersPanel members={members} onSetStatus={g.setMemberStatus} onAdd={g.addMember} selfId={g.currentUserId} usage={usage} />;
+      case 'rules': return <RulesPanel acceptedAt={consent?.at} onShowConsent={() => setConsentAgain(true)} />;
     }
   };
 
@@ -178,7 +196,7 @@ export default function App() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 items-start pb-16">
               {visible.map((p, idx) => (
-                <div key={p.id} id={`panel-${p.id}`} className={`min-w-0 scroll-mt-24 ${p.id === 'members' || p.id === 'meetings' || p.id === 'materials' ? 'lg:col-span-2' : ''}`}>
+                <div key={p.id} id={`panel-${p.id}`} className={`min-w-0 scroll-mt-24 ${p.id === 'members' || p.id === 'meetings' || p.id === 'materials' || p.id === 'rules' ? 'lg:col-span-2' : ''}`}>
                   <PanelContainer
                     config={p} canMoveUp={idx > 0} canMoveDown={idx < visible.length - 1}
                     onToggleCollapse={() => toggleCollapse(p.id)} onHide={() => toggleVisibility(p.id)}
@@ -209,6 +227,7 @@ export default function App() {
         />
       )}
       <UpdateGuard />
+      {needOnboarding && !g.loading && <Onboarding initialName={profile.pseudonym} onDone={finishOnboarding} />}
     </div>
   );
 }

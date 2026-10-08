@@ -23,7 +23,7 @@ export const COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#
 const KEY = 'terapia_profile_v1';
 
 export const DEFAULT_PROFILE: Profile = {
-  pseudonym: 'Gość',
+  pseudonym: '', // imię — wymagane, uzupełnia ekran powitalny
   avatarKind: 'emoji',
   emoji: '🌿',
   color: '#38bdf8',

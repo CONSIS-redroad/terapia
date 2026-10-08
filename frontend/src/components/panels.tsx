@@ -9,6 +9,7 @@ import type { Announcement, Homework, Material, Meeting, Member, MembershipStatu
 import { fmtDayLong, fmtRelative, fmtShort, fmtTime, isPast } from '../services/format';
 import { Avatar } from './ProfilePanel';
 import { LessonCard } from './LessonCard';
+import { fmtSize, MAX_USER_TOTAL } from '../services/files';
 
 const card = 'rounded-xl bg-surf border border-line';
 
@@ -131,56 +132,7 @@ export const AnnouncementsPanel: React.FC<{ items: Announcement[]; members: Memb
   </div>
 );
 
-/* ---------- Rozmowa ---------- */
-export const ChatPanel: React.FC<{
-  messages: Message[]; members: Member[]; currentUserId: string; isDemo: boolean; onSend: (body: string) => void;
-}> = ({ messages, members, currentUserId, isDemo, onSend }) => {
-  const [text, setText] = useState('');
-  const listRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-  }, [messages.length]);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!text.trim()) return;
-    onSend(text);
-    setText('');
-  };
-
-  return (
-    <div className="flex flex-col">
-      <div ref={listRef} className="max-h-[420px] overflow-y-auto p-4 space-y-3">
-        {messages.map(m => {
-          const mine = m.authorId === currentUserId;
-          return (
-            <div key={m.id} className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
-              {!mine && (() => { const a = members.find(x => x.id === m.authorId); return <Avatar emoji={a?.emoji} color={a?.color} photo={a?.photo} size={26} />; })()}
-              <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${mine ? 'bg-sky-500/20 border border-sky-400/20 rounded-br-md' : 'bg-surf border border-line rounded-bl-md'}`}>
-                <div className="text-xs text-mut mb-0.5">{mine ? `Ty (${nameOf(members, m.authorId)})` : nameOf(members, m.authorId)} · {fmtRelative(m.date)}</div>
-                {/* Tekst renderowany jako tekst (React escapuje) — nigdy jako HTML. */}
-                <div className="text-base lg:text-sm text-fg whitespace-pre-line break-words">{m.body}</div>
-              </div>
-              {mine && (() => { const a = members.find(x => x.id === m.authorId); return <Avatar emoji={a?.emoji} color={a?.color} photo={a?.photo} size={26} />; })()}
-            </div>
-          );
-        })}
-      </div>
-      <form onSubmit={submit} className="flex items-center gap-2 p-3 border-t border-line">
-        <input
-          value={text} onChange={e => setText(e.target.value)} maxLength={2000}
-          placeholder="Napisz do grupy…" aria-label="Wiadomość do grupy"
-          className="flex-1 min-w-0 bg-surf border border-line rounded-full px-4 py-2.5 text-base text-fg placeholder:text-mut2 focus:outline-none focus:border-sky-400/40"
-        />
-        <button type="submit" disabled={!text.trim()} className="tap w-11 h-11 flex items-center justify-center rounded-full bg-sky-500/25 text-acc border border-sky-400/30 disabled:opacity-30 hover:bg-sky-500/35 cursor-pointer shrink-0" aria-label="Wyślij">
-          <Send className="w-4 h-4" />
-        </button>
-      </form>
-      {isDemo && <p className="px-4 pb-3 text-xs text-mut2">Demo: Twoje wiadomości zostają tylko w tej przeglądarce i nikt ich nie widzi.</p>}
-    </div>
-  );
-};
+/* Rozmowa: components/ChatPanel.tsx (czat jak WhatsApp) */
 
 /* ---------- Materiały ---------- */
 const KIND_ICON: Record<Material['kind'], React.ReactNode> = {
@@ -228,7 +180,9 @@ export const MaterialsPanel: React.FC<{ items: Material[]; meetings: Meeting[] }
 export const MembersPanel: React.FC<{
   members: Member[]; onSetStatus: (id: string, s: MembershipStatus) => void;
   onAdd: (name: string, email: string) => void; selfId: string;
-}> = ({ members, onSetStatus, onAdd, selfId }) => {
+  usage: Record<string, number>;
+}> = ({ members, onSetStatus, onAdd, selfId, usage }) => {
+  const groupBytes = Object.values(usage).reduce((s, b) => s + b, 0);
   const pending = members.filter(m => m.status === 'pending');
   const approved = members.filter(m => m.status === 'approved');
   const removed = members.filter(m => m.status === 'removed' || m.status === 'blocked');
@@ -244,6 +198,11 @@ export const MembersPanel: React.FC<{
   return (
     <div className="p-4 space-y-5">
       <p className="flex items-center gap-1.5 text-xs text-mut2"><Shield className="w-3.5 h-3.5" />Ten panel widzi tylko admin. Uczestnicy go nie widzą.</p>
+      <div className="rounded-xl bg-surf border border-line p-3">
+        <div className="flex items-baseline justify-between text-sm"><span className="font-semibold text-fg">Pliki całej grupy</span><span className="text-fg2">{fmtSize(groupBytes)} z 1 GB</span></div>
+        <div className="mt-1.5 h-2 rounded-full bg-surf2 overflow-hidden"><div className="h-full bg-sky-400" style={{ width: `${Math.min(100, (groupBytes / (1024 * 1024 * 1024)) * 100)}%` }} /></div>
+        <p className="mt-1.5 text-xs text-mut">Darmowe konto Supabase grupy = 1 GB. Limit 40 MB na osobę × do 20 osób = maks. 800 MB.</p>
+      </div>
 
       <div>
         <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-warn font-semibold">
@@ -274,6 +233,10 @@ export const MembersPanel: React.FC<{
                 {m.role === 'therapist' && <span className="ml-1.5 text-xs text-acc">prowadząca</span>}
                 {m.id === selfId && <span className="ml-1.5 text-xs text-mut2">(Ty)</span>}
                 {m.email && <span className="block text-xs text-mut2 truncate">{m.email}</span>}
+                <span className="mt-1 flex items-center gap-2">
+                  <span className="w-24 h-1.5 rounded-full bg-surf2 overflow-hidden"><span className={`block h-full ${(usage[m.id] ?? 0) > MAX_USER_TOTAL * 0.8 ? 'bg-amber-400' : 'bg-sky-400'}`} style={{ width: `${Math.min(100, ((usage[m.id] ?? 0) / MAX_USER_TOTAL) * 100)}%` }} /></span>
+                  <span className="text-xs text-mut">pliki {fmtSize(usage[m.id] ?? 0)} / 40 MB</span>
+                </span>
               </span>
               {m.role !== 'therapist' && m.id !== selfId && (
                 <button
