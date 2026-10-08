@@ -1,6 +1,6 @@
 # Plan rozwoju TERAPIA
 
-Stan: **2026-10-09 — faza 0 (demo) i FAZA 2 (Supabase grupy: logowanie, baza, czat na żywo, harmonogram, prace, archiwum) działają; faza 1 (group.yml) i push — dalej.** Decyzje: `.ai/DECISIONS.md` (D001–D021).
+Stan: **2026-10-09 — faza 0 (demo) i FAZA 2 (Supabase grupy: logowanie, baza, czat na żywo, harmonogram, prace, archiwum) działają; faza 1 (group.yml) i push — dalej.** Decyzje: `.ai/DECISIONS.md` (D001–D029).
 
 ## Założenia (ustalenia z Bartkiem, 07–08.10.2026)
 
