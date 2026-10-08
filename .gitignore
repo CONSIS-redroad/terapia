@@ -8,3 +8,6 @@ coverage/
 uploads/
 storage/
 *.log
+
+# prywatne paczki (tresci cudze, dane grupy) — NIGDY do publicznego repo
+prywatne/
