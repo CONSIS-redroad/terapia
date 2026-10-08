@@ -64,3 +64,7 @@ kopie („utwórz grupę jak X”), opcjonalne udostępnienie wpisu z dzienniczk
 
 - Regulamin + polityka prywatności — weryfikacja prawna (dane zdrowotne, RODO art. 9).
 - Kto jest administratorem danych (prowadząca / ośrodek) i umowa powierzenia z Supabase.
+
+## Pomysły na później (Bartek 08.10)
+
+- **Ekran czekania na akceptację = mała interaktywna gierka na tapecie** „na zabicie nudy” (np. łapanie płatków wiśni, układanie kamyków) — bez danych, działa przed wpuszczeniem. Motyw ekranów wejścia = ten sam katalog `src/themes/`.

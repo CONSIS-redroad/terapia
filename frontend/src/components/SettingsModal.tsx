@@ -20,7 +20,33 @@ interface Props {
   wallpaper: WallpaperSettings; onWallpaper: (w: WallpaperSettings) => void; onResetWallpaper: () => void;
   panels: PanelConfig[]; onTogglePanel: (id: PanelId) => void; onResetPanels: () => void;
   isDemo: boolean; onResetDemo: () => void;
+  isAdmin?: boolean; groupName?: string;
+  /** Faza 2, tylko admin: usuń całą grupę (potwierdzenie = nazwa grupy). */
+  onWipeGroup?: (confirmName: string) => Promise<void>;
 }
+
+/** Strefa niebezpieczna admina: usunięcie CAŁEJ grupy po wpisaniu jej nazwy (nie „usuń moje konto” — Bartek 08.10). */
+const WipeGroup: React.FC<{ groupName: string; onWipe: (n: string) => Promise<void> }> = ({ groupName, onWipe }) => {
+  const [txt, setTxt] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ok = txt.trim() === groupName.trim() && groupName.trim() !== '';
+  return (
+    <div className="p-3 rounded-xl border border-rose-400/30 bg-rose-500/5 space-y-2">
+      <span className="flex items-center gap-1.5 font-semibold text-bad text-sm"><Trash2 className="w-4 h-4" />Usuń całą grupę</span>
+      <p>Kasuje wszystkie wiadomości, pliki, zajęcia, materiały, prace domowe i listę uczestników. Zostaje tylko lista adminów i same konta logowania. <strong className="text-fg">Nie da się tego cofnąć.</strong></p>
+      <label className="block text-mut" htmlFor="wipe-confirm">Żeby potwierdzić, wpisz nazwę grupy: <strong className="text-fg">{groupName}</strong></label>
+      <input id="wipe-confirm" value={txt} onChange={e => setTxt(e.target.value)} autoComplete="off"
+        className="tap w-full rounded-xl border border-line bg-surf px-3 text-base text-fg" />
+      <button disabled={!ok || busy}
+        onClick={async () => { setErr(''); setBusy(true); try { await onWipe(txt); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); } }}
+        className="tap flex items-center gap-1.5 px-4 rounded-xl bg-rose-500/15 border border-rose-400/40 text-bad font-semibold hover:bg-rose-500/25 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+        <Trash2 className="w-4 h-4" />{busy ? 'Usuwam…' : 'Usuń grupę na zawsze'}
+      </button>
+      {err && <p role="alert" className="text-bad">{err}</p>}
+    </div>
+  );
+};
 
 const row = 'flex items-center justify-between gap-3 p-3 rounded-xl border border-line bg-surf';
 const pill = (on: boolean) => `px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border ${on ? 'bg-sky-500/20 text-acc border-sky-400/30' : 'bg-surf text-mut border-line hover:bg-surf2'}`;
@@ -152,9 +178,12 @@ export const SettingsModal: React.FC<Props> = (p) => {
                 <p>Prywatny dzienniczek samoobserwacji jest osobny — członkostwo w grupie nie daje do niego dostępu.</p>
                 <p className="text-mut">Wersja aplikacji: <strong className="text-fg">{APP_VERSION}</strong> — aktualizuje się sama przy otwarciu.</p>
               </div>
+              {!p.isDemo && p.isAdmin && p.onWipeGroup && <WipeGroup groupName={p.groupName ?? ''} onWipe={p.onWipeGroup} />}
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => { if (confirm('Usunąć profil zapisany w tej przeglądarce?')) p.onClearProfile(); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-400/25 text-bad hover:bg-rose-500/20 cursor-pointer"><Trash2 className="w-3.5 h-3.5" />Wyczyść mój profil</button>
+                {p.isDemo && (
+                  <button onClick={() => { if (confirm('Usunąć profil zapisany w tej przeglądarce?')) p.onClearProfile(); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-400/25 text-bad hover:bg-rose-500/20 cursor-pointer"><Trash2 className="w-3.5 h-3.5" />Wyczyść mój profil</button>
+                )}
                 {p.isDemo && (
                   <button onClick={() => { if (confirm('Przywrócić przykładowe dane demo (rozmowy, uczestników)?')) p.onResetDemo(); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surf border border-line hover:bg-surf2 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" />Przywróć dane demo</button>

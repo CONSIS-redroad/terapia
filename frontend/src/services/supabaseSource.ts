@@ -250,6 +250,27 @@ export class SupabaseSource implements GroupDataSource {
     return Object.fromEntries((r.data as Array<{ member_id: string; used: number }>).map(x => [x.member_id, Number(x.used)]));
   }
 
+  /** Admin: usuń CAŁĄ grupę (treści + członkostwa). Najpierw pliki przez Storage API, potem baza (wipe_group). */
+  async wipeGroup(confirmName: string) {
+    // potwierdzenie sprawdzamy PRZED kasowaniem plików (baza i tak sprawdza drugi raz)
+    if (confirmName.trim() !== (await this.group()).name.trim()) throw new Error('Wpisana nazwa nie zgadza się z nazwą grupy.');
+    const all: string[] = [];
+    const walk = async (prefix: string) => {
+      const { data, error } = await sb().storage.from(FILES_BUCKET).list(prefix, { limit: 1000 });
+      if (error) throw new Error(error.message);
+      for (const it of data ?? []) {
+        const p = prefix ? `${prefix}/${it.name}` : it.name;
+        if (it.id) all.push(p); else await walk(p); // brak id = folder
+      }
+    };
+    await walk('');
+    for (let i = 0; i < all.length; i += 100) {
+      const { error } = await sb().storage.from(FILES_BUCKET).remove(all.slice(i, i + 100));
+      if (error) throw new Error(error.message);
+    }
+    must(await sb().rpc('wipe_group', { p_confirm: confirmName }));
+  }
+
   /** Czat na żywo: każda zmiana wiadomości/reakcji/plików = odśwież. Zwraca funkcję wyłączającą. */
   subscribe(onChange: () => void): () => void {
     let t: ReturnType<typeof setTimeout> | undefined;

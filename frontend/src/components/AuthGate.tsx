@@ -10,6 +10,8 @@ import { supabaseSource } from '../services/groupData';
 import { RULES_VERSION } from '../demo/rules';
 import { Onboarding } from './Onboarding';
 import { CrisisBox } from './RulesPanel';
+import { Wallpaper } from './Wallpaper';
+import { useIsDark, useWallpaper } from '../hooks/useWallpaper';
 
 export interface MemberRow {
   id: string; name: string; role: 'therapist' | 'participant'; status: 'pending' | 'approved' | 'blocked' | 'removed';
@@ -44,9 +46,18 @@ const btn = 'tap w-full inline-flex items-center justify-center gap-2 rounded-xl
 const btnPrimary = `${btn} bg-sky-500/20 border-sky-400/30 text-acc hover:bg-sky-500/30`;
 const btnGhost = `${btn} border-line text-fg2 hover:bg-surf2`;
 
-const Screen: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="min-h-[100dvh] bg-bg flex items-center justify-center px-4 py-8 text-fg">{children}</div>
-);
+// Ekrany wejścia (logowanie, czekanie) na tej samej tapecie co aplikacja — motyw wybrany w Ustawieniach.
+// Docelowo (Bartek 08.10): czekanie na akceptację umili mała interaktywna gierka na tapecie (PLAN-SKLADANIA).
+const Screen: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const wall = useWallpaper();
+  const dark = useIsDark();
+  return (
+    <div className="min-h-[100dvh] bg-bg relative overflow-x-clip text-fg">
+      <Wallpaper settings={wall.settings} dark={dark} />
+      <div className="relative z-10 min-h-[100dvh] flex items-center justify-center px-4 py-8">{children}</div>
+    </div>
+  );
+};
 
 function LoginScreen() {
   // D025: Google (bez maili) albo e-mail + hasło bez potwierdzania maila — bramką jest akceptacja admina.

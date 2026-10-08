@@ -26,6 +26,7 @@ import { NAV_SCREENS } from './config/ui.config';
 import type { Member } from './types/group';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, Profile, publicView, saveProfile } from './services/profile';
 import { useAuth, type MemberRow } from './components/AuthGate';
+import { supabaseSource } from './services/groupData';
 
 /** Faza 2: profil z bazy (wiersz members) w kształcie profilu aplikacji. */
 function profileFromMember(m: MemberRow): Profile {
@@ -138,6 +139,7 @@ export default function App() {
           <div className="flex items-center gap-2 pl-1 sm:pl-2 select-none min-w-0">
             <span className="w-2 h-2 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.7)] shrink-0" />
             <span className="font-extrabold text-sm tracking-[0.2em] sm:tracking-[0.25em]">TERAPIA</span>
+            {isAdmin && <span className="inline-flex items-center gap-1 text-xs font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-500/15 text-acc border border-sky-400/30" title="Jesteś zalogowany jako admin grupy"><ShieldCheck className="w-3.5 h-3.5" />ADMIN</span>}
             {g.isDemo && <span className="hidden sm:inline text-xs font-mono tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-warn border border-amber-300/25">DEMO</span>}
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5">
@@ -237,6 +239,8 @@ export default function App() {
           wallpaper={wall.settings} onWallpaper={wall.setSettings} onResetWallpaper={wall.reset}
           panels={panels.filter(x => allowed(x.id))} onTogglePanel={toggleVisibility} onResetPanels={resetLayout}
           isDemo={g.isDemo} onResetDemo={g.resetDemo}
+          isAdmin={isAdmin} groupName={g.group?.name ?? ''}
+          onWipeGroup={live && supabaseSource ? async (name: string) => { await supabaseSource!.wipeGroup(name); window.location.reload(); } : undefined}
         />
       )}
       <UpdateGuard />

@@ -106,10 +106,12 @@ export const ProfilePanel: React.FC<{ profile: Profile; onChange: (p: Profile) =
           <div className="flex items-center gap-1.5 text-fg2 font-semibold"><Lock className="w-3.5 h-3.5" /> Twoje dane</div>
           <p>{isDemo ? 'W demo profil jest zapisany tylko w tej przeglądarce i nigdzie nie jest wysyłany.' : 'Grupa widzi tylko to, co włączysz.'}</p>
           <p>Twój prywatny dzienniczek samoobserwacji jest osobny — członkostwo w grupie nie daje do niego dostępu.</p>
-          <button type="button" onClick={() => { if (confirm('Usunąć profil zapisany w tej przeglądarce?')) onClear(); }}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-400/20 text-bad hover:bg-rose-500/20 cursor-pointer">
-            <Trash2 className="w-3 h-3" /> Wyczyść mój profil
-          </button>
+          {isDemo && (
+            <button type="button" onClick={() => { if (confirm('Usunąć profil zapisany w tej przeglądarce?')) onClear(); }}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-400/20 text-bad hover:bg-rose-500/20 cursor-pointer">
+              <Trash2 className="w-3 h-3" /> Wyczyść mój profil
+            </button>
+          )}
         </div>
       </aside>
     </div>
