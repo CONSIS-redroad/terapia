@@ -10,13 +10,13 @@ export const Avatar: React.FC<{ emoji?: string; color?: string; photo?: string; 
 
 const Toggle: React.FC<{ on: boolean; onChange: (v: boolean) => void; label: string }> = ({ on, onChange, label }) => (
   <button type="button" onClick={() => onChange(!on)} aria-pressed={on}
-    className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border cursor-pointer ${on ? 'bg-emerald-500/15 border-emerald-400/30 text-ok' : 'bg-surf border-line text-mut'}`}>
+    className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border cursor-pointer ${on ? 'bg-emerald-500/15 border-emerald-400/30 text-ok' : 'bg-surf border-line text-mut'}`}>
     {on ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}{on ? `${label}: grupa widzi` : `${label}: tylko ja`}
   </button>
 );
 
 const input = 'w-full bg-surf border border-line rounded-lg px-3 py-2 text-sm text-fg placeholder:text-mut2 focus:outline-none focus:border-sky-400/40';
-const label = 'block text-[11px] uppercase tracking-widest text-mut font-semibold mb-1.5';
+const label = 'block text-xs uppercase tracking-widest text-mut font-semibold mb-1.5';
 
 export const ProfilePanel: React.FC<{ profile: Profile; onChange: (p: Profile) => void; onClear: () => void; isDemo: boolean }> = ({ profile: p, onChange, onClear, isDemo }) => {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -38,7 +38,7 @@ export const ProfilePanel: React.FC<{ profile: Profile; onChange: (p: Profile) =
         <div>
           <label className={label} htmlFor="pseudo">Pseudonim w grupie</label>
           <input id="pseudo" className={input} maxLength={30} value={p.pseudonym} onChange={e => set({ pseudonym: e.target.value || 'Gość' })} />
-          <p className="mt-1 text-[11px] text-mut2">Domyślnie grupa zna Cię tylko pod pseudonimem.</p>
+          <p className="mt-1 text-xs text-mut2">Domyślnie grupa zna Cię tylko pod pseudonimem.</p>
         </div>
 
         <div>
@@ -65,9 +65,9 @@ export const ProfilePanel: React.FC<{ profile: Profile; onChange: (p: Profile) =
             </button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />
           </div>
-          {err && <p className="mt-1 text-[11px] text-bad">{err}</p>}
+          {err && <p className="mt-1 text-xs text-bad">{err}</p>}
           {p.photoDataUrl && (
-            <div className="mt-2 flex items-center gap-2 text-[11px] text-mut">
+            <div className="mt-2 flex items-center gap-2 text-xs text-mut">
               <Avatar photo={p.photoDataUrl} size={28} />
               <button type="button" onClick={() => set({ avatarKind: p.avatarKind === 'photo' ? 'emoji' : 'photo' })} className="underline cursor-pointer">{p.avatarKind === 'photo' ? 'Używaj ikonki' : 'Używaj zdjęcia'}</button>
               <button type="button" onClick={() => set({ photoDataUrl: undefined, avatarKind: 'emoji' })} className="underline cursor-pointer">usuń zdjęcie</button>
@@ -91,7 +91,7 @@ export const ProfilePanel: React.FC<{ profile: Profile; onChange: (p: Profile) =
 
       <aside className="space-y-3">
         <div className="rounded-xl bg-surf border border-line p-3">
-          <div className="text-[10px] uppercase tracking-widest text-mut2 font-semibold mb-2">Tak widzi Cię grupa</div>
+          <div className="text-xs uppercase tracking-widest text-mut2 font-semibold mb-2">Tak widzi Cię grupa</div>
           <div className="flex items-center gap-2.5">
             <Avatar emoji={p.emoji} color={p.color} photo={pub.usePhoto ? p.photoDataUrl : undefined} size={40} />
             <span className="text-sm font-semibold text-fg break-words">{pub.name}</span>
@@ -99,12 +99,12 @@ export const ProfilePanel: React.FC<{ profile: Profile; onChange: (p: Profile) =
           {pub.about && <p className="mt-2 text-xs text-fg2 whitespace-pre-line">{pub.about}</p>}
         </div>
 
-        <div className="rounded-xl bg-surf border border-line p-3 text-[11px] text-mut space-y-2">
+        <div className="rounded-xl bg-surf border border-line p-3 text-xs text-mut space-y-2">
           <div className="flex items-center gap-1.5 text-fg2 font-semibold"><Lock className="w-3.5 h-3.5" /> Twoje dane</div>
           <p>{isDemo ? 'W demo profil jest zapisany tylko w tej przeglądarce i nigdzie nie jest wysyłany.' : 'Grupa widzi tylko to, co włączysz.'}</p>
           <p>Twój prywatny dzienniczek samoobserwacji jest osobny — członkostwo w grupie nie daje do niego dostępu.</p>
           <button type="button" onClick={() => { if (confirm('Usunąć profil zapisany w tej przeglądarce?')) onClear(); }}
-            className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-400/20 text-bad hover:bg-rose-500/20 cursor-pointer">
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-400/20 text-bad hover:bg-rose-500/20 cursor-pointer">
             <Trash2 className="w-3 h-3" /> Wyczyść mój profil
           </button>
         </div>

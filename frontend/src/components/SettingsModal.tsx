@@ -75,7 +75,7 @@ export const SettingsModal: React.FC<Props> = (p) => {
               </div>
 
               <div>
-                <span className="block text-[11px] uppercase tracking-widest text-mut font-semibold mb-2">Tapeta</span>
+                <span className="block text-xs uppercase tracking-widest text-mut font-semibold mb-2">Tapeta</span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {THEMES.map(t => (
                     <button key={t.id} onClick={() => setW({ themeId: t.id })} aria-pressed={w.themeId === t.id}
@@ -84,11 +84,11 @@ export const SettingsModal: React.FC<Props> = (p) => {
                         <span className="absolute inset-0"><t.Scene dark={false} /></span>
                       </span>
                       <span className="text-xs font-semibold text-fg truncate">{t.name}</span>
-                      <span className="text-[10px] text-mut2 leading-snug">{t.description}</span>
+                      <span className="text-xs text-mut2 leading-snug">{t.description}</span>
                     </button>
                   ))}
                 </div>
-                <p className="mt-2 text-[11px] text-mut2">Kolejne motywy dochodzą jako osobne pliki w folderze motywów — pojawią się tu same.</p>
+                <p className="mt-2 text-xs text-mut2">Kolejne motywy dochodzą jako osobne pliki w folderze motywów — pojawią się tu same.</p>
               </div>
 
               <div className={row}>
@@ -102,7 +102,7 @@ export const SettingsModal: React.FC<Props> = (p) => {
               </div>
 
               <div className={row}>
-                <span className="text-xs font-semibold text-fg2">Ruch tła<span className="block text-[10px] font-normal text-mut2">paralaksa i obracanie przeciąganiem, jak w Luna</span></span>
+                <span className="text-xs font-semibold text-fg2">Ruch tła<span className="block text-xs font-normal text-mut2">paralaksa i obracanie przeciąganiem, jak w Luna</span></span>
                 <div className="flex gap-1">
                   <button className={pill(w.motion)} onClick={() => setW({ motion: true })}>Wł.</button>
                   <button className={pill(!w.motion)} onClick={() => setW({ motion: false })}>Wył.</button>
@@ -110,7 +110,7 @@ export const SettingsModal: React.FC<Props> = (p) => {
               </div>
 
               <div className={row}>
-                <label htmlFor="veil" className="text-xs font-semibold text-fg2">Wyciszenie tła<span className="block text-[10px] font-normal text-mut2">więcej = spokojniej i czytelniej</span></label>
+                <label htmlFor="veil" className="text-xs font-semibold text-fg2">Wyciszenie tła<span className="block text-xs font-normal text-mut2">więcej = spokojniej i czytelniej</span></label>
                 <input id="veil" type="range" min={0} max={0.6} step={0.05} value={w.veil} onChange={e => setW({ veil: Number(e.target.value) })} className="w-40 accent-sky-500" />
               </div>
 

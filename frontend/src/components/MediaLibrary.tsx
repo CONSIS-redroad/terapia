@@ -1,7 +1,7 @@
 // PATH: src/components/MediaLibrary.tsx | REQ-ID: TERAPIA-MEDIA-01
 // Biblioteka mediów: szukanie, kategorie, data dodania, powiązanie z zajęciami (albo luźne).
 import React, { useMemo, useState } from 'react';
-import { BookOpen, CalendarDays, Clapperboard, ExternalLink, FileText, Headphones, LifeBuoy, Link2, Search, Shapes, X } from 'lucide-react';
+import { BookOpen, CalendarDays, Clapperboard, ExternalLink, FileText, Headphones, LifeBuoy, Link2, Search, Shapes, SlidersHorizontal, X } from 'lucide-react';
 import type { Material, MediaCategory, Meeting } from '../types/group';
 import { fmtShort } from '../services/format';
 
@@ -20,7 +20,7 @@ const FORMAT: Record<Material['kind'], string> = { pdf: 'PDF', image: 'obraz', v
 type When = 'all' | '7' | '30' | 'from';
 type Link = 'all' | 'loose' | string; // string = id zajęć
 
-const sel = 'max-w-full min-w-0 truncate bg-surf border border-line rounded-full px-3 py-1.5 text-xs text-fg focus:outline-none focus:border-sky-400/40';
+const sel = 'max-w-full min-w-0 truncate bg-surf border border-line rounded-full px-3 py-1.5 text-sm md:text-xs text-fg focus:outline-none focus:border-sky-400/40';
 
 export const MediaLibrary: React.FC<{ items: Material[]; meetings: Meeting[]; onOpenMeeting: (id: string) => void }> = ({ items, meetings, onOpenMeeting }) => {
   const [q, setQ] = useState('');
@@ -29,6 +29,7 @@ export const MediaLibrary: React.FC<{ items: Material[]; meetings: Meeting[]; on
   const [from, setFrom] = useState('');
   const [link, setLink] = useState<Link>('all');
   const [sort, setSort] = useState<'new' | 'old' | 'az'>('new');
+  const [showFilters, setShowFilters] = useState(false);
 
   const meetingNo = (id?: string) => meetings.findIndex(m => m.id === id);
 
@@ -66,19 +67,27 @@ export const MediaLibrary: React.FC<{ items: Material[]; meetings: Meeting[]; on
       </label>
 
       {/* kategorie */}
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Kategorie">
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap md:overflow-visible" role="group" aria-label="Kategorie">
         <button onClick={() => setCat('all')} aria-pressed={cat === 'all'}
-          className={`text-xs px-3 py-1 rounded-full border cursor-pointer ${cat === 'all' ? 'bg-sky-500/20 text-acc border-sky-400/30' : 'bg-surf text-fg2 border-line hover:bg-surf2'}`}>Wszystkie · {items.length}</button>
+          className={`tap shrink-0 text-sm px-3.5 py-1.5 rounded-full border cursor-pointer ${cat === 'all' ? 'bg-sky-500/20 text-acc border-sky-400/30' : 'bg-surf text-fg2 border-line hover:bg-surf2'}`}>Wszystkie · {items.length}</button>
         {CATEGORIES.map(c => (
           <button key={c.id} onClick={() => setCat(c.id)} aria-pressed={cat === c.id}
-            className={`flex items-center gap-1 text-xs px-3 py-1 rounded-full border cursor-pointer ${cat === c.id ? 'bg-sky-500/20 text-acc border-sky-400/30' : 'bg-surf text-fg2 border-line hover:bg-surf2'}`}>
-            <c.icon className="w-3.5 h-3.5" />{c.label} · {count(c.id)}
+            className={`tap shrink-0 flex items-center gap-1.5 text-sm px-3.5 py-1.5 rounded-full border cursor-pointer ${cat === c.id ? 'bg-sky-500/20 text-acc border-sky-400/30' : 'bg-surf text-fg2 border-line hover:bg-surf2'}`}>
+            <c.icon className="w-4 h-4" />{c.label} · {count(c.id)}
           </button>
         ))}
       </div>
 
-      {/* filtry */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* filtry — na telefonie schowane za jednym przyciskiem */}
+      <div className="flex items-center gap-2 md:hidden">
+        <button onClick={() => setShowFilters(v => !v)} aria-expanded={showFilters}
+          className={`tap flex items-center gap-1.5 text-sm px-3.5 py-1.5 rounded-full border cursor-pointer ${showFilters || link !== 'all' || when !== 'all' || sort !== 'new' ? 'bg-sky-500/20 text-acc border-sky-400/30' : 'bg-surf text-fg2 border-line'}`}>
+          <SlidersHorizontal className="w-4 h-4" />Filtry{link !== 'all' || when !== 'all' ? ' •' : ''}
+        </button>
+        {active && <button onClick={clear} className="tap text-sm text-mut underline cursor-pointer">wyczyść</button>}
+        <span className="ml-auto text-sm text-mut2">{filtered.length} z {items.length}</span>
+      </div>
+      <div className={`${showFilters ? 'flex' : 'hidden'} md:flex flex-wrap items-center gap-2`}>
         <select className={`${sel} w-full sm:w-auto`} value={link} onChange={e => setLink(e.target.value)} aria-label="Powiązanie z zajęciami">
           <option value="all">Wszystkie zajęcia i luźne</option>
           <option value="loose">Tylko luźne (bez zajęć)</option>
@@ -96,8 +105,8 @@ export const MediaLibrary: React.FC<{ items: Material[]; meetings: Meeting[]; on
           <option value="old">Najstarsze</option>
           <option value="az">A–Z</option>
         </select>
-        {active && <button onClick={clear} className="text-xs text-mut hover:text-fg underline cursor-pointer">wyczyść filtry</button>}
-        <span className="ml-auto text-[11px] text-mut2">{filtered.length} z {items.length}</span>
+        <span className="hidden md:inline">{active && <button onClick={clear} className="text-xs text-mut hover:text-fg underline cursor-pointer">wyczyść filtry</button>}</span>
+        <span className="ml-auto hidden md:inline text-xs text-mut2">{filtered.length} z {items.length}</span>
       </div>
 
       {/* wyniki */}
@@ -116,26 +125,26 @@ export const MediaLibrary: React.FC<{ items: Material[]; meetings: Meeting[]; on
                     className="flex items-start gap-3 px-3 pt-2.5 pb-1.5">
                     <span className="w-9 h-9 rounded-lg bg-surf2 flex items-center justify-center shrink-0 text-acc"><c.icon className="w-4 h-4" /></span>
                     <span className="flex-1 min-w-0">
-                      <span className="block text-sm font-semibold text-fg leading-snug">{m.title}</span>
+                      <span className="block text-base md:text-sm font-semibold text-fg leading-snug">{m.title}</span>
                       {m.author && <span className="block text-xs text-fg2">{m.author}</span>}
-                      <span className="block text-[11px] text-mut2">{c.label} · {FORMAT[m.kind]} · dodano {fmtShort(m.addedAt)}</span>
-                      {m.note && <span className="block text-[11px] text-mut mt-0.5">{m.note}</span>}
+                      <span className="block text-xs text-mut2">{c.label} · {FORMAT[m.kind]} · dodano {fmtShort(m.addedAt)}</span>
+                      {m.note && <span className="block text-xs text-mut mt-0.5">{m.note}</span>}
                     </span>
                     {external ? <ExternalLink className="w-3.5 h-3.5 text-mut2 shrink-0 mt-1" /> : <Link2 className="w-3.5 h-3.5 text-mut2 shrink-0 mt-1" />}
                   </a>
                   <div className="px-3 pb-2.5 pl-[3.75rem]">
                     {no >= 0
-                      ? <button onClick={() => onOpenMeeting(meetings[no].id)} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-sky-500/10 text-acc border border-sky-400/25 hover:bg-sky-500/20 cursor-pointer" title="Pokaż w kalendarzu">
+                      ? <button onClick={() => onOpenMeeting(meetings[no].id)} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-acc border border-sky-400/25 hover:bg-sky-500/20 cursor-pointer" title="Pokaż w kalendarzu">
                           <CalendarDays className="w-3 h-3" />Zajęcia {no + 1}: {meetings[no].topic}
                         </button>
-                      : <span className="inline-flex text-[11px] px-2 py-0.5 rounded-full bg-surf2 text-mut border border-line">luźne — bez zajęć</span>}
+                      : <span className="inline-flex text-xs px-2 py-0.5 rounded-full bg-surf2 text-mut border border-line">luźne — bez zajęć</span>}
                   </div>
                 </li>
               );
             })}
           </ul>
         )}
-      <p className="text-[11px] text-mut2">PDF i obrazy trzymamy u siebie; filmy, nagrania, podcasty i książki zawsze jako link do zewnętrznego źródła.</p>
+      <p className="text-xs text-mut2">PDF i obrazy trzymamy u siebie; filmy, nagrania, podcasty i książki zawsze jako link do zewnętrznego źródła.</p>
     </div>
   );
 };

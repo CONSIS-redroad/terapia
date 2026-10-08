@@ -19,7 +19,7 @@ export const PWAReloadPrompt: React.FC = () => {
     <div className="fixed bottom-4 right-4 z-50 p-4 bg-[#0f1720] border border-[#38bdf8]/40 rounded-2xl shadow-2xl text-white max-w-sm flex items-center justify-between gap-3 animate-fade-in">
       <div>
         <p className="text-xs font-black text-white">Dostępna nowa wersja!</p>
-        <p className="text-[11px] text-[#94a3b8]">Odśwież, aby załadować aktualizację.</p>
+        <p className="text-xs text-[#94a3b8]">Odśwież, aby załadować aktualizację.</p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         <button

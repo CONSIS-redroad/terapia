@@ -103,27 +103,27 @@ export default function App() {
           <div className="flex items-center gap-2 pl-1 sm:pl-2 select-none min-w-0">
             <span className="w-2 h-2 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.7)] shrink-0" />
             <span className="font-extrabold text-sm tracking-[0.2em] sm:tracking-[0.25em]">TERAPIA</span>
-            {g.isDemo && <span className="text-[10px] font-mono tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-warn border border-amber-300/25">DEMO</span>}
+            {g.isDemo && <span className="hidden sm:inline text-xs font-mono tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-warn border border-amber-300/25">DEMO</span>}
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5">
-            <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/15 text-ok border border-emerald-400/30 hover:bg-emerald-500/25" title="Mój prywatny dzienniczek (osobna aplikacja)">
-              <BookHeart className="w-3.5 h-3.5" /><span className="hidden sm:inline">Dzienniczek</span>
+            <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 text-xs font-semibold min-w-10 h-10 lg:h-auto lg:min-w-0 px-2.5 lg:py-1 rounded-full bg-emerald-500/15 text-ok border border-emerald-400/30 hover:bg-emerald-500/25" title="Mój prywatny dzienniczek (osobna aplikacja)" aria-label="Mój dzienniczek">
+              <BookHeart className="w-5 h-5 lg:w-3.5 lg:h-3.5" /><span className="hidden sm:inline">Dzienniczek</span>
             </a>
             <PWAInstallButton />
             {isAdmin && pendingCount > 0 && !mobile && (
-              <span className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-amber-400/10 text-warn border border-amber-300/20" title="Osoby czekające na akceptację">
+              <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-amber-400/10 text-warn border border-amber-300/20" title="Osoby czekające na akceptację">
                 <Users className="w-3 h-3" />{pendingCount}
               </span>
             )}
             {hiddenCount > 0 && !mobile && (
-              <button onClick={resetLayout} className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-surf border border-line text-fg2 hover:bg-surf2 cursor-pointer" title="Pokaż ukryte panele">
+              <button onClick={resetLayout} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-surf border border-line text-fg2 hover:bg-surf2 cursor-pointer" title="Pokaż ukryte panele">
                 <Eye className="w-3 h-3" />{hiddenCount}
               </button>
             )}
             <button onClick={() => setSettingsOpen(true)} className="flex items-center gap-1.5 pl-0.5 pr-1.5 sm:pr-2 py-0.5 rounded-full hover:bg-surf2 cursor-pointer" title="Mój profil i ustawienia" aria-label="Mój profil i ustawienia">
-              <Avatar emoji={profile.emoji} color={profile.color} photo={profile.avatarKind === 'photo' ? profile.photoDataUrl : undefined} size={26} />
+              <Avatar emoji={profile.emoji} color={profile.color} photo={profile.avatarKind === 'photo' ? profile.photoDataUrl : undefined} size={mobile ? 36 : 26} />
               <span className="hidden sm:inline text-xs font-semibold text-fg2 max-w-[8rem] truncate">{profile.pseudonym}</span>
-              <Settings className="w-3.5 h-3.5 text-mut" />
+              <Settings className="w-5 h-5 lg:w-3.5 lg:h-3.5 text-mut" />
             </button>
           </div>
         </header>
@@ -135,41 +135,41 @@ export default function App() {
             <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-fg drop-shadow-[0_2px_18px_var(--t-bg)]">{g.group?.name ?? '…'}</h1>
             <p className="mt-3 text-sm sm:text-base text-fg2 max-w-xl drop-shadow-[0_1px_10px_var(--t-bg)]">{g.group?.schedule}</p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <button onClick={toContent} className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full bg-head backdrop-blur-xl border border-line shadow-sm hover:bg-surf2 cursor-pointer">
+              <button onClick={toContent} className="tap flex items-center gap-2 text-base font-semibold px-5 py-2.5 rounded-full bg-head backdrop-blur-xl border border-line shadow-sm hover:bg-surf2 cursor-pointer">
                 <CalendarDays className="w-4 h-4 text-acc" />Kalendarz grupy
               </button>
-              <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full bg-head backdrop-blur-xl border border-line shadow-sm hover:bg-surf2">
+              <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="tap flex items-center gap-2 text-base font-semibold px-5 py-2.5 rounded-full bg-head backdrop-blur-xl border border-line shadow-sm hover:bg-surf2">
                 <BookHeart className="w-4 h-4 text-ok" />Mój dzienniczek ↗
               </a>
             </div>
-            <p className="mt-2 text-[11px] text-mut drop-shadow-[0_1px_8px_var(--t-bg)]">Dzienniczek jest prywatny i osobny — grupa go nie widzi.</p>
+            <p className="mt-2 text-xs text-mut drop-shadow-[0_1px_8px_var(--t-bg)]">Dzienniczek jest prywatny i osobny — grupa go nie widzi.</p>
             {g.isDemo && (
               <div className="mt-6 flex flex-col items-center gap-2">
-                <div className="inline-flex p-0.5 rounded-full bg-head backdrop-blur-xl border border-line text-[11px]" role="group" aria-label="Widok demo">
+                <div className="inline-flex p-0.5 rounded-full bg-head backdrop-blur-xl border border-line text-xs" role="group" aria-label="Widok demo">
                   <button onClick={() => setView(false)} aria-pressed={!isAdmin} className={`flex items-center gap-1 px-3 py-1 rounded-full cursor-pointer ${!isAdmin ? 'bg-surf2 text-fg font-semibold' : 'text-mut'}`}><User className="w-3 h-3" />Uczestnik</button>
                   <button onClick={() => setView(true)} aria-pressed={isAdmin} className={`flex items-center gap-1 px-3 py-1 rounded-full cursor-pointer ${isAdmin ? 'bg-surf2 text-fg font-semibold' : 'text-mut'}`}><ShieldCheck className="w-3 h-3" />Admin</button>
                 </div>
-                <span className="text-[11px] px-3 py-1 rounded-full bg-amber-400/10 text-warn border border-amber-300/20 backdrop-blur">Demo — wszystkie osoby i rozmowy są zmyślone.</span>
+                <span className="text-xs px-3 py-1 rounded-full bg-amber-400/10 text-warn border border-amber-300/20 backdrop-blur">Demo — wszystkie osoby i rozmowy są zmyślone.</span>
               </div>
             )}
           </div>
-          <button onClick={toContent} className="group flex flex-col items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-mut hover:text-fg cursor-pointer" aria-label="Przewiń do treści">
+          <button onClick={toContent} className="group flex flex-col items-center gap-1.5 text-xs uppercase tracking-widest font-semibold text-mut hover:text-fg cursor-pointer" aria-label="Przewiń do treści">
             Przewiń
             <span className="w-8 h-8 rounded-full bg-head backdrop-blur-md border border-line flex items-center justify-center animate-bounce"><ChevronDown className="w-4 h-4" /></span>
           </button>
         </section>
 
         <div id="tresc" className="scroll-mt-20 pt-2">
-          <div className="mb-4 flex justify-center">
+          <div className="mb-4 hidden lg:flex justify-center">
             <div className="inline-block px-4 py-2 rounded-2xl bg-head backdrop-blur-xl border border-line text-center">
               <div className="text-sm font-bold">{g.group?.name}</div>
-              <div className="text-[11px] text-mut">{g.group?.description}</div>
+              <div className="text-xs text-mut">{g.group?.description}</div>
             </div>
           </div>
 
           {mobile ? (
             <div className="pb-[max(4rem,env(safe-area-inset-bottom))]">
-              <Carousel ref={carousel} slides={slides} stickyTop="calc(max(0.75rem, env(safe-area-inset-top)) + 3.25rem)" />
+              <Carousel ref={carousel} slides={slides} />
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 items-start pb-16">
@@ -190,7 +190,7 @@ export default function App() {
           )}
         </div>
 
-        <footer className="pb-8 text-center text-[11px] text-mut2">
+        <footer className="pb-8 text-center text-xs text-mut2">
           TERAPIA · faza 0 (demo) · wygląd na bazie Luna2 · <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="underline">Dzienniczek</a>
         </footer>
       </main>

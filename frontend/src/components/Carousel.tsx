@@ -5,10 +5,19 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } f
 export interface Slide { id: string; label: string; icon: React.FC<{ className?: string }>; badge?: number; content: React.ReactNode }
 export interface CarouselHandle { goTo: (id: string) => void }
 
-export const Carousel = forwardRef<CarouselHandle, { slides: Slide[]; stickyTop: string }>(({ slides, stickyTop }, ref) => {
+export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slides }, ref) => {
   const track = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  // dolny pasek dopiero gdy karuzela jest na ekranie — na ekranie startowym nie zasłania „Przewiń”
+  const [navOn, setNavOn] = useState(false);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setNavOn(e.isIntersecting), { rootMargin: '0px 0px -35% 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   const scrollToIndex = (i: number, smooth = true) => {
     const el = track.current;
@@ -41,29 +50,30 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[]; stickyTop:
   useEffect(() => { if (active > slides.length - 1) scrollToIndex(slides.length - 1, false); }, [slides.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div ref={root} className="scroll-mt-20">
-      <nav className="sticky z-30 -mx-3 px-3 py-2" style={{ top: stickyTop }} aria-label="Ekrany grupy">
-        <div className="flex gap-1 p-1 rounded-2xl bg-head backdrop-blur-2xl border border-line shadow-sm overflow-x-auto no-scrollbar">
+    <div ref={root} className="scroll-mt-24 pb-24">
+      {/* dolny pasek ekranów — jak w aplikacjach: kciuk sięga, zawsze widoczny */}
+      <nav className={`fixed bottom-0 inset-x-0 z-40 transition-transform duration-300 ${navOn ? 'translate-y-0' : 'translate-y-full'}`} aria-hidden={!navOn}>
+      <div className="px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-head backdrop-blur-2xl border-t border-line shadow-[0_-8px_24px_rgba(0,0,0,0.12)]" role="navigation" aria-label="Ekrany grupy">
+        <div className="flex max-w-xl mx-auto">
           {slides.map((s, i) => (
             <button key={s.id} onClick={() => scrollToIndex(i)} aria-current={active === i ? 'page' : undefined}
-              className={`relative flex-1 min-w-[4.5rem] flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[11px] font-semibold cursor-pointer transition-colors ${active === i ? 'bg-sky-500/20 text-acc' : 'text-mut'}`}>
-              <s.icon className="w-4 h-4" />{s.label}
-              {!!s.badge && <span className="absolute top-0.5 right-2 min-w-4 h-4 px-1 rounded-full bg-amber-400 text-[10px] leading-4 text-black">{s.badge}</span>}
+              className={`tap relative flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${active === i ? 'text-acc' : 'text-mut'}`}>
+              <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${active === i ? 'bg-sky-500/20' : ''}`}><s.icon className="w-5 h-5" /></span>
+              {s.label}
+              {!!s.badge && <span className="absolute top-0 right-[calc(50%-1.6rem)] min-w-5 h-5 px-1 rounded-full bg-amber-400 text-xs leading-5 text-black">{s.badge}</span>}
             </button>
           ))}
         </div>
-        <div className="mt-1.5 flex justify-center gap-1.5" aria-hidden="true">
-          {slides.map((s, i) => <span key={s.id} className={`h-1.5 rounded-full transition-all ${active === i ? 'w-5 bg-sky-400' : 'w-1.5 bg-mut2/50'}`} />)}
-        </div>
+      </div>
       </nav>
 
       <div ref={track} className="flex items-start overflow-x-auto snap-x snap-mandatory no-scrollbar overscroll-x-contain -mx-3" style={{ scrollbarWidth: 'none' }}>
         {slides.map(s => (
           <section key={s.id} aria-label={s.label} className="w-full shrink-0 snap-start snap-always px-3 min-w-0">
             <div className="rounded-2xl bg-panel backdrop-blur-md border border-line shadow-sm overflow-hidden">
-              <h3 className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-fg2 border-b border-line flex items-center gap-2">
-                <s.icon className="w-3.5 h-3.5 text-mut" />{s.label}
-              </h3>
+              <h2 className="px-4 pt-4 pb-2 text-xl font-extrabold tracking-tight text-fg flex items-center gap-2">
+                <s.icon className="w-5 h-5 text-acc" />{s.label}
+              </h2>
               {s.content}
             </div>
           </section>

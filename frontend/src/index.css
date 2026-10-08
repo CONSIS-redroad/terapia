@@ -87,6 +87,14 @@
   }
 }
 
+/* TELEFON / TABLET: cała skala +12,5 % (rem) — tekst ≈ 16–18 px, etykiety ≥ 13,5 px;
+   cele dotyku ≥ 44 px dla pól, list wyboru i przycisków nawigacji. */
+@media (max-width: 1023px) {
+  html { font-size: 112.5%; }
+  input, select, textarea { min-height: 44px; }
+  .tap { min-height: 44px; }
+}
+
 /* karuzela: bez paska przewijania */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }

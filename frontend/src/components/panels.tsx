@@ -68,7 +68,7 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
           <button onClick={() => shiftMonth(1)} className="p-1.5 rounded-full hover:bg-surf2 text-mut cursor-pointer" aria-label="Następny miesiąc"><ChevronRight className="w-4 h-4" /></button>
         </div>
         <div className="grid grid-cols-7 gap-1 text-center">
-          {WEEKDAYS.map(w => <div key={w} className="text-[10px] uppercase tracking-wider text-mut2 py-1">{w}</div>)}
+          {WEEKDAYS.map(w => <div key={w} className="text-xs uppercase tracking-wider text-mut2 py-1">{w}</div>)}
           {cells.map((d, i) => {
             if (!d) return <div key={`e${i}`} />;
             const m = byDay.get(dayKey(d));
@@ -79,7 +79,7 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
               <button
                 key={d.getDate()} disabled={!m} onClick={() => m && select(m)}
                 aria-label={m ? `${d.getDate()} — zajęcia: ${m.topic}` : `${d.getDate()}`}
-                className={`relative aspect-square rounded-lg text-xs flex flex-col items-center justify-center transition-colors
+                className={`relative aspect-square min-h-10 rounded-lg text-sm flex flex-col items-center justify-center transition-colors
                   ${m ? 'cursor-pointer hover:bg-surf2 text-fg font-semibold' : 'text-mut2 cursor-default'}
                   ${isSel ? 'bg-sky-500/20 ring-1 ring-sky-400/50' : ''} ${isToday && !isSel ? 'ring-1 ring-line' : ''}`}
               >
@@ -89,7 +89,7 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
             );
           })}
         </div>
-        <div className="mt-2 flex items-center gap-3 text-[10px] text-mut2">
+        <div className="mt-2 flex items-center gap-3 text-xs text-mut2">
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-sky-400" />zajęcia</span>
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-mut2" />odbyte</span>
           <span className="ml-auto">{meetings.filter(m => isPast(m.date, m.durationMin)).length} z {meetings.length} za nami</span>
@@ -97,9 +97,9 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
       </div>
 
       {/* szczegóły wybranych zajęć */}
-      <div className={`${card} min-w-0 p-4 ${selected.id === next?.id && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
+      <div className={`${card} min-w-0 p-4 order-first md:order-none ${selected.id === next?.id && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-acc font-semibold">
+          <span className="text-xs uppercase tracking-widest text-acc font-semibold">
             Zajęcia {selIdx + 1} z {meetings.length}{selected.id === next?.id && !past ? ' · najbliższe' : past ? ' · odbyte' : ''}
           </span>
           <span className="ml-auto flex gap-1">
@@ -117,7 +117,7 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
             <Video className="w-3.5 h-3.5" /> Dołącz online
           </a>
         )}
-        <div className="mt-4 text-[11px] uppercase tracking-widest text-mut font-semibold">Materiały do tych zajęć ({mats.length})</div>
+        <div className="mt-4 text-xs uppercase tracking-widest text-mut font-semibold">Materiały do tych zajęć ({mats.length})</div>
         {mats.length === 0
           ? <p className="mt-1.5 text-sm text-mut2">Prowadząca jeszcze nic nie dodała.</p>
           : <div className="mt-2 space-y-2">{mats.map(m => <MaterialRow key={m.id} m={m} />)}</div>}
@@ -131,7 +131,7 @@ export const AnnouncementsPanel: React.FC<{ items: Announcement[]; members: Memb
   <div className="p-4 space-y-3">
     {items.map(a => (
       <article key={a.id} className={`${card} p-4 ${a.pinned ? 'border-amber-300/20' : ''}`}>
-        <div className="flex items-center gap-2 text-[11px] text-mut2">
+        <div className="flex items-center gap-2 text-xs text-mut2">
           {a.pinned && <Pin className="w-3 h-3 text-warn" />}
           <span>{nameOf(members, a.authorId)}</span><span>·</span><span>{fmtRelative(a.date)}</span>
         </div>
@@ -169,9 +169,9 @@ export const ChatPanel: React.FC<{
             <div key={m.id} className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
               {!mine && (() => { const a = members.find(x => x.id === m.authorId); return <Avatar emoji={a?.emoji} color={a?.color} photo={a?.photo} size={26} />; })()}
               <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${mine ? 'bg-sky-500/20 border border-sky-400/20 rounded-br-md' : 'bg-surf border border-line rounded-bl-md'}`}>
-                <div className="text-[10px] text-mut mb-0.5">{mine ? `Ty (${nameOf(members, m.authorId)})` : nameOf(members, m.authorId)} · {fmtRelative(m.date)}</div>
+                <div className="text-xs text-mut mb-0.5">{mine ? `Ty (${nameOf(members, m.authorId)})` : nameOf(members, m.authorId)} · {fmtRelative(m.date)}</div>
                 {/* Tekst renderowany jako tekst (React escapuje) — nigdy jako HTML. */}
-                <div className="text-sm text-fg whitespace-pre-line break-words">{m.body}</div>
+                <div className="text-base lg:text-sm text-fg whitespace-pre-line break-words">{m.body}</div>
               </div>
               {mine && (() => { const a = members.find(x => x.id === m.authorId); return <Avatar emoji={a?.emoji} color={a?.color} photo={a?.photo} size={26} />; })()}
             </div>
@@ -182,13 +182,13 @@ export const ChatPanel: React.FC<{
         <input
           value={text} onChange={e => setText(e.target.value)} maxLength={2000}
           placeholder="Napisz do grupy…" aria-label="Wiadomość do grupy"
-          className="flex-1 bg-surf border border-line rounded-full px-4 py-2 text-sm text-fg placeholder:text-mut2 focus:outline-none focus:border-sky-400/40"
+          className="flex-1 min-w-0 bg-surf border border-line rounded-full px-4 py-2.5 text-base text-fg placeholder:text-mut2 focus:outline-none focus:border-sky-400/40"
         />
-        <button type="submit" disabled={!text.trim()} className="p-2.5 rounded-full bg-sky-500/25 text-acc border border-sky-400/30 disabled:opacity-30 hover:bg-sky-500/35 cursor-pointer" aria-label="Wyślij">
+        <button type="submit" disabled={!text.trim()} className="tap w-11 h-11 flex items-center justify-center rounded-full bg-sky-500/25 text-acc border border-sky-400/30 disabled:opacity-30 hover:bg-sky-500/35 cursor-pointer shrink-0" aria-label="Wyślij">
           <Send className="w-4 h-4" />
         </button>
       </form>
-      {isDemo && <p className="px-4 pb-3 text-[11px] text-mut2">Demo: Twoje wiadomości zostają tylko w tej przeglądarce i nikt ich nie widzi.</p>}
+      {isDemo && <p className="px-4 pb-3 text-xs text-mut2">Demo: Twoje wiadomości zostają tylko w tej przeglądarce i nikt ich nie widzi.</p>}
     </div>
   );
 };
@@ -215,7 +215,7 @@ export const MaterialRow: React.FC<{ m: Material; meetingLabel?: string }> = ({ 
       <span className="w-8 h-8 rounded-lg bg-surf flex items-center justify-center shrink-0">{KIND_ICON[m.kind]}</span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm text-fg truncate">{m.title}</span>
-        <span className="block text-[11px] text-mut2 truncate">{KIND_LABEL[m.kind]}{meetingLabel ? ` · ${meetingLabel}` : ''}{m.note ? ` · ${m.note}` : ''}</span>
+        <span className="block text-xs text-mut2 truncate">{KIND_LABEL[m.kind]}{meetingLabel ? ` · ${meetingLabel}` : ''}{m.note ? ` · ${m.note}` : ''}</span>
       </span>
       {external && <ExternalLink className="w-3.5 h-3.5 text-mut2 shrink-0" />}
     </a>
@@ -230,7 +230,7 @@ export const MaterialsPanel: React.FC<{ items: Material[]; meetings: Meeting[] }
   return (
     <div className="p-4 space-y-2">
       {items.map(m => <MaterialRow key={m.id} m={m} meetingLabel={label(m.meetingId)} />)}
-      <p className="pt-1 text-[11px] text-mut2">Każdy materiał jest przypięty do zajęć — widać go też w kalendarzu po kliknięciu dnia. PDF i obrazy trzymamy u siebie, filmy i nagrania zawsze jako link.</p>
+      <p className="pt-1 text-xs text-mut2">Każdy materiał jest przypięty do zajęć — widać go też w kalendarzu po kliknięciu dnia. PDF i obrazy trzymamy u siebie, filmy i nagrania zawsze jako link.</p>
     </div>
   );
 };
@@ -254,10 +254,10 @@ export const MembersPanel: React.FC<{
 
   return (
     <div className="p-4 space-y-5">
-      <p className="flex items-center gap-1.5 text-[11px] text-mut2"><Shield className="w-3.5 h-3.5" />Ten panel widzi tylko admin. Uczestnicy go nie widzą.</p>
+      <p className="flex items-center gap-1.5 text-xs text-mut2"><Shield className="w-3.5 h-3.5" />Ten panel widzi tylko admin. Uczestnicy go nie widzą.</p>
 
       <div>
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-warn font-semibold">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-warn font-semibold">
           <Clock className="w-3.5 h-3.5" /> Czekają na wpuszczenie ({pending.length})
         </div>
         {pending.length === 0 && <p className="mt-2 text-sm text-mut2">Nikt nie czeka.</p>}
@@ -265,7 +265,7 @@ export const MembersPanel: React.FC<{
           {pending.map(m => (
             <li key={m.id} className={`${card} flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2`}>
               <span className="flex-1 min-w-[10rem] text-sm text-fg">{m.name}
-                <span className="block text-[11px] text-mut2">{m.email ? `${m.email} · ` : ''}zgłoszenie {m.joinedAt ? fmtRelative(m.joinedAt) : ''}</span>
+                <span className="block text-xs text-mut2">{m.email ? `${m.email} · ` : ''}zgłoszenie {m.joinedAt ? fmtRelative(m.joinedAt) : ''}</span>
               </span>
               <button onClick={() => onSetStatus(m.id, 'approved')} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-ok border border-emerald-400/30 hover:bg-emerald-500/30 cursor-pointer"><Check className="w-3.5 h-3.5" />Wpuść</button>
               <button onClick={() => onSetStatus(m.id, 'blocked')} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-surf text-fg2 border border-line hover:bg-surf2 cursor-pointer"><X className="w-3.5 h-3.5" />Odrzuć</button>
@@ -275,21 +275,21 @@ export const MembersPanel: React.FC<{
       </div>
 
       <div>
-        <div className="text-[11px] uppercase tracking-widest text-mut font-semibold">W grupie ({approved.length})</div>
+        <div className="text-xs uppercase tracking-widest text-mut font-semibold">W grupie ({approved.length})</div>
         <ul className="mt-2 space-y-0.5">
           {approved.map(m => (
             <li key={m.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-surf">
               <Avatar emoji={m.emoji} color={m.color} photo={m.photo} size={26} />
               <span className="flex-1 min-w-0 text-sm text-fg truncate">
                 {m.name}
-                {m.role === 'therapist' && <span className="ml-1.5 text-[10px] text-acc">prowadząca</span>}
-                {m.id === selfId && <span className="ml-1.5 text-[10px] text-mut2">(Ty)</span>}
-                {m.email && <span className="block text-[11px] text-mut2 truncate">{m.email}</span>}
+                {m.role === 'therapist' && <span className="ml-1.5 text-xs text-acc">prowadząca</span>}
+                {m.id === selfId && <span className="ml-1.5 text-xs text-mut2">(Ty)</span>}
+                {m.email && <span className="block text-xs text-mut2 truncate">{m.email}</span>}
               </span>
               {m.role !== 'therapist' && m.id !== selfId && (
                 <button
                   onClick={() => { if (confirm(`Usunąć „${m.name}” z grupy? Straci dostęp do wszystkiego w grupie.`)) onSetStatus(m.id, 'removed'); }}
-                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-full text-bad border border-rose-400/25 hover:bg-rose-500/10 cursor-pointer" title="Usuń z grupy">
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-full text-bad border border-rose-400/25 hover:bg-rose-500/10 cursor-pointer" title="Usuń z grupy">
                   <UserMinus className="w-3.5 h-3.5" /><span className="hidden sm:inline">Usuń</span>
                 </button>
               )}
@@ -299,7 +299,7 @@ export const MembersPanel: React.FC<{
       </div>
 
       <form onSubmit={add} className="flex flex-wrap items-center gap-2">
-        <span className="w-full text-[11px] uppercase tracking-widest text-mut font-semibold">Dodaj osobę</span>
+        <span className="w-full text-xs uppercase tracking-widest text-mut font-semibold">Dodaj osobę</span>
         <input className={inp} value={name} onChange={e => setName(e.target.value)} placeholder="Imię lub pseudonim" maxLength={40} aria-label="Imię nowej osoby" />
         <input className={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="e-mail (Google lub inny)" maxLength={120} aria-label="E-mail nowej osoby" />
         <button type="submit" className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-sky-500/20 text-acc border border-sky-400/30 hover:bg-sky-500/30 cursor-pointer"><UserPlus className="w-3.5 h-3.5" />Dodaj</button>
@@ -307,12 +307,12 @@ export const MembersPanel: React.FC<{
 
       {removed.length > 0 && (
         <details>
-          <summary className="text-[11px] text-mut cursor-pointer">Usunięci i odrzuceni ({removed.length})</summary>
+          <summary className="text-xs text-mut cursor-pointer">Usunięci i odrzuceni ({removed.length})</summary>
           <ul className="mt-1.5 space-y-1">
             {removed.map(m => (
               <li key={m.id} className="flex items-center gap-2 text-sm text-mut px-2 py-1">
                 <span className="flex-1">{m.name}</span>
-                <button onClick={() => onSetStatus(m.id, 'approved')} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border border-line hover:bg-surf2 cursor-pointer"><Undo2 className="w-3 h-3" />Przywróć</button>
+                <button onClick={() => onSetStatus(m.id, 'approved')} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-line hover:bg-surf2 cursor-pointer"><Undo2 className="w-3 h-3" />Przywróć</button>
               </li>
             ))}
           </ul>
