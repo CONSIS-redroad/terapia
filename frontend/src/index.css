@@ -86,3 +86,7 @@
     input, select, textarea { font-size: 16px !important; }
   }
 }
+
+/* karuzela: bez paska przewijania */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

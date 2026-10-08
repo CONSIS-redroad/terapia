@@ -27,7 +27,7 @@ export const PanelContainer: React.FC<ContainerProps> = ({
       <div className="flex items-center justify-between px-4 py-2 bg-surf backdrop-blur-xl rounded-t-2xl border-b border-line select-none">
         <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing text-mut hover:text-fg">
           <GripVertical className="w-3.5 h-3.5 text-mut2 opacity-0 group-hover:opacity-100 transition-opacity" />
-          <h3 className="text-[11px] font-bold uppercase tracking-wider text-fg2">{title}</h3>
+          <h3 className="text-[11px] font-bold uppercase tracking-wider text-fg2"><button type="button" onClick={onToggleCollapse} className="uppercase tracking-wider cursor-pointer hover:text-fg" aria-expanded={!config.isCollapsed} title={config.isCollapsed ? 'Rozwiń' : 'Zwiń'}>{title}{config.isCollapsed ? ' ▾' : ''}</button></h3>
         </div>
         <div className="flex items-center gap-1 text-mut opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
           <button onClick={onMoveUp} disabled={!canMoveUp} className="p-1 rounded-md hover:bg-surf2 disabled:opacity-20 cursor-pointer" title="Przesuń wyżej"><ArrowUp className="w-3.5 h-3.5" /></button>

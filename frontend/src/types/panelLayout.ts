@@ -10,7 +10,7 @@ export interface PanelConfig {
 
 export const DEFAULT_PANELS: PanelConfig[] = [
   { id: 'meetings', title: 'Kalendarz zajęć', isCollapsed: false, isVisible: true },
-  { id: 'materials', title: 'Media — biblioteka', isCollapsed: false, isVisible: true },
+  { id: 'materials', title: 'Media — biblioteka (rozwiń)', isCollapsed: true, isVisible: true },
   { id: 'announcements', title: 'Ogłoszenia', isCollapsed: false, isVisible: true },
   { id: 'chat', title: 'Rozmowa grupy', isCollapsed: false, isVisible: true },
   { id: 'members', title: 'Admin — wpuszczanie i uczestnicy', isCollapsed: false, isVisible: true },

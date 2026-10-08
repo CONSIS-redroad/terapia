@@ -12,3 +12,4 @@ D010 (2026-10-08): Materiał zawsze należy do konkretnych zajęć cyklu; kalend
 D011 (2026-10-08): Profil uczestnika — pseudonim domyślnie; reszta (zdjęcie, imię, opis) widoczna dla grupy tylko po włączeniu przez uczestnika. Dwa motywy: jasny i ciemny.
 D012 (2026-10-08): Najważniejsze są Kalendarz i Media. Medium ma kategorię (zajecia/ksiazka/poradnik/podcast/film/inne) i OPCJONALNE powiązanie z zajęciami — bez powiązania = „luźne”.
 D013 (2026-10-08): Tapeta = motyw z folderu `frontend/src/themes/` (jeden plik na motyw + wpis w `index.ts`), wybór w Ustawieniach użytkownika; ruch tła jak w Luna2 (paralaksa + obracanie przeciąganiem), do wyłączenia; szanuje „ogranicz ruch” w systemie.
+D014 (2026-10-08): Telefon/tablet (<1024 px) = karuzela ekranów (CSS scroll-snap, bez bibliotek); komputer = siatka paneli. Pierwszy ekran zawsze sama tapeta z nazwą grupy. Dzienniczek = osobna aplikacja, tylko LINK (bez wymiany danych).
