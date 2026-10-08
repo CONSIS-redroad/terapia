@@ -1,7 +1,7 @@
 // PATH: src/components/panels.tsx | REQ-ID: TERAPIA-PANELS-01
 // Zawartość paneli grupy. Wygląd w języku Luna2: ciemne, półprzezroczyste karty, drobna typografia.
 import React, { useEffect, useRef, useState } from 'react';
-import {
+import { Pencil,
   CalendarDays, ChevronLeft, ChevronRight, MapPin, Video, FileText, Image as ImageIcon, Music, Link2, Pin, Send,
   Check, X, Clock, ExternalLink, Shield, UserPlus, UserMinus, Undo2,
 } from 'lucide-react';
@@ -181,7 +181,18 @@ export const MembersPanel: React.FC<{
   members: Member[]; onSetStatus: (id: string, s: MembershipStatus) => void;
   onAdd: (name: string, email: string) => void; selfId: string;
   usage: Record<string, number>;
-}> = ({ members, onSetStatus, onAdd, selfId, usage }) => {
+  /** Faza 2: admin nadaje imię (rozróżnienie przy dwóch „Aniach”). */
+  onRename?: (id: string, name: string) => void;
+  /** Faza 2: zatwierdzenie/odrzucenie imienia zaproponowanego przez uczestnika. */
+  onNameDecision?: (id: string, accept: boolean) => void;
+}> = ({ members, onSetStatus, onAdd, selfId, usage, onRename, onNameDecision }) => {
+  const nameKey = (s: string) => s.trim().toLocaleLowerCase('pl-PL');
+  const takenBy = (m: Member) => members.find(x => x.id !== m.id && x.status === 'approved' && nameKey(x.name) === nameKey(m.name));
+  const rename = (m: Member) => {
+    const v = prompt(`Nowe imię dla „${m.name}” (np. z inicjałem: „${m.name.split(' ')[0]} K.”):`, m.name);
+    if (v && v.trim() && v.trim() !== m.name && onRename) onRename(m.id, v.trim());
+  };
+  const proposals = members.filter(m => m.pendingName);
   const groupBytes = Object.values(usage).reduce((s, b) => s + b, 0);
   const pending = members.filter(m => m.status === 'pending');
   const approved = members.filter(m => m.status === 'approved');
@@ -214,13 +225,32 @@ export const MembersPanel: React.FC<{
             <li key={m.id} className={`${card} flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2`}>
               <span className="flex-1 min-w-[10rem] text-sm text-fg">{m.name}
                 <span className="block text-xs text-mut2">{m.email ? `${m.email} · ` : ''}zgłoszenie {m.joinedAt ? fmtRelative(m.joinedAt) : ''}</span>
+                {takenBy(m) && <span className="block text-xs text-warn">W grupie jest już „{takenBy(m)!.name}” — nadaj rozróżnienie przed wpuszczeniem.</span>}
               </span>
+              {onRename && <button onClick={() => rename(m)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-surf text-fg2 border border-line hover:bg-surf2 cursor-pointer"><Pencil className="w-3.5 h-3.5" />Imię</button>}
               <button onClick={() => onSetStatus(m.id, 'approved')} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-ok border border-emerald-400/30 hover:bg-emerald-500/30 cursor-pointer"><Check className="w-3.5 h-3.5" />Wpuść</button>
               <button onClick={() => onSetStatus(m.id, 'blocked')} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-surf text-fg2 border border-line hover:bg-surf2 cursor-pointer"><X className="w-3.5 h-3.5" />Odrzuć</button>
             </li>
           ))}
         </ul>
       </div>
+
+      {proposals.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-warn font-semibold"><Pencil className="w-3.5 h-3.5" /> Prośby o zmianę imienia ({proposals.length})</div>
+          <ul className="mt-2 space-y-1.5">
+            {proposals.map(m => (
+              <li key={m.id} className={`${card} flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2`}>
+                <span className="flex-1 min-w-[10rem] text-sm text-fg">„{m.name}” chce się nazywać <strong>„{m.pendingName}”</strong>
+                  <span className="block text-xs text-mut2">Do czasu zatwierdzenia grupa widzi stare imię.</span>
+                </span>
+                <button onClick={() => onNameDecision?.(m.id, true)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-ok border border-emerald-400/30 hover:bg-emerald-500/30 cursor-pointer"><Check className="w-3.5 h-3.5" />Zatwierdź</button>
+                <button onClick={() => onNameDecision?.(m.id, false)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-surf text-fg2 border border-line hover:bg-surf2 cursor-pointer"><X className="w-3.5 h-3.5" />Odrzuć</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div>
         <div className="text-xs uppercase tracking-widest text-mut font-semibold">W grupie ({approved.length})</div>
@@ -238,6 +268,7 @@ export const MembersPanel: React.FC<{
                   <span className="text-xs text-mut">pliki {fmtSize(usage[m.id] ?? 0)} / 40 MB</span>
                 </span>
               </span>
+              {onRename && <button onClick={() => rename(m)} className="flex items-center gap-1 text-xs px-2 py-1 rounded-full text-fg2 border border-line hover:bg-surf2 cursor-pointer" title="Zmień imię"><Pencil className="w-3.5 h-3.5" /><span className="hidden sm:inline">Imię</span></button>}
               {m.role !== 'therapist' && m.id !== selfId && (
                 <button
                   onClick={() => { if (confirm(`Usunąć „${m.name}” z grupy? Straci dostęp do wszystkiego w grupie.`)) onSetStatus(m.id, 'removed'); }}

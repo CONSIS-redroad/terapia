@@ -18,9 +18,17 @@ export interface GroupDataSource {
   members(): Promise<Member[]>;
   setMemberStatus(memberId: string, status: MembershipStatus): Promise<void>;
   addMember(name: string, email: string): Promise<Member>;
+  /** Admin: nadaj/zmień imię (np. rozróżnienie „Ania K.”). */
+  renameMember?(memberId: string, name: string): Promise<void>;
+  /** Admin: zatwierdź albo odrzuć imię zaproponowane przez uczestnika. */
+  decideName?(memberId: string, accept: boolean): Promise<void>;
   meetings(): Promise<Meeting[]>;
   /** Admin: streszczenie, rozwinięcie, zdjęcia z sali. */
   updateMeeting(id: string, patch: Partial<Meeting>): Promise<void>;
+  /** Admin (Harmonogram): dodaj spotkania (seria albo pojedyncze). */
+  addMeetings(list: Omit<Meeting, 'id'>[]): Promise<void>;
+  /** Admin: usuń spotkanie na stałe (zwykle lepiej „odwołaj”). */
+  deleteMeeting(id: string): Promise<void>;
   homework(): Promise<Homework[]>;
   /** „Zrobione” — prywatne dla uczestnika. */
   homeworkDone(): Promise<Record<string, boolean>>;
@@ -50,6 +58,8 @@ interface LocalState {
   memberStatus: Record<string, MembershipStatus>;
   addedMembers?: Member[];
   meetingPatch?: Record<string, Partial<Meeting>>;
+  addedMeetings?: Meeting[];
+  deletedMeetings?: string[];
   messagePatch?: Record<string, Partial<Message>>;
   hwDone?: Record<string, boolean>;
 }
@@ -93,7 +103,21 @@ class DemoSource implements GroupDataSource {
 
   async meetings() {
     const patch = readLocal().meetingPatch ?? {};
-    return DEMO_MEETINGS.map(m => ({ ...m, ...(patch[m.id] ?? {}) })).sort((a, b) => a.date.localeCompare(b.date));
+    const { addedMeetings = [], deletedMeetings = [] } = readLocal();
+    return [...DEMO_MEETINGS, ...addedMeetings].filter(m => !deletedMeetings.includes(m.id))
+      .map(m => ({ ...m, ...(patch[m.id] ?? {}) })).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async addMeetings(list: Omit<Meeting, 'id'>[]) {
+    const s = readLocal();
+    s.addedMeetings = [...(s.addedMeetings ?? []), ...list.map((m, i) => ({ ...m, id: `local-mt-${Date.now()}-${i}` }))];
+    writeLocal(s);
+  }
+
+  async deleteMeeting(id: string) {
+    const s = readLocal();
+    s.deletedMeetings = [...(s.deletedMeetings ?? []), id];
+    writeLocal(s);
   }
 
   async updateMeeting(id: string, patch: Partial<Meeting>) {

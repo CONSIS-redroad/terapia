@@ -215,10 +215,15 @@ const SupabaseGate: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   const accept = useCallback(async (firstName: string) => {
     const name = firstName.trim();
-    const up = member
-      ? await sb.from('members').update({ name }).eq('id', uid)
-      : await sb.from('members').insert({ id: uid, name });
-    if (up.error) throw new Error(up.error.message);
+    if (!member) {
+      const up = await sb.from('members').insert({ id: uid, name });
+      if (up.error) throw new Error(up.error.message);
+    } else if (name !== member.name) {
+      // zmiana imienia = prośba do admina (baza zapisuje ją w pending_name; grupa widzi stare imię do zatwierdzenia)
+      const up = await sb.from('members').update({ name }).eq('id', uid);
+      if (up.error) throw new Error(up.error.message);
+      alert(`Zmiana imienia na „${name}” czeka na zatwierdzenie prowadzącej. Do tego czasu grupa widzi „${member.name}”.`);
+    }
     const c = await sb.from('consents').upsert({ member_id: uid, rules_version: RULES_VERSION }, { onConflict: 'member_id,rules_version', ignoreDuplicates: true });
     if (c.error) throw new Error(c.error.message);
     await loadMe();

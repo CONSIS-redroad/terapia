@@ -15,6 +15,8 @@ export interface Member {
   photo?: string;
   about?: string;
   email?: string; // widzi tylko admin
+  /** Faza 2: imię zaproponowane przez uczestnika — czeka na zatwierdzenie admina. */
+  pendingName?: string;
 }
 
 export interface Group {
@@ -37,6 +39,10 @@ export interface Meeting {
   details?: string;
   /** Zdjęcia z sali (np. tablica) — dodaje prowadząca/admin. */
   photos?: { url: string; caption: string; id?: string }[]; // id = wiersz w bazie (faza 2)
+  /** Harmonogram: odwołane (nie liczy się do serii, treści zostają). */
+  cancelled?: boolean;
+  /** Krótka uwaga admina, np. „zastępczo w środę”. */
+  note?: string;
 }
 
 /** Praca domowa: zadana na zajęciach `givenAt`, do oddania/omówienia na zajęciach `dueAt`. */

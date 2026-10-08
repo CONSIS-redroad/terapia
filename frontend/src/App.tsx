@@ -21,6 +21,8 @@ import { RulesPanel } from './components/RulesPanel';
 import { Onboarding, validateFirstName } from './components/Onboarding';
 import { RULES_VERSION } from './demo/rules';
 import { MediaLibrary } from './components/MediaLibrary';
+import { ScheduleEditor } from './components/ScheduleEditor';
+import { ArchivePanel } from './components/ArchivePanel';
 import type { PanelId } from './types/panelLayout';
 import { NAV_SCREENS } from './config/ui.config';
 import type { Member } from './types/group';
@@ -93,14 +95,16 @@ export default function App() {
   // „Ty” jako członek grupy — wyłącznie z danych, które uczestnik pokazał (publicView).
   const me: Member = { id: g.currentUserId, name: pub.name, role: 'participant', status: 'approved', emoji: profile.emoji, color: profile.color, photo: pub.usePhoto ? profile.photoDataUrl : undefined, about: pub.about || undefined };
   const members = live ? g.members : [...g.members, me];
-  const allowed = (id: PanelId) => id !== 'members' || isAdmin;
+  const allowed = (id: PanelId) => (id !== 'members' && id !== 'schedule') || isAdmin;
+  // odwołane spotkania widzi tylko Harmonogram admina; reszta ekranów — tylko aktualny cykl
+  const meetings = g.meetings.filter(m => !m.cancelled);
   const visible = panels.filter(p => p.isVisible && allowed(p.id));
   const hiddenCount = panels.filter(p => !p.isVisible && allowed(p.id)).length;
   const pendingCount = members.filter(m => m.status === 'pending').length;
   // zajętość plików na osobę (do limitu 40 MB) — widok admina
   const usage: Record<string, number> = g.usage ? { ...g.usage } : {};
   if (!g.usage) for (const m of g.messages) if (m.attachment && !m.attachmentDeleted && !m.deleted) usage[m.authorId] = (usage[m.authorId] ?? 0) + m.attachment.size;
-  const hwTodo = g.homework.filter(h => !g.hwDone[h.id] && g.meetings.some(m => m.id === h.dueAt && new Date(m.date).getTime() + m.durationMin * 60000 > Date.now())).length;
+  const hwTodo = g.homework.filter(h => !g.hwDone[h.id] && meetings.some(m => m.id === h.dueAt && new Date(m.date).getTime() + m.durationMin * 60000 > Date.now())).length;
 
   const openMeeting = (id: string) => {
     setMeetingId(id);
@@ -115,12 +119,15 @@ export default function App() {
   const content = (id: PanelId) => {
     if (g.loading) return <div className="p-4 text-sm text-mut2">Wczytywanie…</div>;
     switch (id) {
-      case 'meetings': return <MeetingsPanel meetings={g.meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId} />;
-      case 'homework': return <HomeworkPanel homework={g.homework} meetings={g.meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting} />;
+      case 'meetings': return <MeetingsPanel meetings={meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId} />;
+      case 'homework': return <HomeworkPanel homework={g.homework} meetings={meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting} />;
       case 'chat': return <ChatPanel messages={g.messages} members={members} announcements={g.announcements} currentUserId={g.currentUserId} isAdmin={isAdmin} isDemo={g.isDemo}
         onSend={g.sendMessage} onReact={g.react} onDeleteAttachment={g.deleteAttachment} onDeleteMessage={g.deleteMessage} />;
-      case 'materials': return <MediaLibrary items={g.materials} meetings={g.meetings} onOpenMeeting={openMeeting} />;
-      case 'members': return <MembersPanel members={members} onSetStatus={g.setMemberStatus} onAdd={g.addMember} selfId={g.currentUserId} usage={usage} />;
+      case 'materials': return <MediaLibrary items={g.materials} meetings={meetings} onOpenMeeting={openMeeting} />;
+      case 'members': return <MembersPanel members={members} onSetStatus={g.setMemberStatus} onAdd={g.addMember} selfId={g.currentUserId} usage={usage}
+        onRename={live ? g.renameMember : undefined} onNameDecision={live ? g.decideName : undefined} />;
+      case 'schedule': return <ScheduleEditor meetings={g.meetings} onAdd={g.addMeetings} onUpdate={g.updateMeeting} onDelete={g.deleteMeeting} />;
+      case 'archive': return <ArchivePanel isAdmin={isAdmin} />;
       case 'rules': return <RulesPanel acceptedAt={live ? auth.acceptedAt : consent?.at} onShowConsent={() => setConsentAgain(true)} />;
     }
   };
@@ -211,7 +218,7 @@ export default function App() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 items-start pb-16">
               {visible.map((p, idx) => (
-                <div key={p.id} id={`panel-${p.id}`} className={`min-w-0 scroll-mt-24 ${p.id === 'members' || p.id === 'meetings' || p.id === 'materials' || p.id === 'rules' ? 'lg:col-span-2' : ''}`}>
+                <div key={p.id} id={`panel-${p.id}`} className={`min-w-0 scroll-mt-24 ${p.id === 'members' || p.id === 'schedule' || p.id === 'archive' || p.id === 'meetings' || p.id === 'materials' || p.id === 'rules' ? 'lg:col-span-2' : ''}`}>
                   <PanelContainer
                     config={p} canMoveUp={idx > 0} canMoveDown={idx < visible.length - 1}
                     onToggleCollapse={() => toggleCollapse(p.id)} onHide={() => toggleVisibility(p.id)}

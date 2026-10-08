@@ -48,10 +48,14 @@ export function useGroup() {
   const deleteAttachment = async (id: string, by: 'admin' | 'author') => { await groupData.deleteAttachment(id, by); await load(); };
   const deleteMessage = async (id: string, by: 'admin' | 'author', reason?: string) => { await groupData.deleteMessage(id, by, reason); await load(); };
 
-  const setMemberStatus = async (id: string, status: MembershipStatus) => {
-    await groupData.setMemberStatus(id, status);
+  const setMemberStatus = (id: string, status: MembershipStatus) => guard(() => groupData.setMemberStatus(id, status));
+
+  const guard = async (f: () => Promise<void> | undefined) => {
+    try { await f(); } catch (e) { alert(e instanceof Error ? e.message : String(e)); } // np. dwa takie same imiona
     await load();
   };
+  const renameMember = (id: string, name: string) => guard(() => groupData.renameMember?.(id, name));
+  const decideName = (id: string, accept: boolean) => guard(() => groupData.decideName?.(id, accept));
 
   const addMember = async (name: string, email: string) => {
     await groupData.addMember(name, email);
@@ -59,6 +63,8 @@ export function useGroup() {
   };
 
   const updateMeeting = async (id: string, patch: Partial<Meeting>) => { await groupData.updateMeeting(id, patch); await load(); };
+  const addMeetings = async (list: Omit<Meeting, 'id'>[]) => { await groupData.addMeetings(list); await load(); };
+  const deleteMeeting = async (id: string) => { await groupData.deleteMeeting(id); await load(); };
   const toggleHomeworkDone = async (id: string) => { await groupData.toggleHomeworkDone(id); await load(); };
 
   const resetDemo = async () => {
@@ -70,6 +76,6 @@ export function useGroup() {
     ...state,
     isDemo: groupData.isDemo,
     currentUserId: groupData.currentUserId(),
-    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, addMember, updateMeeting, toggleHomeworkDone, resetDemo,
+    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, renameMember, decideName, addMember, updateMeeting, addMeetings, deleteMeeting, toggleHomeworkDone, resetDemo,
   };
 }

@@ -40,3 +40,4 @@
 - Wydanie: demo bez zmian pod `/terapia/`, wersja z bazą pod `/terapia/grupa/` (decyzje D022–D024).
 
 - 2026-10-08 23:1x: logowanie bez maili (D025): „Zaloguj przez Google” + e-mail i hasło (Zaloguj / Załóż konto), link e-mail tylko jako zapas prowadzącej. Admin grupy = waczynski@gmail.com.
+- 2026-10-08 23:5x: znaczek ADMIN, „Usuń całą grupę” z potwierdzeniem nazwą (zamiast „usuń konto”), tapeta na ekranach wejścia (D026); harmonogram admina — seria, odwołanie, przeniesienie, dołożenie (D027); imię zatwierdza admin + unikalne imiona (D028); zakładka Archiwum z lekturami, MP3 i plikami starej TERAPII (D029); CSP: wysyłanie plików (`blob:`), miniatury YouTube.

@@ -69,6 +69,11 @@ export class SupabaseSource implements GroupDataSource {
       joinedAt: r.joined_at ?? undefined, emoji: r.emoji ?? undefined, color: r.color ?? undefined,
       photo: r.photo_url ?? undefined, about: r.about || undefined, email: r.email ?? undefined,
     }));
+    // admin: propozycje zmiany imienia (kolumna pending_name widoczna tylko dla admina przez RLS tabeli members)
+    const pn = await sb().from('members').select('id,pending_name').not('pending_name', 'is', null);
+    if (!pn.error && pn.data) for (const r of pn.data as Array<{ id: string; pending_name: string }>) {
+      const m = list.find(x => x.id === r.id); if (m) m.pendingName = r.pending_name;
+    }
     // admin widzi też zaproszenia osób, które jeszcze się nie zalogowały
     const inv = await sb().from('invites').select('email,name,invited_at');
     if (!inv.error && inv.data) {
@@ -86,7 +91,20 @@ export class SupabaseSource implements GroupDataSource {
       if (status === 'removed' || status === 'blocked') must(await sb().from('invites').delete().eq('email', memberId.slice(7)));
       return;
     }
-    must(await sb().from('members').update({ status }).eq('id', memberId));
+    const r = await sb().from('members').update({ status }).eq('id', memberId);
+    if (r.error) throw new Error(/members_name_unique|duplicate key/i.test(r.error.message)
+      ? 'W grupie jest już osoba o tym imieniu — najpierw nadaj rozróżnienie (np. „Ania K.”), potem wpuść.' : r.error.message);
+  }
+
+  async renameMember(memberId: string, name: string) {
+    const r = await sb().from('members').update({ name: name.trim().slice(0, 40), pending_name: null }).eq('id', memberId);
+    if (r.error) throw new Error(/members_name_unique|duplicate key/i.test(r.error.message) ? 'To imię ma już ktoś w grupie — dodaj rozróżnienie (np. inicjał).' : r.error.message);
+  }
+
+  async decideName(memberId: string, accept: boolean) {
+    const m = must(await sb().from('members').select('pending_name').eq('id', memberId).single()) as { pending_name: string | null };
+    if (accept && m.pending_name) return this.renameMember(memberId, m.pending_name);
+    must(await sb().from('members').update({ pending_name: null }).eq('id', memberId));
   }
 
   async addMember(name: string, email: string): Promise<Member> {
@@ -104,6 +122,7 @@ export class SupabaseSource implements GroupDataSource {
       id: r.id as string, date: r.starts_at as string, durationMin: r.duration_min as number,
       topic: r.topic as string, place: r.place as string,
       summary: (r.summary as string) || undefined, details: (r.details as string) || undefined,
+      cancelled: !!r.cancelled, note: (r.note as string) || undefined,
       photos: ((r.meeting_photos as Array<{ id: string; path: string; caption: string; created_at: string }>) ?? [])
         .sort((a, b) => a.created_at.localeCompare(b.created_at))
         .map(p => ({ id: p.id, url: urls[p.path], caption: p.caption })),
@@ -116,6 +135,10 @@ export class SupabaseSource implements GroupDataSource {
     if ('details' in patch) row.details = patch.details ?? '';
     if ('topic' in patch) row.topic = patch.topic ?? '';
     if ('place' in patch) row.place = patch.place ?? '';
+    if (patch.date) row.starts_at = patch.date;
+    if (patch.durationMin) row.duration_min = patch.durationMin;
+    if ('cancelled' in patch) row.cancelled = !!patch.cancelled;
+    if ('note' in patch) row.note = (patch.note ?? '').slice(0, 300);
     if (Object.keys(row).length) must(await sb().from('meetings').update({ ...row, updated_at: new Date().toISOString() }).eq('id', id));
     if (patch.photos) {
       const current = must(await sb().from('meeting_photos').select('id,path').eq('meeting_id', id)) as Array<{ id: string; path: string }>;
@@ -133,6 +156,18 @@ export class SupabaseSource implements GroupDataSource {
         must(await sb().from('meeting_photos').insert({ meeting_id: id, path, caption: p.caption ?? '' }));
       }
     }
+  }
+
+  async addMeetings(list: Omit<Meeting, 'id'>[]) {
+    if (!list.length) return;
+    must(await sb().from('meetings').insert(list.map(m => ({
+      starts_at: m.date, duration_min: m.durationMin, topic: m.topic ?? '', place: m.place ?? '',
+      cancelled: !!m.cancelled, note: (m.note ?? '').slice(0, 300),
+    }))));
+  }
+
+  async deleteMeeting(id: string) {
+    must(await sb().from('meetings').delete().eq('id', id));
   }
 
   async homework(): Promise<Homework[]> {

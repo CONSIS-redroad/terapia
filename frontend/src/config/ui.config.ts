@@ -6,7 +6,7 @@
 //  - kolory i tło interfejsu NIE tutaj — te żyją w motywach (src/themes + klasy bg-panel/text-fg itd.).
 // Po zmianie: `npx tsc --noEmit` (typy pilnują, żeby żadnego ekranu ani kategorii nie zabrakło).
 import {
-  BookOpen, CalendarDays, Clapperboard, ClipboardCheck, FileText, Headphones, Library, LifeBuoy,
+  BookOpen, History, CalendarCog, CalendarDays, Clapperboard, ClipboardCheck, FileText, Headphones, Library, LifeBuoy,
   MessagesSquare, ScrollText, Shapes, ShieldCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -55,6 +55,8 @@ export const NAV_SCREENS: Record<PanelId, { label: string; icon: LucideIcon }> =
   chat: { label: 'Czat', icon: MessagesSquare },
   rules: { label: 'Zasady', icon: ScrollText },
   members: { label: 'Admin', icon: ShieldCheck },
+  schedule: { label: 'Terminy', icon: CalendarCog },
+  archive: { label: 'Archiwum', icon: History },
 };
 
 // ─── Biblioteka mediów ───────────────────────────────────────────────────────
