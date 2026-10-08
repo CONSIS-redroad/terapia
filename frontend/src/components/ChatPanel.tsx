@@ -151,9 +151,9 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
                   )}
                   {m.attachment && !m.attachmentDeleted && (
                     m.attachment.kind === 'image'
-                      ? <button onClick={e => { e.stopPropagation(); setZoom(m.attachment!.url); }} className="block mt-1 cursor-zoom-in"><img src={m.attachment.url} alt={m.attachment.name} className="max-h-60 max-w-full rounded-xl border border-line" /></button>
+                      ? <button onClick={e => { e.stopPropagation(); setZoom(m.attachment!.url); }} className="block mt-1 cursor-zoom-in"><img src={m.attachment.url} alt={m.attachment.name} className="block w-60 max-w-full h-auto max-h-72 object-cover rounded-xl border border-line" /></button>
                       : m.attachment.kind === 'video'
-                        ? <video src={m.attachment.url} controls playsInline preload="metadata" className="mt-1 max-h-64 rounded-xl border border-line" onClick={e => e.stopPropagation()} />
+                        ? <video src={m.attachment.url} controls playsInline preload="metadata" className="mt-1 block w-64 max-w-full max-h-72 rounded-xl border border-line" onClick={e => e.stopPropagation()} />
                         : <FileChip a={m.attachment} mine={mine} />
                   )}
                   {m.attachmentDeleted && <div className="mt-1 text-sm italic text-mut">🗑 Plik usunięty{m.attachmentDeleted === 'admin' ? ' przez prowadzącą' : ''}</div>}
