@@ -20,7 +20,7 @@ const FORMAT: Record<Material['kind'], string> = { pdf: 'PDF', image: 'obraz', v
 type When = 'all' | '7' | '30' | 'from';
 type Link = 'all' | 'loose' | string; // string = id zajęć
 
-const sel = 'bg-surf border border-line rounded-full px-3 py-1.5 text-xs text-fg focus:outline-none focus:border-sky-400/40';
+const sel = 'max-w-full min-w-0 truncate bg-surf border border-line rounded-full px-3 py-1.5 text-xs text-fg focus:outline-none focus:border-sky-400/40';
 
 export const MediaLibrary: React.FC<{ items: Material[]; meetings: Meeting[]; onOpenMeeting: (id: string) => void }> = ({ items, meetings, onOpenMeeting }) => {
   const [q, setQ] = useState('');
@@ -79,7 +79,7 @@ export const MediaLibrary: React.FC<{ items: Material[]; meetings: Meeting[]; on
 
       {/* filtry */}
       <div className="flex flex-wrap items-center gap-2">
-        <select className={sel} value={link} onChange={e => setLink(e.target.value)} aria-label="Powiązanie z zajęciami">
+        <select className={`${sel} w-full sm:w-auto`} value={link} onChange={e => setLink(e.target.value)} aria-label="Powiązanie z zajęciami">
           <option value="all">Wszystkie zajęcia i luźne</option>
           <option value="loose">Tylko luźne (bez zajęć)</option>
           {meetings.map((m, i) => <option key={m.id} value={m.id}>Zajęcia {i + 1}: {m.topic}</option>)}

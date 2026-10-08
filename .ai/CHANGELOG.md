@@ -25,3 +25,4 @@
 - 2026-10-08: telefon / tablet / komputer — układ 2 kolumny od 1024 px, przycisk „Zainstaluj” (PWA) z instrukcją dla iOS, Androida i komputera.
 - 2026-10-08: tapety z folderu `src/themes/` (wiśnia na śniegu z opadającymi płatkami, deszcz, świt) z ruchem jak w Luna (paralaksa + obracanie przeciąganiem); ustawienia użytkownika w oknie z zakładkami jak w Luna (Profil, Wygląd, Panele, Dane), otwierane awatarem w nagłówku.
 - 2026-10-08: Media — biblioteka: szukanie (tytuł/autor/temat zajęć), kategorie (do zajęć, książki, poradniki, podcasty, filmy, inne), data dodania (7/30 dni, od daty), powiązanie z zajęciami albo luźne, sortowanie; klik w zajęcia przenosi do kalendarza.
+- 2026-10-08: telefon jak aplikacja — strona zawsze w szerokości ekranu (kalendarz rozpychał do 427 px), bez przybliżania przy wpisywaniu (16 px w polach), bez przybliżania podwójnym stuknięciem, miejsce na notch i pasek gestów; zmierzone 320/360/390/430 px: szerokość strony = szerokość ekranu.

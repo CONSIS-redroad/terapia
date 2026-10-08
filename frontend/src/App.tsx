@@ -58,11 +58,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen text-fg relative">
+    <div className="min-h-[100dvh] text-fg relative overflow-x-clip">
       <Wallpaper settings={wall.settings} dark={dark} />
 
-      <main className="relative z-10 max-w-[1240px] mx-auto px-4 py-4">
-        <header className="sticky top-4 z-40 max-w-[820px] mx-auto px-4 py-2 rounded-full bg-head backdrop-blur-3xl border border-line shadow-2xl flex items-center justify-between">
+      <main className="relative z-10 max-w-[1240px] mx-auto px-3 sm:px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4">
+        <header className="sticky top-[max(0.75rem,env(safe-area-inset-top))] z-40 max-w-[820px] mx-auto px-4 py-2 rounded-full bg-head backdrop-blur-3xl border border-line shadow-2xl flex items-center justify-between">
           <div className="flex items-center gap-2.5 pl-2 select-none">
             <span className="w-2 h-2 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.7)]" />
             <span className="font-extrabold text-sm tracking-[0.25em]">TERAPIA</span>
@@ -108,9 +108,9 @@ export default function App() {
           )}
         </div></section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 items-start pb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 items-start pb-[max(4rem,env(safe-area-inset-bottom))]">
           {visible.map((p, idx) => (
-            <div key={p.id} id={`panel-${p.id}`} className={`scroll-mt-24 ${p.id === 'members' || p.id === 'meetings' || p.id === 'materials' ? 'lg:col-span-2' : ''}`}>
+            <div key={p.id} id={`panel-${p.id}`} className={`min-w-0 scroll-mt-24 ${p.id === 'members' || p.id === 'meetings' || p.id === 'materials' ? 'lg:col-span-2' : ''}`}>
             <PanelContainer
               config={p} canMoveUp={idx > 0} canMoveDown={idx < visible.length - 1}
               onToggleCollapse={() => toggleCollapse(p.id)} onHide={() => toggleVisibility(p.id)}

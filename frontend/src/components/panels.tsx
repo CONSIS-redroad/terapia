@@ -59,9 +59,9 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
   const past = isPast(selected.date, selected.durationMin);
 
   return (
-    <div className="p-4 grid gap-4 md:grid-cols-[minmax(0,300px)_1fr]">
+    <div className="p-3 sm:p-4 grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
       {/* kalendarz miesiąca */}
-      <div>
+      <div className="min-w-0">
         <div className="flex items-center justify-between mb-2">
           <button onClick={() => shiftMonth(-1)} className="p-1.5 rounded-full hover:bg-surf2 text-mut cursor-pointer" aria-label="Poprzedni miesiąc"><ChevronLeft className="w-4 h-4" /></button>
           <span className="text-sm font-semibold text-fg capitalize">{monthLabel}</span>
@@ -97,7 +97,7 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
       </div>
 
       {/* szczegóły wybranych zajęć */}
-      <div className={`${card} p-4 ${selected.id === next?.id && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
+      <div className={`${card} min-w-0 p-4 ${selected.id === next?.id && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-widest text-acc font-semibold">
             Zajęcia {selIdx + 1} z {meetings.length}{selected.id === next?.id && !past ? ' · najbliższe' : past ? ' · odbyte' : ''}

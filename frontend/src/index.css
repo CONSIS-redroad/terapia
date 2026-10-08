@@ -68,8 +68,21 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
+  html, body {
+    overflow-x: clip;               /* strona nigdy szersza niż ekran */
+    max-width: 100%;
+  }
   body {
     background: var(--t-bg);
     color: var(--t-fg);
+    overscroll-behavior-x: none;     /* bez „gumowania” w bok */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  button, a, input, select, textarea, label { touch-action: manipulation; } /* bez przybliżania podwójnym stuknięciem */
+  img, svg, video, canvas { max-width: 100%; }
+  /* iPhone przybliża stronę przy wpisywaniu, gdy pole ma czcionkę < 16 px — na telefonie wymuszamy 16 px */
+  @media (max-width: 640px) {
+    input, select, textarea { font-size: 16px !important; }
   }
 }
