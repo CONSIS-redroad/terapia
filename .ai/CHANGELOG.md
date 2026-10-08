@@ -39,3 +39,4 @@
 - `services/supabaseSource.ts` — druga implementacja `GroupDataSource` (ekrany bez zmian), `components/AuthGate.tsx` — logowanie linkiem e-mail (Google po włączeniu), imię + zgoda, ekran „czekasz na akceptację” (sam się otwiera po wpuszczeniu).
 - Wydanie: demo bez zmian pod `/terapia/`, wersja z bazą pod `/terapia/grupa/` (decyzje D022–D024).
 
+- 2026-10-08 23:1x: logowanie bez maili (D025): „Zaloguj przez Google” + e-mail i hasło (Zaloguj / Załóż konto), link e-mail tylko jako zapas prowadzącej. Admin grupy = waczynski@gmail.com.

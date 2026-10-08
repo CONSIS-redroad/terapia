@@ -49,47 +49,80 @@ const Screen: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 function LoginScreen() {
+  // D025: Google (bez maili) albo e-mail + hasło bez potwierdzania maila — bramką jest akceptacja admina.
+  // Link na e-mail zostaje tylko jako zapas dla prowadzącej (darmowa poczta Supabase wysyła wyłącznie do członków zespołu projektu).
+  const [mode, setMode] = useState<'login' | 'signup' | 'link'>('login');
   const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const sendLink = async (e: React.FormEvent) => {
+  const human = (m: string) =>
+    /invalid login credentials/i.test(m) ? 'Zły e-mail albo hasło. Nie masz jeszcze konta? Wybierz „Załóż konto”.'
+      : /already registered|already exists/i.test(m) ? 'To konto już istnieje — zaloguj się hasłem.'
+        : /at least|password should/i.test(m) ? 'Hasło musi mieć co najmniej 8 znaków.'
+          : /rate|limit|seconds/i.test(m) ? 'Za dużo prób w krótkim czasie — spróbuj za kilka minut.'
+            : /not authorized/i.test(m) ? 'Na ten adres nie da się wysłać linku — zaloguj się hasłem albo przez Google.' : m;
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(''); setBusy(true);
-    const { error } = await supabase!.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: redirectUrl(), shouldCreateUser: true } });
+    const sb = supabase!;
+    const r = mode === 'link'
+      ? await sb.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: redirectUrl(), shouldCreateUser: false } })
+      : mode === 'signup'
+        ? await sb.auth.signUp({ email: email.trim(), password: pass })
+        : await sb.auth.signInWithPassword({ email: email.trim(), password: pass });
     setBusy(false);
-    if (error) setErr(/rate|limit|seconds/i.test(error.message) ? 'Za dużo prób w krótkim czasie — spróbuj za kilka minut.' : error.message);
-    else setSent(true);
+    if (r.error) setErr(human(r.error.message));
+    else if (mode === 'link') setSent(true);
   };
   const google = async () => {
     setErr('');
     const { error } = await supabase!.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirectUrl() } });
-    if (error) setErr(error.message);
+    if (error) setErr(human(error.message));
   };
+  const tab = (m: typeof mode, label: string) => (
+    <button type="button" onClick={() => { setMode(m); setErr(''); }} aria-pressed={mode === m}
+      className={`tap flex-1 rounded-xl px-3 text-base font-semibold cursor-pointer ${mode === m ? 'bg-surf2 text-fg' : 'text-mut hover:text-fg'}`}>{label}</button>
+  );
   return (
     <Screen>
       <div className={card}>
         <h1 className="text-2xl font-extrabold">Wejście do grupy</h1>
-        <p className="mt-2 text-base text-fg2">Zaloguj się adresem e-mail. Po pierwszym wejściu prowadząca musi Cię wpuścić — do tego czasu nie widzisz nic z grupy.</p>
+        <p className="mt-2 text-base text-fg2">Po pierwszym wejściu prowadząca musi Cię wpuścić — do tego czasu nie widzisz nic z grupy.</p>
+        {GOOGLE_LOGIN && (
+          <>
+            <button className={`${btnPrimary} mt-5`} onClick={google}><span className="font-extrabold">G</span>Zaloguj przez Google</button>
+            <div className="my-4 flex items-center gap-3 text-sm text-mut"><span className="h-px flex-1 bg-line" />albo e-mail i hasło<span className="h-px flex-1 bg-line" /></div>
+          </>
+        )}
         {sent ? (
           <div className="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
             <p className="text-base font-semibold text-ok">Wysłaliśmy link na {email.trim()}</p>
-            <p className="mt-1 text-sm text-fg2">Otwórz pocztę na tym urządzeniu i stuknij link — wrócisz tutaj zalogowany(-a). Nie widzisz maila? Sprawdź „Spam”.</p>
-            <button className={`${btnGhost} mt-3`} onClick={() => setSent(false)}>Inny adres</button>
+            <p className="mt-1 text-sm text-fg2">Otwórz pocztę na tym urządzeniu i stuknij link.</p>
+            <button className={`${btnGhost} mt-3`} onClick={() => { setSent(false); setMode('login'); }}>Wróć</button>
           </div>
         ) : (
-          <form onSubmit={sendLink} className="mt-5 flex flex-col gap-3">
+          <form onSubmit={submit} className={`${GOOGLE_LOGIN ? '' : 'mt-5 '}flex flex-col gap-3`}>
+            {mode !== 'link' && <div className="flex gap-1 p-1 rounded-2xl bg-surf border border-line" role="group">{tab('login', 'Zaloguj')}{tab('signup', 'Załóż konto')}</div>}
             <label className="text-sm text-mut" htmlFor="login-email">Adres e-mail</label>
             <input id="login-email" type="email" required autoComplete="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)}
               className="tap w-full rounded-xl border border-line bg-surf px-4 text-base text-fg" placeholder="imie@przyklad.pl" />
-            <button type="submit" className={btnPrimary} disabled={busy || !email.includes('@')}><Mail className="w-5 h-5" />{busy ? 'Wysyłam…' : 'Wyślij link do logowania'}</button>
+            {mode !== 'link' && (
+              <>
+                <label className="text-sm text-mut" htmlFor="login-pass">Hasło {mode === 'signup' && '(co najmniej 8 znaków)'}</label>
+                <input id="login-pass" type="password" required minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={pass} onChange={e => setPass(e.target.value)}
+                  className="tap w-full rounded-xl border border-line bg-surf px-4 text-base text-fg" />
+              </>
+            )}
+            <button type="submit" className={btnPrimary} disabled={busy || !email.includes('@') || (mode !== 'link' && pass.length < 8)}>
+              <Mail className="w-5 h-5" />{busy ? 'Chwila…' : mode === 'signup' ? 'Załóż konto' : mode === 'link' ? 'Wyślij link' : 'Zaloguj'}
+            </button>
+            {mode === 'signup' && <p className="text-sm text-mut">Zapamiętaj hasło — przypomnienie hasła mailem nie działa. W razie kłopotu napisz do prowadzącej.</p>}
+            <button type="button" className="text-sm text-mut underline cursor-pointer self-start" onClick={() => { setMode(mode === 'link' ? 'login' : 'link'); setErr(''); }}>
+              {mode === 'link' ? 'Wróć do hasła' : 'Link na e-mail (dla prowadzącej)'}
+            </button>
           </form>
-        )}
-        {GOOGLE_LOGIN && !sent && (
-          <>
-            <div className="my-4 flex items-center gap-3 text-sm text-mut"><span className="h-px flex-1 bg-line" />albo<span className="h-px flex-1 bg-line" /></div>
-            <button className={btnGhost} onClick={google}><span className="font-extrabold">G</span>Zaloguj przez Google</button>
-          </>
         )}
         {err && <p role="alert" className="mt-3 text-sm text-warn">{err}</p>}
         <p className="mt-5 text-sm text-mut">Grupa zobaczy tylko Twoje imię. Adres e-mail widzi wyłącznie prowadząca.</p>
