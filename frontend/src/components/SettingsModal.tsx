@@ -1,7 +1,8 @@
 // PATH: src/components/SettingsModal.tsx | REQ-ID: TERAPIA-SETTINGS-01 (układ z Luna2: zakładki w oknie)
 import React, { useEffect, useState } from 'react';
-import { Database, Eye, EyeOff, Image as ImageIcon, LayoutGrid, Lock, Monitor, Moon, RotateCcw, Settings, Sun, Trash2, User, X } from 'lucide-react';
+import { Bell, Database, Eye, EyeOff, Image as ImageIcon, LayoutGrid, Lock, Monitor, Moon, RotateCcw, Settings, Sun, Trash2, User, X } from 'lucide-react';
 import { ProfilePanel } from './ProfilePanel';
+import { NotificationSettings } from './NotificationSettings';
 import type { Profile } from '../services/profile';
 import { THEMES } from '../themes';
 import type { WallpaperSettings } from '../hooks/useWallpaper';
@@ -9,7 +10,7 @@ import type { ThemeMode } from '../hooks/useTheme';
 import type { PanelConfig, PanelId } from '../types/panelLayout';
 import { APP_VERSION } from '../services/appUpdate';
 
-type Tab = 'profile' | 'look' | 'panels' | 'data';
+type Tab = 'profile' | 'look' | 'notif' | 'panels' | 'data';
 
 interface Props {
   initialTab?: Tab;
@@ -38,6 +39,7 @@ export const SettingsModal: React.FC<Props> = (p) => {
   const tabs = [
     { id: 'profile' as const, label: 'Profil', icon: User },
     { id: 'look' as const, label: 'Wygląd', icon: ImageIcon },
+    { id: 'notif' as const, label: 'Powiadomienia', short: 'Powiad.', icon: Bell },
     { id: 'panels' as const, label: 'Panele', icon: LayoutGrid },
     { id: 'data' as const, label: 'Dane', icon: Database },
   ];
@@ -52,11 +54,13 @@ export const SettingsModal: React.FC<Props> = (p) => {
           <button onClick={p.onClose} className="p-1 rounded-lg hover:bg-surf2 text-mut cursor-pointer" aria-label="Zamknij"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex gap-1 mx-5 my-3 p-1 rounded-xl bg-surf border border-line">
+        {/* 5 zakładek: na wąskim telefonie ikona nad krótką etykietą, w razie czego przewijanie w poziomie */}
+        <div role="tablist" className="shrink-0 flex gap-1 mx-3 sm:mx-5 my-3 p-1 rounded-xl bg-surf border border-line overflow-x-auto">
           {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 ${tab === t.id ? 'bg-surf2 text-fg shadow-sm' : 'text-mut hover:text-fg'}`}>
-              <t.icon className="w-3.5 h-3.5" /><span>{t.label}</span>
+            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} title={t.label}
+              className={`tap flex-1 min-w-[3.75rem] shrink-0 py-1.5 px-1.5 sm:px-2 rounded-lg text-xs font-semibold cursor-pointer flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 whitespace-nowrap ${tab === t.id ? 'bg-surf2 text-fg shadow-sm' : 'text-mut hover:text-fg'}`}>
+              <t.icon className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              <span className="sm:hidden">{'short' in t ? t.short : t.label}</span><span className="hidden sm:inline">{t.label}</span>
             </button>
           ))}
         </div>
@@ -120,6 +124,8 @@ export const SettingsModal: React.FC<Props> = (p) => {
               </div>
             </div>
           )}
+
+          {tab === 'notif' && <NotificationSettings />}
 
           {tab === 'panels' && (
             <div className="px-4 space-y-2">

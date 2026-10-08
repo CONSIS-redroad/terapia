@@ -2,7 +2,7 @@
 // Układ jak w Luna2: pierwszy ekran = sama tapeta z nazwą grupy; panele dopiero po przewinięciu.
 // Komputer: siatka paneli (kalendarz = sedno, media zwijane). Telefon/tablet: karuzela ekranów przesuwanych palcem.
 import React, { useEffect, useRef, useState } from 'react';
-import { BookHeart, CalendarDays, ChevronDown, ClipboardCheck, Eye, Library, MessagesSquare, ScrollText, Settings, ShieldCheck, User, Users } from 'lucide-react';
+import { BookHeart, CalendarDays, ChevronDown, Eye, Settings, ShieldCheck, User, Users } from 'lucide-react';
 import { HomeworkPanel } from './components/HomeworkPanel';
 import { Wallpaper } from './components/Wallpaper';
 import { SettingsModal } from './components/SettingsModal';
@@ -22,20 +22,15 @@ import { Onboarding, validateFirstName } from './components/Onboarding';
 import { RULES_VERSION } from './demo/rules';
 import { MediaLibrary } from './components/MediaLibrary';
 import type { PanelId } from './types/panelLayout';
+import { NAV_SCREENS } from './config/ui.config';
 import type { Member } from './types/group';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, Profile, publicView, saveProfile } from './services/profile';
 
 /** Prywatny dzienniczek samoobserwacji — osobna aplikacja (GitHub Pages). */
 export const DZIENNICZEK_URL = 'https://consis-redroad.github.io/dzienniczek/';
 
-const SHORT: Record<PanelId, { label: string; icon: React.FC<{ className?: string }> }> = {
-  meetings: { label: 'Kalendarz', icon: CalendarDays },
-  homework: { label: 'Prace', icon: ClipboardCheck },
-  materials: { label: 'Media', icon: Library },
-  chat: { label: 'Czat', icon: MessagesSquare },
-  rules: { label: 'Zasady', icon: ScrollText },
-  members: { label: 'Admin', icon: ShieldCheck },
-};
+/** Nazwy i ikonki ekranów — edytuj w src/config/ui.config.ts (NAV_SCREENS). */
+const SHORT = NAV_SCREENS;
 
 function useIsMobile() {
   const q = '(max-width: 1023px)';

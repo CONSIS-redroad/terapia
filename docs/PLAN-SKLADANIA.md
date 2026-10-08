@@ -38,12 +38,22 @@ motyw jasny/ciemny, karuzela na telefonie, wymuszona aktualizacja. Dane: `fronte
 4. Storage: pliki czatu i zdjęcia z sali; limity 20 MB/plik, 40 MB/osobę egzekwowane w bazie (nie tylko w UI).
 5. Realtime czatu; podmiana `services/groupData.ts` (demo → Supabase) bez zmian ekranów.
 6. Keepalive (darmowy Supabase usypia po tygodniu) i kopia zapasowa.
+7. **Powiadomienia push** (Web Push + klucze VAPID + funkcja Supabase grupy): nowa wiadomość / odpowiedź do mnie /
+   termin pracy domowej / nowe streszczenie / ogłoszenie. Ustawienia już są w aplikacji (zgoda, kategorie, wibracja,
+   dźwięk, wyciszenie, godziny ciszy — `services/notifications.ts`); iPhone: działa po „Do ekranu początkowego”
+   (iOS 16.4+) — ekran powitalny pokazuje, jak to zrobić. Licznik nieprzeczytanych na ikonie (Badging API).
 
 ## FAZA 3 — Konfigurator startowy
 
 Kreator w aplikacji (przy pierwszym uruchomieniu bez konfiguracji): wklej URL i klucz publiczny Supabase →
 sprawdzenie połączenia → wgranie schematu → e-mail admina → podstawowy `group.yml` → gotowe.
 Instrukcja krok po kroku: fork repo, włączenie Pages, konto Supabase.
+
+## Wygląd — konfiguracja bez grzebania w kodzie
+
+Motywy tapety: `frontend/src/themes/` (plik = motyw). Emotki, reakcje, kolory awatarów, ikony i nazwy ekranów,
+kategorie mediów: `frontend/src/config/ui.config.ts`. Kolory jasny/ciemny: zmienne `--t-*` w `index.css`.
+Instrukcja: `docs/WYGLAD.md`. Docelowo część tych ustawień przechodzi do `group.yml` (sekcja `wyglad`).
 
 ## FAZA 4 — Dopracowanie
 

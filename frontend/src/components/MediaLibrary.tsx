@@ -1,19 +1,14 @@
 // PATH: src/components/MediaLibrary.tsx | REQ-ID: TERAPIA-MEDIA-01
 // Biblioteka mediów: szukanie, kategorie, data dodania, powiązanie z zajęciami (albo luźne).
 import React, { useMemo, useState } from 'react';
-import { BookOpen, CalendarDays, Clapperboard, ExternalLink, FileText, Headphones, LifeBuoy, Link2, Search, Shapes, SlidersHorizontal, X } from 'lucide-react';
+import { CalendarDays, ExternalLink, Link2, Search, SlidersHorizontal, X } from 'lucide-react';
+import { MEDIA_CATEGORIES } from '../config/ui.config';
 import type { Material, MediaCategory, Meeting } from '../types/group';
 import { fmtShort } from '../services/format';
 
-export const CATEGORIES: { id: MediaCategory; label: string; icon: React.FC<{ className?: string }> }[] = [
-  { id: 'zajecia', label: 'Do zajęć', icon: FileText },
-  { id: 'ksiazka', label: 'Książki', icon: BookOpen },
-  { id: 'poradnik', label: 'Poradniki', icon: LifeBuoy },
-  { id: 'podcast', label: 'Podcasty', icon: Headphones },
-  { id: 'film', label: 'Filmy', icon: Clapperboard },
-  { id: 'inne', label: 'Inne', icon: Shapes },
-];
-const catOf = (id: MediaCategory) => CATEGORIES.find(c => c.id === id) ?? CATEGORIES[5];
+/** Zgodność wsteczna — definicja kategorii żyje w src/config/ui.config.ts (MEDIA_CATEGORIES). */
+export const CATEGORIES = MEDIA_CATEGORIES;
+const catOf = (id: MediaCategory) => CATEGORIES.find(c => c.id === id) ?? CATEGORIES[CATEGORIES.length - 1];
 
 const FORMAT: Record<Material['kind'], string> = { pdf: 'PDF', image: 'obraz', video: 'film · link', audio: 'nagranie · link', link: 'link' };
 

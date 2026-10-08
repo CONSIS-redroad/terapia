@@ -7,10 +7,10 @@ import type { Announcement, Attachment, Member, Message } from '../types/group';
 import { fmtRelative } from '../services/format';
 import { ACCEPT, checkFile, fmtSize, MAX_USER_TOTAL, toAttachment } from '../services/files';
 import { Avatar } from './ProfilePanel';
+import { CHAT_EMOJI_PICKER, CHAT_QUICK_REACTIONS } from '../config/ui.config';
 
-const QUICK = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
-const EMOJI = ['😊', '🙂', '😉', '😄', '😂', '🥲', '😅', '😌', '🤗', '🤔', '😮', '😢', '😭', '😔', '😤', '😴', '🥰', '😍',
-  '👍', '👎', '👏', '🙏', '💪', '🤝', '👋', '✌️', '❤️', '🧡', '💛', '💚', '💙', '💜', '🤍', '✨', '🌸', '🌿', '☀️', '🌧️', '🍵', '🎉', '✅', '❓'];
+// Reakcje i panel emotek — edytuj w src/config/ui.config.ts.
+const QUICK = CHAT_QUICK_REACTIONS;
 
 interface Props {
   messages: Message[]; members: Member[]; announcements: Announcement[];
@@ -45,6 +45,7 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
   const [file, setFile] = useState<File | null>(null);
   const [err, setErr] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [emojiCat, setEmojiCat] = useState(0);                 // aktywna zakładka panelu emotek
   const [active, setActive] = useState<string | null>(null);   // wiadomość z otwartymi akcjami
   const [flash, setFlash] = useState<string | null>(null);     // podświetlenie po skoku do cytatu
   const [zoom, setZoom] = useState<string | null>(null);
@@ -220,8 +221,20 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
         )}
         {err && <p className="text-sm text-bad px-1">{err}</p>}
         {emojiOpen && (
-          <div className="grid grid-cols-9 gap-0.5 p-1.5 rounded-xl bg-surf border border-line max-h-40 overflow-y-auto">
-            {EMOJI.map(em => <button key={em} onClick={() => addEmoji(em)} className="h-10 text-xl rounded-lg hover:bg-surf2 cursor-pointer" aria-label={em}>{em}</button>)}
+          <div className="rounded-xl bg-surf border border-line overflow-hidden">
+            <div role="tablist" aria-label="Kategorie emotek" className="flex gap-1 p-1 border-b border-line overflow-x-auto">
+              {CHAT_EMOJI_PICKER.map((c, i) => (
+                <button key={c.label} type="button" role="tab" aria-selected={emojiCat === i} onClick={() => setEmojiCat(i)}
+                  className={`tap shrink-0 flex items-center gap-1 px-3 rounded-full text-sm border cursor-pointer ${emojiCat === i ? 'bg-sky-500/20 border-sky-400/30 text-fg font-semibold' : 'border-transparent text-mut hover:bg-surf2'}`}>
+                  <span className="text-base" aria-hidden="true">{c.emoji[0]}</span>{c.label}
+                </button>
+              ))}
+            </div>
+            <div role="tabpanel" className="grid grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))] gap-0.5 p-1.5 max-h-48 overflow-y-auto">
+              {(CHAT_EMOJI_PICKER[emojiCat] ?? CHAT_EMOJI_PICKER[0])?.emoji.map(em => (
+                <button key={em} type="button" onClick={() => addEmoji(em)} className="tap h-11 text-xl rounded-lg hover:bg-surf2 cursor-pointer" aria-label={em}>{em}</button>
+              ))}
+            </div>
           </div>
         )}
         <form onSubmit={submit} className="flex items-end gap-1.5">

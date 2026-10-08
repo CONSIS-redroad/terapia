@@ -1,7 +1,8 @@
 // PATH: src/components/ProfilePanel.tsx | REQ-ID: TERAPIA-PROFILE-UI-01
 import React, { useRef, useState } from 'react';
 import { Camera, Eye, EyeOff, Lock, Trash2 } from 'lucide-react';
-import { COLORS, EMOJIS, Profile, publicView, shrinkImage } from '../services/profile';
+import { Profile, publicView, shrinkImage } from '../services/profile';
+import { AVATAR_COLORS as COLORS, AVATAR_EMOJIS as EMOJIS } from '../config/ui.config';
 import { validateFirstName } from './Onboarding';
 
 export const Avatar: React.FC<{ emoji?: string; color?: string; photo?: string; size?: number }> = ({ emoji = '🙂', color = '#94a3b8', photo, size = 28 }) =>

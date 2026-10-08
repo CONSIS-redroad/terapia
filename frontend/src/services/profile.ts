@@ -1,5 +1,5 @@
 // PATH: src/services/profile.ts | REQ-ID: TERAPIA-PROFILE-01
-// Profil uczestnika. Zasada: grupa domyślnie widzi TYLKO pseudonim i awatar-ikonkę.
+// Profil uczestnika. Zasada (D021): grupa widzi minimum IMIĘ (pole `pseudonym`, obowiązkowe) i awatar-ikonkę.
 // Wszystko więcej uczestnik włącza sam (przełączniki „pokaż grupie”).
 // FAZA 0: profil żyje tylko w tej przeglądarce (jak dzienniczek). FAZA 1: tabela `profiles` w Supabase
 // + pola widoczności egzekwowane po stronie bazy (RLS / widok), nie tylko w interfejsie.
@@ -17,8 +17,8 @@ export interface Profile {
   show: { photo: boolean; realName: boolean; about: boolean };
 }
 
-export const EMOJIS = ['🌿', '🌊', '🌙', '☀️', '🌸', '🍀', '🦉', '🐢', '🦋', '🌻', '⭐', '🍂'];
-export const COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#94a3b8'];
+// Emotki i kolory awatara — edytuj w src/config/ui.config.ts. Re-eksport dla zgodności starych importów.
+export { AVATAR_EMOJIS as EMOJIS, AVATAR_COLORS as COLORS } from '../config/ui.config';
 
 const KEY = 'terapia_profile_v1';
 

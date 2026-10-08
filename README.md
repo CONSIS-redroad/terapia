@@ -64,4 +64,8 @@ Wydanie: push na `main` → GitHub Actions (`.github/workflows/pages.yml`) → G
   **wersja robocza do weryfikacji prawnej** przed prawdziwym startem.
 - Aplikacja nie jest narzędziem pomocy w kryzysie — numery: 112 · 116 123 · 800 70 2222.
 
+**Dla admina grupy (bez programowania):** [`docs/INSTRUKCJA-ADMINA.md`](docs/INSTRUKCJA-ADMINA.md) — konta, logowanie, Supabase, ustawienia, codzienna obsługa.
+
+Dla programistów: [`docs/STRUKTURA.md`](docs/STRUKTURA.md) · wygląd: [`docs/WYGLAD.md`](docs/WYGLAD.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md) · test telefonu: `python frontend/tests/mobile_check.py --url <adres>`
+
 Plan rozwoju: [`docs/PLAN-SKLADANIA.md`](docs/PLAN-SKLADANIA.md) · Decyzje: [`.ai/DECISIONS.md`](.ai/DECISIONS.md)
