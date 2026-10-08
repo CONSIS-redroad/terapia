@@ -1,10 +1,12 @@
 // PATH: src/themes/types.ts | REQ-ID: TERAPIA-WALL-01
 // Motyw tapety = JEDEN plik w src/themes/ + jedna linia w src/themes/index.ts.
-// Scena to warstwa SVG/CSS (bez zdjęć z zewnątrz — działa offline i bez zgód na obce domeny),
+// Scena to warstwa SVG/CSS (bez zdjęć z zewnątrz — działa offline i bez zgód na obce domeny;
+// własne zdjęcie tylko jako lokalny plik w public/themes/, zob. ksiezyc.tsx),
 // cząsteczki rysuje wspólny silnik (ParticleLayer) wg `particles`.
 import type React from 'react';
 
-export type ParticleKind = 'petals' | 'rain' | 'snow' | 'none';
+/** 'stars' = migoczące gwiazdy + co jakiś czas spadająca gwiazda i deszcz komet (motyw Księżyc). */
+export type ParticleKind = 'petals' | 'rain' | 'snow' | 'stars' | 'none';
 
 export interface WallpaperTheme {
   id: string;

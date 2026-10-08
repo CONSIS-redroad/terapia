@@ -8,7 +8,7 @@ Do tego czasu domyślny motyw ustawia `DEFAULT_THEME_ID` w `frontend/src/themes/
 
 ## 1. Motyw tapety
 
-Motyw tapety to tło za panelami: niebo, scena (rysunek SVG) i opcjonalne cząsteczki (płatki, deszcz, śnieg).
+Motyw tapety to tło za panelami: niebo, scena (rysunek SVG) i opcjonalne cząsteczki (płatki, deszcz, śnieg, gwiazdy (z kometami — motyw Księżyc)).
 Uczestnik wybiera motyw w **Ustawienia → Wygląd**. Lista motywów pochodzi z folderu `frontend/src/themes/`.
 
 **Jeden motyw = jeden plik + jedna linia w rejestrze.**

@@ -3,9 +3,10 @@
 import { sakura } from './sakura';
 import { deszcz } from './deszcz';
 import { swit } from './swit';
+import { ksiezyc } from './ksiezyc';
 import type { WallpaperTheme } from './types';
 
-export const THEMES: WallpaperTheme[] = [sakura, deszcz, swit];
+export const THEMES: WallpaperTheme[] = [sakura, deszcz, swit, ksiezyc];
 export const DEFAULT_THEME_ID = 'sakura';
 
 export function themeById(id: string): WallpaperTheme {

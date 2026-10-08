@@ -50,9 +50,106 @@ function useMotion(enabled: boolean) {
   return state;
 }
 
+/* ---------- gwiazdy + komety (motyw Księżyc) ---------- */
+// Gwiazdy migoczą; co 8–20 s pojedyncza spadająca gwiazda, co 20–60 s cichy deszcz 3–8 komet (2–4 s).
+// Bez ruchu (ustawienie „Ruch tła: wył.” albo prefers-reduced-motion) — gwiazdy rysowane raz, bez komet i bez pętli.
+// Test / pokaz: window.dispatchEvent(new Event('rr:komety')) — deszcz komet od razu.
+// Ta sama logika (w czystym JS) jest w Dzienniczku: js/theme.js → starfield().
+type Comet = { x: number; y: number; vx: number; vy: number; len: number; w: number; life: number; age: number; delay: number; big: boolean };
+
+function starfield(cvs: HTMLCanvasElement, ctx: CanvasRenderingContext2D, colors: string[], density: number, animate: boolean) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let w = 0, h = 0;
+  const area = Math.min(1.6, (window.innerWidth * window.innerHeight) / (1280 * 800));
+  const n = Math.max(20, Math.round(70 * density * Math.max(0.45, area)));
+  let stars: { x: number; y: number; r: number; o: number; ph: number; sp: number; c: string }[] = [];
+  const place = () => {
+    stars = Array.from({ length: n }, () => ({
+      x: Math.random() * w, y: Math.pow(Math.random(), 1.3) * h * 0.8, r: 0.5 + Math.random() * 1.1,
+      o: 0.35 + Math.random() * 0.55, ph: Math.random() * Math.PI * 2, sp: 0.6 + Math.random() * 1.6,
+      c: colors[Math.floor(Math.random() * colors.length)],
+    }));
+  };
+  const resize = () => {
+    w = window.innerWidth; h = window.innerHeight;
+    cvs.width = w * dpr; cvs.height = h * dpr;
+    cvs.style.width = `${w}px`; cvs.style.height = `${h}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    place();
+    if (!animate) draw(0);
+  };
+  const comets: Comet[] = [];
+  const spawn = (big: boolean, delay: number, angle: number) => {
+    const speed = big ? 420 + Math.random() * 220 : 700 + Math.random() * 300; // px/s
+    comets.push({
+      x: w * (0.25 + Math.random() * 0.95), y: -20 + Math.random() * h * 0.4,
+      vx: -Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      len: big ? 120 + Math.random() * 110 : 60 + Math.random() * 50, w: big ? 1.4 + Math.random() * 0.9 : 1,
+      life: big ? 1.4 + Math.random() * 0.9 : 0.7 + Math.random() * 0.4, age: 0, delay, big,
+    });
+  };
+  const shower = () => {
+    const count = Math.max(3, Math.min(8, Math.round((3 + Math.random() * 5) * Math.min(1, density + 0.2))));
+    const angle = (24 + Math.random() * 12) * Math.PI / 180; // jeden kierunek dla całej serii
+    for (let i = 0; i < count; i++) spawn(true, Math.random() * 2.6, angle + (Math.random() - 0.5) * 0.06);
+  };
+  const draw = (time: number) => {
+    ctx.clearRect(0, 0, w, h);
+    for (const s of stars) {
+      ctx.globalAlpha = animate ? s.o * (0.6 + 0.4 * Math.sin(time * s.sp + s.ph)) : s.o;
+      ctx.fillStyle = s.c;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const c of comets) {
+      if (c.delay > 0) continue;
+      const k = c.age / c.life, fade = Math.min(1, k * 5, (1 - k) * 3) * (c.big ? 0.75 : 0.55);
+      const sp = Math.hypot(c.vx, c.vy), tx = c.x - (c.vx / sp) * c.len, ty = c.y - (c.vy / sp) * c.len;
+      const g = ctx.createLinearGradient(c.x, c.y, tx, ty);
+      g.addColorStop(0, colors[0]); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.globalAlpha = fade; ctx.strokeStyle = g; ctx.lineWidth = c.w; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(tx, ty); ctx.stroke();
+      if (c.big) { ctx.fillStyle = colors[0]; ctx.beginPath(); ctx.arc(c.x, c.y, c.w * 1.1, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  resize();
+  window.addEventListener('resize', resize);
+  if (!animate) return () => { window.removeEventListener('resize', resize); ctx.clearRect(0, 0, w, h); };
+
+  let raf = 0, last = 0, clock = 0;
+  let nextStar = 8 + Math.random() * 12, nextShower = 20 + Math.random() * 40;
+  const frame = (now: number) => {
+    const dt = last ? Math.min(0.05, (now - last) / 1000) : 0; // po powrocie karty bez „skoku”
+    last = now; clock += dt;
+    if ((nextStar -= dt) <= 0) { spawn(false, 0, (20 + Math.random() * 25) * Math.PI / 180); nextStar = 8 + Math.random() * 12; }
+    if ((nextShower -= dt) <= 0) { shower(); nextShower = 20 + Math.random() * 40; }
+    for (let i = comets.length - 1; i >= 0; i--) {
+      const c = comets[i];
+      if (c.delay > 0) { c.delay -= dt; continue; }
+      c.age += dt; c.x += c.vx * dt; c.y += c.vy * dt;
+      if (c.age >= c.life) comets.splice(i, 1);
+    }
+    draw(clock);
+    raf = requestAnimationFrame(frame);
+  };
+  const onVis = () => { cancelAnimationFrame(raf); last = 0; if (!document.hidden) raf = requestAnimationFrame(frame); };
+  const onShower = () => { shower(); nextShower = 20 + Math.random() * 40; };
+  document.addEventListener('visibilitychange', onVis);
+  window.addEventListener('rr:komety', onShower);
+  if (!document.hidden) raf = requestAnimationFrame(frame);
+  return () => {
+    cancelAnimationFrame(raf);
+    window.removeEventListener('resize', resize);
+    document.removeEventListener('visibilitychange', onVis);
+    window.removeEventListener('rr:komety', onShower);
+    ctx.clearRect(0, 0, w, h);
+  };
+}
+
 /* ---------- cząsteczki ---------- */
 // colorsKey (string), nie tablica — tło renderuje się przy każdym ruchu myszy, a nowa tablica restartowałaby animację.
-const ParticleLayer: React.FC<{ kind: ParticleKind; colorsKey: string; density: number }> = ({ kind, colorsKey, density }) => {
+const ParticleLayer: React.FC<{ kind: ParticleKind; colorsKey: string; density: number; motion: boolean }> = ({ kind, colorsKey, density, motion }) => {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -60,6 +157,11 @@ const ParticleLayer: React.FC<{ kind: ParticleKind; colorsKey: string; density: 
     const ctx = cvs?.getContext('2d');
     const colors = colorsKey ? colorsKey.split('|') : [];
     if (!cvs || !ctx || kind === 'none' || colors.length === 0) return;
+    if (kind === 'stars') {
+      let reduced = false;
+      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* brak matchMedia */ }
+      return starfield(cvs, ctx, colors, density, motion && !reduced);
+    }
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let w = 0, h = 0;
     const resize = () => {
@@ -116,7 +218,7 @@ const ParticleLayer: React.FC<{ kind: ParticleKind; colorsKey: string; density: 
     document.addEventListener('visibilitychange', onVis);
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); document.removeEventListener('visibilitychange', onVis); };
-  }, [kind, colorsKey, density]);
+  }, [kind, colorsKey, density, motion]);
 
   return <canvas ref={ref} className="fixed inset-0 pointer-events-none" aria-hidden="true" />;
 };
@@ -137,7 +239,7 @@ export const Wallpaper: React.FC<{ settings: WallpaperSettings; dark: boolean }>
       >
         <Scene dark={dark} />
       </div>
-      {settings.particles && <ParticleLayer kind={theme.particles} colorsKey={colors.join('|')} density={settings.density} />}
+      {settings.particles && <ParticleLayer kind={theme.particles} colorsKey={colors.join('|')} density={settings.density} motion={settings.motion} />}
       <div className="absolute inset-0 pointer-events-none" style={{ background: dark ? `rgba(7,11,16,${settings.veil})` : `rgba(255,255,255,${settings.veil})` }} />
     </div>
   );
