@@ -5,9 +5,10 @@ import {
   CalendarDays, ChevronLeft, ChevronRight, MapPin, Video, FileText, Image as ImageIcon, Music, Link2, Pin, Send,
   Check, X, Clock, ExternalLink, Shield, UserPlus, UserMinus, Undo2,
 } from 'lucide-react';
-import type { Announcement, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
+import type { Announcement, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
 import { fmtDayLong, fmtRelative, fmtShort, fmtTime, isPast } from '../services/format';
 import { Avatar } from './ProfilePanel';
+import { LessonCard } from './LessonCard';
 
 const card = 'rounded-xl bg-surf border border-line';
 
@@ -19,7 +20,11 @@ function nameOf(members: Member[], id: string) {
 const WEEKDAYS = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb', 'Nd'];
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
-export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[]; selectedId?: string; onSelect?: (id: string) => void }> = ({ meetings, materials, selectedId: ctrlId, onSelect }) => {
+export const MeetingsPanel: React.FC<{
+  meetings: Meeting[]; materials: Material[]; homework: Homework[]; hwDone: Record<string, boolean>;
+  onToggleDone: (id: string) => void; isAdmin: boolean; onUpdateMeeting: (id: string, patch: Partial<Meeting>) => void;
+  selectedId?: string; onSelect?: (id: string) => void;
+}> = ({ meetings, materials, homework, hwDone, onToggleDone, isAdmin, onUpdateMeeting, selectedId: ctrlId, onSelect }) => {
   const next = meetings.find(m => !isPast(m.date, m.durationMin)) ?? meetings[meetings.length - 1];
   const [ownId, setOwnId] = useState<string | undefined>(next?.id);
   const selectedId = ctrlId ?? ownId;
@@ -55,8 +60,6 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
     const d = new Date(m.date);
     setMonth(new Date(d.getFullYear(), d.getMonth(), 1));
   };
-  const mats = materials.filter(x => x.meetingId === selected.id);
-  const past = isPast(selected.date, selected.durationMin);
 
   return (
     <div className="p-3 sm:p-4 grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
@@ -75,6 +78,7 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
             const isSel = m?.id === selected.id;
             const isToday = dayKey(d) === today;
             const mPast = m ? isPast(m.date, m.durationMin) : false;
+            const hwDue = m ? homework.some(h => h.dueAt === m.id) : false;
             return (
               <button
                 key={d.getDate()} disabled={!m} onClick={() => m && select(m)}
@@ -84,7 +88,7 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
                   ${isSel ? 'bg-sky-500/20 ring-1 ring-sky-400/50' : ''} ${isToday && !isSel ? 'ring-1 ring-line' : ''}`}
               >
                 {d.getDate()}
-                {m && <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${mPast ? 'bg-mut2' : 'bg-sky-400'}`} />}
+                {m && <span className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${mPast ? 'bg-mut2' : 'bg-sky-400'} ${hwDue && !mPast ? 'ring-2 ring-amber-400' : ''}`} />}
               </button>
             );
           })}
@@ -92,36 +96,21 @@ export const MeetingsPanel: React.FC<{ meetings: Meeting[]; materials: Material[
         <div className="mt-2 flex items-center gap-3 text-xs text-mut2">
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-sky-400" />zajęcia</span>
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-mut2" />odbyte</span>
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-sky-400 ring-2 ring-amber-400" />termin pracy</span>
           <span className="ml-auto">{meetings.filter(m => isPast(m.date, m.durationMin)).length} z {meetings.length} za nami</span>
         </div>
       </div>
 
-      {/* szczegóły wybranych zajęć */}
-      <div className={`${card} min-w-0 p-4 order-first md:order-none ${selected.id === next?.id && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
-        <div className="flex items-center gap-2">
-          <span className="text-xs uppercase tracking-widest text-acc font-semibold">
-            Zajęcia {selIdx + 1} z {meetings.length}{selected.id === next?.id && !past ? ' · najbliższe' : past ? ' · odbyte' : ''}
-          </span>
-          <span className="ml-auto flex gap-1">
-            <button disabled={selIdx <= 0} onClick={() => select(meetings[selIdx - 1])} className="p-1 rounded-full hover:bg-surf2 text-mut disabled:opacity-30 cursor-pointer" aria-label="Poprzednie zajęcia"><ChevronLeft className="w-4 h-4" /></button>
-            <button disabled={selIdx >= meetings.length - 1} onClick={() => select(meetings[selIdx + 1])} className="p-1 rounded-full hover:bg-surf2 text-mut disabled:opacity-30 cursor-pointer" aria-label="Następne zajęcia"><ChevronRight className="w-4 h-4" /></button>
-          </span>
-        </div>
-        <h4 className="mt-1 text-lg font-bold text-fg">{selected.topic}</h4>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg2">
-          <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5 text-mut" />{fmtDayLong(selected.date)}, {fmtTime(selected.date)}</span>
-          <span className="flex items-center gap-1.5">{selected.place === 'online' ? <Video className="w-3.5 h-3.5 text-mut" /> : <MapPin className="w-3.5 h-3.5 text-mut" />}{selected.place}</span>
-        </div>
-        {selected.link && !past && (
-          <a href={selected.link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-sky-500/20 text-acc border border-sky-400/30 hover:bg-sky-500/30">
-            <Video className="w-3.5 h-3.5" /> Dołącz online
-          </a>
-        )}
-        <div className="mt-4 text-xs uppercase tracking-widest text-mut font-semibold">Materiały do tych zajęć ({mats.length})</div>
-        {mats.length === 0
-          ? <p className="mt-1.5 text-sm text-mut2">Prowadząca jeszcze nic nie dodała.</p>
-          : <div className="mt-2 space-y-2">{mats.map(m => <MaterialRow key={m.id} m={m} />)}</div>}
-      </div>
+      {/* karta wybranych zajęć: praca domowa, streszczenie (dla nieobecnych), materiały */}
+      <LessonCard
+        key={selected.id}
+        meeting={selected} index={selIdx} total={meetings.length} isNext={selected.id === next?.id}
+        meetings={meetings} materials={materials} homework={homework} done={hwDone} onToggleDone={onToggleDone}
+        isAdmin={isAdmin} onUpdate={onUpdateMeeting}
+        onPrev={selIdx > 0 ? () => select(meetings[selIdx - 1]) : undefined}
+        onNext={selIdx < meetings.length - 1 ? () => select(meetings[selIdx + 1]) : undefined}
+        onOpenMeeting={id => { const x = meetings.find(y => y.id === id); if (x) select(x); }}
+      />
     </div>
   );
 };

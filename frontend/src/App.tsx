@@ -2,7 +2,8 @@
 // Układ jak w Luna2: pierwszy ekran = sama tapeta z nazwą grupy; panele dopiero po przewinięciu.
 // Komputer: siatka paneli (kalendarz = sedno, media zwijane). Telefon/tablet: karuzela ekranów przesuwanych palcem.
 import React, { useEffect, useRef, useState } from 'react';
-import { BookHeart, CalendarDays, ChevronDown, Eye, Library, Megaphone, MessagesSquare, Settings, ShieldCheck, User, Users } from 'lucide-react';
+import { BookHeart, CalendarDays, ChevronDown, ClipboardCheck, Eye, Library, Megaphone, MessagesSquare, Settings, ShieldCheck, User, Users } from 'lucide-react';
+import { HomeworkPanel } from './components/HomeworkPanel';
 import { Wallpaper } from './components/Wallpaper';
 import { SettingsModal } from './components/SettingsModal';
 import { Avatar } from './components/ProfilePanel';
@@ -13,7 +14,7 @@ import { useTheme } from './hooks/useTheme';
 import { usePanelLayout } from './hooks/usePanelLayout';
 import { useGroup } from './hooks/useGroup';
 import { PanelContainer } from './components/PanelContainer';
-import { PWAReloadPrompt } from './components/PWAReloadPrompt';
+import { APP_BUILD, APP_VERSION, UpdateGuard } from './services/appUpdate';
 import { AnnouncementsPanel, ChatPanel, MeetingsPanel, MembersPanel } from './components/panels';
 import { MediaLibrary } from './components/MediaLibrary';
 import type { PanelId } from './types/panelLayout';
@@ -25,9 +26,10 @@ export const DZIENNICZEK_URL = 'https://consis-redroad.github.io/dzienniczek/';
 
 const SHORT: Record<PanelId, { label: string; icon: React.FC<{ className?: string }> }> = {
   meetings: { label: 'Kalendarz', icon: CalendarDays },
+  homework: { label: 'Prace', icon: ClipboardCheck },
   materials: { label: 'Media', icon: Library },
-  announcements: { label: 'Ogłoszenia', icon: Megaphone },
-  chat: { label: 'Rozmowa', icon: MessagesSquare },
+  announcements: { label: 'Tablica', icon: Megaphone },
+  chat: { label: 'Czat', icon: MessagesSquare },
   members: { label: 'Admin', icon: ShieldCheck },
 };
 
@@ -67,6 +69,7 @@ export default function App() {
   const visible = panels.filter(p => p.isVisible && allowed(p.id));
   const hiddenCount = panels.filter(p => !p.isVisible && allowed(p.id)).length;
   const pendingCount = members.filter(m => m.status === 'pending').length;
+  const hwTodo = g.homework.filter(h => !g.hwDone[h.id] && g.meetings.some(m => m.id === h.dueAt && new Date(m.date).getTime() + m.durationMin * 60000 > Date.now())).length;
 
   const openMeeting = (id: string) => {
     setMeetingId(id);
@@ -81,7 +84,8 @@ export default function App() {
   const content = (id: PanelId) => {
     if (g.loading) return <div className="p-4 text-sm text-mut2">Wczytywanie…</div>;
     switch (id) {
-      case 'meetings': return <MeetingsPanel meetings={g.meetings} materials={g.materials} selectedId={meetingId} onSelect={setMeetingId} />;
+      case 'meetings': return <MeetingsPanel meetings={g.meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId} />;
+      case 'homework': return <HomeworkPanel homework={g.homework} meetings={g.meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting} />;
       case 'announcements': return <AnnouncementsPanel items={g.announcements} members={members} />;
       case 'chat': return <ChatPanel messages={g.messages} members={members} currentUserId={g.currentUserId} isDemo={g.isDemo} onSend={g.sendMessage} />;
       case 'materials': return <MediaLibrary items={g.materials} meetings={g.meetings} onOpenMeeting={openMeeting} />;
@@ -91,7 +95,7 @@ export default function App() {
 
   const slides: Slide[] = visible.map(p => ({
     id: p.id, label: SHORT[p.id].label, icon: SHORT[p.id].icon,
-    badge: p.id === 'members' ? pendingCount : undefined, content: content(p.id),
+    badge: p.id === 'members' ? pendingCount : p.id === 'homework' ? hwTodo : undefined, content: content(p.id),
   }));
 
   return (
@@ -191,7 +195,7 @@ export default function App() {
         </div>
 
         <footer className="pb-8 text-center text-xs text-mut2">
-          TERAPIA · faza 0 (demo) · wygląd na bazie Luna2 · <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="underline">Dzienniczek</a>
+          TERAPIA · wersja {APP_VERSION} ({APP_BUILD.slice(6, 8)}.{APP_BUILD.slice(4, 6)} {APP_BUILD.slice(9, 11)}:{APP_BUILD.slice(11, 13)} UTC) · faza 0 (demo) · <a href={DZIENNICZEK_URL} target="_blank" rel="noopener noreferrer" className="underline">Dzienniczek</a>
         </footer>
       </main>
       {settingsOpen && (
@@ -204,7 +208,7 @@ export default function App() {
           isDemo={g.isDemo} onResetDemo={g.resetDemo}
         />
       )}
-      <PWAReloadPrompt />
+      <UpdateGuard />
     </div>
   );
 }

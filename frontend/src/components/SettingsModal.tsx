@@ -7,6 +7,7 @@ import { THEMES } from '../themes';
 import type { WallpaperSettings } from '../hooks/useWallpaper';
 import type { ThemeMode } from '../hooks/useTheme';
 import type { PanelConfig, PanelId } from '../types/panelLayout';
+import { APP_VERSION } from '../services/appUpdate';
 
 type Tab = 'profile' | 'look' | 'panels' | 'data';
 
@@ -143,6 +144,7 @@ export const SettingsModal: React.FC<Props> = (p) => {
                 <span className="flex items-center gap-1.5 font-semibold text-fg"><Lock className="w-3.5 h-3.5" />Twoje dane</span>
                 <p>{p.isDemo ? 'To jest wersja demo: profil, ustawienia i Twoje wiadomości zapisują się tylko w tej przeglądarce i nigdzie nie są wysyłane.' : 'Grupa widzi tylko to, co sam(a) włączysz w profilu.'}</p>
                 <p>Prywatny dzienniczek samoobserwacji jest osobny — członkostwo w grupie nie daje do niego dostępu.</p>
+                <p className="text-mut">Wersja aplikacji: <strong className="text-fg">{APP_VERSION}</strong> — aktualizuje się sama przy otwarciu.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => { if (confirm('Usunąć profil zapisany w tej przeglądarce?')) p.onClearProfile(); }}

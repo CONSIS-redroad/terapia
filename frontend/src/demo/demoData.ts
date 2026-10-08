@@ -1,7 +1,7 @@
 // PATH: src/demo/demoData.ts | REQ-ID: TERAPIA-DEMO-01
 // WYŁĄCZNIE DANE FIKCYJNE (FAZA 0). Imiona, rozmowy i spotkania są zmyślone.
 // Daty liczone względem „dziś”, żeby demo zawsze wyglądało świeżo.
-import type { Announcement, Group, Material, Meeting, Member, Message } from '../types/group';
+import type { Announcement, Group, Homework, Material, Meeting, Member, Message } from '../types/group';
 
 // Dni kalendarzowe (setDate), nie mnożenie 24 h — inaczej zmiana czasu (koniec X) przesuwa datę o dzień.
 function at(daysFromToday: number, hour: number, minute = 0): string {
@@ -16,6 +16,15 @@ function tuesday(weeks: number, hour = 18): string {
   const now = new Date();
   const delta = (2 - now.getDay() + 7) % 7;
   return at(delta + weeks * 7, hour);
+}
+
+
+/** Fikcyjne „zdjęcie tablicy” — rysunek SVG (kreda na zielonej tablicy), bez zdjęć z zewnątrz. */
+function board(title: string, lines: string[]): string {
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const rows = lines.map((l, i) => `<text x="48" y="${150 + i * 54}" font-size="34" fill="#f1f5f9" font-family="Comic Sans MS, Segoe Print, cursive">${esc(l)}</text>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600"><rect width="960" height="600" rx="18" fill="#7c5a3a"/><rect x="22" y="22" width="916" height="556" rx="10" fill="#1f4d3a"/><text x="48" y="92" font-size="44" font-weight="bold" fill="#fde68a" font-family="Comic Sans MS, Segoe Print, cursive">${esc(title)}</text><line x1="48" y1="110" x2="600" y2="110" stroke="#fde68a" stroke-width="3" opacity=".6"/>${rows}</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 export const DEMO_GROUP: Group = {
@@ -37,15 +46,15 @@ export const DEMO_MEMBERS: Member[] = [
 ];
 
 export const DEMO_MEETINGS: Meeting[] = [
-  { id: 'sp-1', date: tuesday(-6), durationMin: 90, topic: 'Poznajmy się — zasady grupy', place: 'Sala 2, ul. Przykładowa 1' },
-  { id: 'sp-2', date: tuesday(-5), durationMin: 90, topic: 'Skąd się bierze napięcie?', place: 'Sala 2, ul. Przykładowa 1' },
-  { id: 'sp-3', date: tuesday(-4), durationMin: 90, topic: 'Oddech i ciało', place: 'online', link: 'https://meet.example.com/demo' },
-  { id: 'sp-4', date: tuesday(-3), durationMin: 90, topic: 'Myśli automatyczne', place: 'Sala 2, ul. Przykładowa 1' },
-  { id: 'sp-5', date: tuesday(-2), durationMin: 90, topic: 'Emocje — jak je nazywać', place: 'Sala 2, ul. Przykładowa 1' },
-  { id: 'sp-6', date: tuesday(-1), durationMin: 90, topic: 'Granice i asertywność', place: 'Sala 2, ul. Przykładowa 1' },
-  { id: 'sp-7', date: tuesday(0), durationMin: 90, topic: 'Sen i odpoczynek', place: 'online', link: 'https://meet.example.com/demo' },
-  { id: 'sp-8', date: tuesday(1), durationMin: 90, topic: 'Ruch a nastrój', place: 'Sala 2, ul. Przykładowa 1' },
-  { id: 'sp-9', date: tuesday(2), durationMin: 90, topic: 'Relacje w rodzinie', place: 'Sala 2, ul. Przykładowa 1' },
+  { id: 'sp-1', date: tuesday(-6), durationMin: 90, topic: 'Poznajmy się — zasady grupy', place: 'Sala 2, ul. Przykładowa 1', summary: 'Poznaliśmy się i ustaliliśmy zasady: poufność, punktualność, mówimy we własnym imieniu.', details: 'Runda przedstawienia (imię lub pseudonim, czego oczekuję). Wspólnie spisane zasady grupy — wiszą w Materiałach. Krótko o tym, jak wyglądają kolejne spotkania i czym jest praca domowa.', photos: [{ url: board('Zasady grupy', ['• to, co tu mówimy, zostaje tu', '• mówię o sobie: „ja czuję…”', '• można powiedzieć „pas”', '• telefon wyciszony']), caption: 'Tablica: Zasady grupy' }] },
+  { id: 'sp-2', date: tuesday(-5), durationMin: 90, topic: 'Skąd się bierze napięcie?', place: 'Sala 2, ul. Przykładowa 1', summary: 'Skąd bierze się napięcie: sygnały z ciała, myśli i zachowania — jak je zauważać wcześniej.', details: 'Mapa napięcia w ciele (karta pracy), rozmowa w parach: gdzie czuję stres najpierw. Model: sytuacja → myśl → emocja → ciało → zachowanie.', photos: [{ url: board('Krąg stresu', ['sytuacja → myśl → emocja', '→ ciało → zachowanie', 'przerwać można w każdym miejscu!']), caption: 'Tablica: Krąg stresu' }] },
+  { id: 'sp-3', date: tuesday(-4), durationMin: 90, topic: 'Oddech i ciało', place: 'online', link: 'https://meet.example.com/demo', summary: 'Oddech jako hamulec: ćwiczenie 4-7-8 i oddech przeponowy.', details: 'Ćwiczyliśmy dwa oddechy, po 5 minut. Omówienie: co pomagało, co przeszkadzało. Nagranie ćwiczenia w Mediach.', photos: [{ url: board('Oddech 4-7-8', ['wdech nosem — 4', 'zatrzymaj — 7', 'wydech ustami — 8', 'x 4 powtórzenia, 2 razy dziennie']), caption: 'Tablica: Oddech 4-7-8' }] },
+  { id: 'sp-4', date: tuesday(-3), durationMin: 90, topic: 'Myśli automatyczne', place: 'Sala 2, ul. Przykładowa 1', summary: 'Myśli automatyczne: jak je łapać i sprawdzać, czy są faktami.', details: 'Przykłady myśli „zawsze / nigdy / wszyscy”. Wprowadzenie dzienniczka myśli: sytuacja, myśl, emocja (0–100), inna możliwa myśl.', photos: [{ url: board('Pułapki myślenia', ['czarno-białe', 'czytanie w myślach', 'katastrofizowanie', '„powinienem”']), caption: 'Tablica: Pułapki myślenia' }, { url: board('Dzienniczek myśli', ['sytuacja | myśl | emocja 0-100', '| inna możliwa myśl']), caption: 'Tablica: Dzienniczek myśli' }] },
+  { id: 'sp-5', date: tuesday(-2), durationMin: 90, topic: 'Emocje — jak je nazywać', place: 'Sala 2, ul. Przykładowa 1', summary: 'Emocje — nazywanie i rozróżnianie; koło emocji.', details: 'Praca z kołem emocji: od ogólnego „źle” do konkretnego „rozczarowanie, wstyd”. Omówienie dzienniczków myśli z tygodnia.', photos: [{ url: board('Koło emocji', ['radość · smutek · złość', 'strach · wstręt · zaskoczenie', '→ nazwij dokładniej!']), caption: 'Tablica: Koło emocji' }] },
+  { id: 'sp-6', date: tuesday(-1), durationMin: 90, topic: 'Granice i asertywność', place: 'Sala 2, ul. Przykładowa 1', summary: 'Granice i asertywność: prośba, odmowa, wyrażanie zdania.', details: 'Scenki w trójkach: odmowa bez tłumaczenia się. Technika „zdartej płyty”. Lista praw asertywnych w Mediach.', photos: [{ url: board('Odmowa w 3 krokach', ['1. „Nie”', '2. krótko, bez wymówek', '3. ewentualnie: co mogę zamiast']), caption: 'Tablica: Odmowa w 3 krokach' }] },
+  { id: 'sp-7', date: tuesday(0), durationMin: 90, topic: 'Sen i odpoczynek', place: 'online', link: 'https://meet.example.com/demo', summary: 'Sen i odpoczynek — higiena snu, wieczorne wyciszenie.' },
+  { id: 'sp-8', date: tuesday(1), durationMin: 90, topic: 'Ruch a nastrój', place: 'Sala 2, ul. Przykładowa 1', summary: 'Ruch a nastrój — mały krok aktywności każdego dnia.' },
+  { id: 'sp-9', date: tuesday(2), durationMin: 90, topic: 'Relacje w rodzinie', place: 'Sala 2, ul. Przykładowa 1', summary: 'Relacje w rodzinie — jak rozmawiać, gdy jest napięcie.' },
   { id: 'sp-10', date: tuesday(3), durationMin: 90, topic: 'Złość — co z nią robić', place: 'Sala 2, ul. Przykładowa 1' },
   { id: 'sp-11', date: tuesday(4), durationMin: 90, topic: 'Lęk i unikanie', place: 'Sala 2, ul. Przykładowa 1' },
   { id: 'sp-12', date: tuesday(5), durationMin: 90, topic: 'Samokrytyka i życzliwość dla siebie', place: 'Sala 2, ul. Przykładowa 1' },
@@ -84,6 +93,15 @@ export const DEMO_MATERIALS: Material[] = [
   { id: 'mb-7', category: 'film', title: 'Film: 10 minut uważności', kind: 'video', url: 'https://www.youtube.com/', addedAt: tuesday(-2, 18) },
   { id: 'mb-8', category: 'film', title: 'Wykład: lęk — jak działa i co pomaga', kind: 'video', url: 'https://www.youtube.com/', addedAt: tuesday(-1, 19), meetingId: 'sp-11', note: 'Na zajęcia 11 — obejrzyj przed spotkaniem.' },
   { id: 'mb-9', category: 'inne', title: 'Lista telefonów zaufania i wsparcia', kind: 'link', url: 'https://example.com/telefony', addedAt: tuesday(-6, 10), note: 'Warto mieć pod ręką.' },
+];
+
+export const DEMO_HOMEWORK: Homework[] = [
+  { id: 'hw-1', givenAt: 'sp-2', dueAt: 'sp-3', title: 'Mapa napięcia — 3 sytuacje', description: 'Zapisz 3 sytuacje z tygodnia: gdzie w ciele poczułeś(-aś) napięcie i co wtedy myślałeś(-aś).' },
+  { id: 'hw-2', givenAt: 'sp-3', dueAt: 'sp-5', title: 'Oddech 4-7-8 przez 2 tygodnie', description: 'Dwa razy dziennie, rano i wieczorem. Zaznaczaj w kalendarzyku, kiedy się udało.' },
+  { id: 'hw-3', givenAt: 'sp-4', dueAt: 'sp-5', title: 'Dzienniczek myśli — 3 wpisy', description: 'Wypełnij wzór z Materiałów dla 3 sytuacji, które wywołały silniejszą emocję.' },
+  { id: 'hw-4', givenAt: 'sp-6', dueAt: 'sp-7', title: 'Jedna asertywna odmowa', description: 'Spróbuj raz w tygodniu odmówić w 3 krokach. Zapisz: co się stało, jak się czułeś(-aś).' },
+  { id: 'hw-5', givenAt: 'sp-6', dueAt: 'sp-9', title: 'Lista „moje prawa” — 3 tygodnie', description: 'Codziennie przeczytaj listę praw asertywnych i zaznacz jedno, które dziś było ważne. Omówimy za 3 tygodnie.' },
+  { id: 'hw-6', givenAt: 'sp-7', dueAt: 'sp-8', title: 'Obserwacja snu — 7 dni', description: 'Godzina zaśnięcia, pobudki, jakość snu 1–5. Prosta tabelka wystarczy.' },
 ];
 
 export const DEMO_ANNOUNCEMENTS: Announcement[] = [

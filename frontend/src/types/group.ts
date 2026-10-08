@@ -30,7 +30,22 @@ export interface Meeting {
   durationMin: number;
   topic: string;
   place: string; // sala albo „online”
-  link?: string; // link do spotkania online
+  link?: string; // (nieużywane w UI — Bartek 08.10: bez „Dołącz online”)
+  /** Krótko: co było przedmiotem zajęć (dla nieobecnych). */
+  summary?: string;
+  /** Rozwinięcie „Więcej”: przebieg, ćwiczenia, wnioski. */
+  details?: string;
+  /** Zdjęcia z sali (np. tablica) — dodaje prowadząca/admin. */
+  photos?: { url: string; caption: string }[];
+}
+
+/** Praca domowa: zadana na zajęciach `givenAt`, do oddania/omówienia na zajęciach `dueAt`. */
+export interface Homework {
+  id: string;
+  givenAt: string; // id zajęć
+  dueAt: string;   // id zajęć
+  title: string;
+  description: string;
 }
 
 export type MaterialKind = 'pdf' | 'image' | 'video' | 'audio' | 'link';

@@ -14,3 +14,5 @@ D012 (2026-10-08): Najważniejsze są Kalendarz i Media. Medium ma kategorię (z
 D013 (2026-10-08): Tapeta = motyw z folderu `frontend/src/themes/` (jeden plik na motyw + wpis w `index.ts`), wybór w Ustawieniach użytkownika; ruch tła jak w Luna2 (paralaksa + obracanie przeciąganiem), do wyłączenia; szanuje „ogranicz ruch” w systemie.
 D014 (2026-10-08): Telefon/tablet (<1024 px) = karuzela ekranów (CSS scroll-snap, bez bibliotek); komputer = siatka paneli. Pierwszy ekran zawsze sama tapeta z nazwą grupy. Dzienniczek = osobna aplikacja, tylko LINK (bez wymiany danych).
 D015 (2026-10-08): Projekt mobile-first z twardymi liczbami: tekst ≥ 16 px, etykiety ≥ 13,5 px (tylko rem), cele dotyku ≥ 44 px, nawigacja na dole; na każdym ekranie najpierw odpowiedź (najbliższe zajęcia), potem przeglądanie.
+D016 (2026-10-08): Aktualizacja wymuszona i automatyczna — użytkownik niczego nie pamięta i niczego nie klika (bez przycisku „Sprawdź aktualizacje”).
+D017 (2026-10-08): Zajęcia mają streszczenie dla nieobecnych (+ rozwinięcie i zdjęcia z sali, edytuje admin); praca domowa ma termin = konkretne zajęcia cyklu (następne albo za 2–3 tygodnie); bez „Dołącz online”.
