@@ -53,12 +53,15 @@ menedżer haseł albo zeszyt na hasła. **Koszt:** 0 zł (darmowe plany).
 
 ## KROK 4 — Logowanie uczestników *(po fazie 2)*
 
-**A. Logowanie linkiem na e-mail (działa od razu):**
+**A. Adres strony i logowanie e-mailem z hasłem (bez wysyłania maili):**
 1. Supabase → **Authentication** → **URL Configuration**.
 2. *Site URL*: wklej adres strony grupy (np. `https://twoja-nazwa.github.io/terapia/grupa/`).
-3. *Redirect URLs* → **Add URL** → ten sam adres. **Save**.
-4. Uwaga: darmowa wysyłka maili ma mały limit na godzinę — przy pierwszym zapraszaniu wpuszczaj ludzi
-   partiami albo poproś o pomoc w podpięciu własnej skrzynki do wysyłki.
+3. *Redirect URLs* → **Add URL** → ten sam adres z `**` na końcu. **Save**.
+4. **Authentication** → **Sign In / Providers** → **Email** → wyłącz **Confirm email**. Uczestnik zakłada konto
+   e-mailem i hasłem od razu — i tak nic nie zobaczy, dopóki go nie wpuścisz.
+5. Ważne: darmowa poczta Supabase wysyła linki **tylko do członków Twojego zespołu w Supabase** (czyli do Ciebie),
+   więc „link na e-mail” działa tylko dla admina. Uczestnicy logują się przez Google albo e-mailem i hasłem.
+   Przypomnienie hasła mailem nie działa — gdy ktoś zapomni, usuń go w panelu Admin, niech założy konto od nowa.
 
 **B. Przycisk „Zaloguj przez Google” (opcjonalnie, wygodniejsze):**
 1. Wejdź na **console.cloud.google.com** → utwórz projekt (np. „Terapia”).
@@ -113,9 +116,12 @@ Możesz też poprosić AI (np. Claude) z otwartym plikiem: „przenieś zajęcia
 
 | Co | Gdzie |
 |---|---|
+| Terminy spotkań (seria, odwołanie, przeniesienie, dodatkowe) | **Terminy** → Nowa seria / Odwołaj / Przenieś / Dołóż na koniec / Dodaj spotkanie dodatkowe |
+| Nowa osoba czeka | **Admin** → Czekają na wpuszczenie → **Wpuść** (gdy imię już jest w grupie — najpierw **Imię** i dodaj rozróżnienie, np. „Ania K.”) |
+| Ktoś zmienił imię | **Admin** → Prośby o zmianę imienia → **Zatwierdź** / **Odrzuć** |
+| Prace domowe | **Prace** → **Dodaj pracę domową** (zadane na zajęciach, termin: następne / za 2 / za 3 tygodnie); **Edytuj** / **Usuń** przy pracy |
 | Streszczenie zajęć dla nieobecnych | Kalendarz → dzień zajęć → **Edytuj** przy streszczeniu |
 | Zdjęcie tablicy z sali | Kalendarz → zajęcia → **Więcej** → **Dodaj zdjęcie z sali** (otworzy aparat) |
-| Praca domowa z terminem | Kalendarz → zajęcia → praca domowa (termin = konkretne następne zajęcia) |
 | Ogłoszenie dla wszystkich | Czat → przypięte ogłoszenia |
 | Obraźliwa wiadomość / niewłaściwy plik | Czat → stuknij wiadomość → **Usuń wiadomość (zasady)** / **Usuń plik** |
 | Ktoś odchodzi z grupy | Admin → **Usuń** przy osobie (można przywrócić) |

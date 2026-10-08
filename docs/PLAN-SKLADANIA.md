@@ -1,6 +1,6 @@
 # Plan rozwoju TERAPIA
 
-Stan: **2026-10-08, wersja 0.9 — faza 0 (demo) gotowa.** Decyzje: `.ai/DECISIONS.md` (D001–D021).
+Stan: **2026-10-09 — faza 0 (demo) i FAZA 2 (Supabase grupy: logowanie, baza, czat na żywo, harmonogram, prace, archiwum) działają; faza 1 (group.yml) i push — dalej.** Decyzje: `.ai/DECISIONS.md` (D001–D021).
 
 ## Założenia (ustalenia z Bartkiem, 07–08.10.2026)
 
@@ -30,7 +30,7 @@ motyw jasny/ciemny, karuzela na telefonie, wymuszona aktualizacja. Dane: `fronte
 4. Edytor w panelu admina (zasady, harmonogram, tematy) — zapis do tego samego modelu.
 5. Instrukcja „konfiguracja z AI”: jak poprosić AI o zmianę `group.yml` lokalnie i wydać zmianę.
 
-## FAZA 2 — Supabase grupy (dane prawdziwe)
+## FAZA 2 — Supabase grupy (dane prawdziwe) ✅ (09.10.2026, bez pkt 6–7: keepalive/kopia i push — w toku)
 
 1. Schemat bazy (SQL): członkostwa, zajęcia, streszczenia, prace domowe, wiadomości, reakcje, pliki, zgody.
 2. **RLS:** nic dla niezaakceptowanych; admin = e-mail z konfiguracji; uczestnik usuwa tylko swoje.
