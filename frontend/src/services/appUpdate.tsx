@@ -13,9 +13,26 @@ export const APP_BUILD = __APP_BUILD__;
 
 const TRIED_KEY = 'terapia_update_tried';
 
+function getVersionUrl(): string {
+  // Bezwzględny URL względem katalogu aplikacji (działa także gdy w pasku adresu brak końcowego slasha, np. /terapia/grupa)
+  const path = window.location.pathname;
+  let base: string;
+  if (path.endsWith('/')) {
+    base = path;
+  } else {
+    const lastSeg = path.split('/').pop() || '';
+    if (lastSeg.includes('.')) {
+      base = path.substring(0, path.lastIndexOf('/') + 1) || '/';
+    } else {
+      base = path + '/';
+    }
+  }
+  return `${window.location.origin}${base}version.json?t=${Date.now()}`;
+}
+
 async function serverBuild(): Promise<string | null> {
   try {
-    const r = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const r = await fetch(getVersionUrl(), { cache: 'no-store' });
     if (!r.ok) return null;
     const j = await r.json();
     return typeof j.build === 'string' ? j.build : null;
@@ -23,19 +40,23 @@ async function serverBuild(): Promise<string | null> {
 }
 
 async function hardRefresh(build: string): Promise<boolean> {
-  // Bezpiecznik przed pętlą: jedna próba „miękka” (nowy Service Worker), druga — czyszczenie pamięci.
+  // Bezpiecznik przed pętlą: jedna próba z czyszczeniem Cache Storage, druga — odrejestrowanie SW.
   let tried = '';
   try { tried = sessionStorage.getItem(TRIED_KEY) ?? ''; sessionStorage.setItem(TRIED_KEY, tried ? `${build}#2` : build); } catch { /* ignoruj */ }
   if (tried === `${build}#2`) return false; // już dwa razy — nie zapętlamy się
   try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
     const reg = await navigator.serviceWorker?.getRegistration();
     if (tried === build) {
-      // druga próba: wyrzuć stare pliki i Service Workera
       await reg?.unregister();
-      if ('caches' in window) await Promise.all((await caches.keys()).map(k => caches.delete(k)));
     } else {
       await reg?.update();
-      await new Promise(res => setTimeout(res, 1200));
+      if (reg?.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
     }
   } catch { /* przeładujemy i tak */ }
   window.location.reload();
@@ -47,7 +68,13 @@ export const UpdateGuard: React.FC = () => {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    // Service Worker: nowa wersja przejmuje stronę od razu (autoUpdate), a przeładowanie robi strażnik.
+    // Gdy nowy Service Worker przejmie kontrolę (clientsClaim), natychmiast odświeżamy stronę
+    const onController = () => {
+      window.location.reload();
+    };
+    navigator.serviceWorker?.addEventListener('controllerchange', onController);
+
+    // Rejestracja Service Workera
     registerSW({ immediate: true });
 
     let busy = false;
@@ -64,7 +91,12 @@ export const UpdateGuard: React.FC = () => {
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('online', verify);
     const t = window.setInterval(verify, 15 * 60 * 1000);
-    return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('online', verify); window.clearInterval(t); };
+    return () => {
+      navigator.serviceWorker?.removeEventListener('controllerchange', onController);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('online', verify);
+      window.clearInterval(t);
+    };
   }, []);
 
   if (!updating) return null;
