@@ -22,7 +22,48 @@ function seeded(seed: number) {
   return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 }
 
+// DZIEŃ (tryb jasny) — Bartek 11.10 23:39: „księżyc w ciemnym, a słońce w jasnym — taki to ma być motyw”.
+// Słońce w miejscu Księżyca, błękitne niebo, chmury płyną powoli (SVG, bez zdjęć), zielone wzgórza. Bez gwiazd i komet.
+const CLOUDS = [
+  { x: 120, y: 150, s: 1.15, d: 140 }, { x: 860, y: 95, s: 0.85, d: 180 }, { x: 420, y: 300, s: 0.7, d: 160 }, { x: 1010, y: 330, s: 1, d: 200 },
+];
+const Day: React.FC = () => (
+  <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" className="w-full h-full" aria-hidden="true">
+    <defs>
+      <radialGradient id="slonce-halo">
+        <stop offset="0" stopColor="#fffbe6" stopOpacity="0.95" />
+        <stop offset="0.35" stopColor="#fff3c4" stopOpacity="0.55" />
+        <stop offset="1" stopColor="#fff3c4" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="slonce-tarcza" cx="0.42" cy="0.4">
+        <stop offset="0" stopColor="#fffdf2" />
+        <stop offset="0.7" stopColor="#ffe9a3" />
+        <stop offset="1" stopColor="#ffd56b" />
+      </radialGradient>
+      <linearGradient id="slonce-mgla" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#ffffff" stopOpacity="0" />
+        <stop offset="0.6" stopColor="#ffffff" stopOpacity="0.35" />
+        <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+      </linearGradient>
+    </defs>
+    <circle cx={CX} cy={CY} r={R * 2.6} fill="url(#slonce-halo)" />
+    <circle cx={CX} cy={CY} r={R * 0.62} fill="url(#slonce-tarcza)" />
+    {CLOUDS.map((c, i) => (
+      <g key={i} opacity="0.88">
+        <animateTransform attributeName="transform" type="translate" from="-160 0" to="160 0" dur={`${c.d}s`} repeatCount="indefinite" additive="sum" />
+        <g transform={`translate(${c.x} ${c.y}) scale(${c.s})`} fill="#ffffff">
+          <ellipse cx="0" cy="0" rx="70" ry="26" /><ellipse cx="-42" cy="8" rx="44" ry="20" /><ellipse cx="46" cy="10" rx="50" ry="19" /><ellipse cx="6" cy="-18" rx="40" ry="24" />
+        </g>
+      </g>
+    ))}
+    <path d="M0 600 C 200 560, 400 585, 600 565 C 820 545, 1000 580, 1200 560 L1200 800 L0 800 Z" fill="#9fcfa9" opacity="0.85" />
+    <rect x="0" y="540" width="1200" height="100" fill="url(#slonce-mgla)" />
+    <path d="M0 690 C 260 660, 520 705, 780 680 C 960 664, 1080 690, 1200 676 L1200 800 L0 800 Z" fill="#7cb98b" />
+  </svg>
+);
+
 const Scene: React.FC<{ dark: boolean }> = ({ dark }) => {
+  if (!dark) return <Day />;
   const rnd = seeded(29);
   // kilka nieruchomych gwiazd w SVG — niebo zostaje nocne także przy wyłączonych cząsteczkach
   const stars = Array.from({ length: 46 }, () => ({ x: rnd() * 1200, y: Math.pow(rnd(), 1.4) * 520, r: 0.6 + rnd() * 1.3, o: 0.25 + rnd() * 0.5 }));
@@ -59,15 +100,15 @@ const Scene: React.FC<{ dark: boolean }> = ({ dark }) => {
 export const ksiezyc: WallpaperTheme = {
   id: 'ksiezyc',
   name: 'Księżyc',
-  description: 'Nocne niebo z Księżycem (zdjęcie: NASA/Joel Kowsky), gwiazdy migoczą, co jakiś czas cicho przelatują komety.',
+  description: 'Noc z Księżycem (zdjęcie: NASA/Joel Kowsky), gwiazdy i komety; w trybie jasnym dzień ze Słońcem i chmurami.',
   sky: {
-    // jasny = zmierzch nad Księżycem (tło na tyle jasne, że ciemny tekst pozostaje czytelny)
-    light: 'linear-gradient(180deg, #8a97cf 0%, #aab3de 38%, #ddd6ee 72%, #f8e6dc 100%)',
+    // jasny = DZIEŃ ze Słońcem (jasne niebo — ciemny tekst czytelny); ciemny = noc z Księżycem
+    light: 'linear-gradient(180deg, #6fb1ea 0%, #9fcdf3 40%, #d6ecfa 75%, #f1f8fd 100%)',
     dark: 'linear-gradient(180deg, #05070f 0%, #0b1224 55%, #111a30 100%)',
   },
   Scene,
   particles: 'stars',
   // pierwszy kolor = kolor komet
-  particleColors: { light: ['#ffffff', '#eef2ff', '#fdf2f8'], dark: ['#f8fafc', '#dbeafe', '#fef3c7'] },
+  particleColors: { light: [], dark: ['#f8fafc', '#dbeafe', '#fef3c7'] },
   preview: 'radial-gradient(circle at 68% 34%, #e5e7eb 0 13%, #94a3b8 14%, #1e293b 22%, #05070f 100%)',
 };
