@@ -61,6 +61,24 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
   const pinned = useMemo(() => [...announcements].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.date.localeCompare(a.date)), [announcements]);
 
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }); }, [messages.length]);
+  // telefon: klawiatura zmienia wysokość — jeśli byliśmy przy końcu rozmowy, zostań przy końcu (jak WhatsApp)
+  useEffect(() => {
+    const vv = window.visualViewport, el = listRef.current;
+    if (!fill || !vv || !el) return;
+    let atEnd = true;
+    const onScroll = () => { atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 80; };
+    const onResize = () => { if (atEnd) requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight })); };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    vv.addEventListener('resize', onResize);
+    return () => { el.removeEventListener('scroll', onScroll); vv.removeEventListener('resize', onResize); };
+  }, [fill]);
+  // podgląd zdjęcia: Esc zamyka
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoom(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoom]);
 
   const jumpTo = (id: string) => {
     const el = document.getElementById(`msg-${id}`);
@@ -121,7 +139,7 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
       )}
 
       {/* wiadomości */}
-      <div ref={listRef} className={`relative ${fill ? 'flex-1 min-h-0' : 'h-[min(60dvh,560px)]'} overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3 space-y-2.5`} onClick={() => setActive(null)}>
+      <div ref={listRef} data-rr-lista className={`relative ${fill ? 'flex-1 min-h-0' : 'h-[min(60dvh,560px)]'} overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3 space-y-2.5`} onClick={() => setActive(null)}>
         {messages.map(m => {
           const mine = m.authorId === currentUserId;
           const a = members.find(x => x.id === m.authorId);
@@ -244,6 +262,8 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
           <button type="button" onClick={() => fileRef.current?.click()} className="tap w-11 h-11 shrink-0 flex items-center justify-center rounded-full text-mut hover:bg-surf2 cursor-pointer" aria-label="Dołącz plik"><Paperclip className="w-5 h-5" /></button>
           <input ref={fileRef} type="file" accept={ACCEPT} hidden onChange={pickFile} />
           <textarea ref={inputRef} rows={1} value={text} maxLength={2000}
+            onFocus={() => { if (fill) document.documentElement.classList.add('rr-typing'); }}
+            onBlur={() => { if (fill) document.documentElement.classList.remove('rr-typing'); }}
             onChange={e => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`; }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(min-width: 1024px)').matches) { e.preventDefault(); submit(); } }}
             placeholder="Wiadomość" aria-label="Wiadomość do grupy"
@@ -264,6 +284,8 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
       {zoom && (
         <div className="fixed inset-0 z-[90] bg-black/85 flex items-center justify-center p-3" onClick={() => setZoom(null)} role="dialog" aria-label="Zdjęcie">
           <img src={zoom} alt="" className="max-w-full max-h-full rounded-lg" />
+          <button onClick={e => { e.stopPropagation(); setZoom(null); }} aria-label="Zamknij zdjęcie" title="Zamknij"
+            className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-3 w-11 h-11 flex items-center justify-center rounded-full bg-black/60 text-white border border-white/30 text-2xl leading-none cursor-pointer">✕</button>
         </div>
       )}
     </div>
