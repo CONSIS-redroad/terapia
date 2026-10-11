@@ -35,7 +35,7 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         injectRegister: false, // rejestruje strażnik wersji (UpdateGuard)
         // demo (katalog główny) NIE może podawać swojej strony zamiast /grupa/ — inaczej SW demo przejmie wersję z bazą
-        workbox: { globIgnores: ['version.json'], navigateFallbackDenylist: LIVE ? [] : [/\/grupa\//], cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true },
+        workbox: { globIgnores: ['version.json'], navigateFallbackDenylist: LIVE ? [] : [/\/grupa(\/|\?|#|$)/], cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true },
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: './',

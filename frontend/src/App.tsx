@@ -11,6 +11,7 @@ import { Carousel, CarouselHandle, Slide } from './components/Carousel';
 import { useIsDark, useWallpaper } from './hooks/useWallpaper';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { useTheme } from './hooks/useTheme';
+import { useUiSync } from './hooks/useUiSync';
 import { usePanelLayout } from './hooks/usePanelLayout';
 import { useGroup } from './hooks/useGroup';
 import { PanelContainer } from './components/PanelContainer';
@@ -91,6 +92,8 @@ export default function App() {
     if (live) void auth.saveMember({ name: p.pseudonym.trim() || auth.member?.name, emoji: p.emoji, color: p.color, real_name: p.realName, about: p.about,
       show_photo: false, show_real_name: p.show.realName, show_about: p.show.about }).catch(e => alert(`Nie zapisano profilu: ${e.message}`));
   };
+  // Wygląd przy profilu w bazie: ten sam na każdym urządzeniu, przeżywa aktualizacje (Bartek 11.10)
+  const uiSync = useUiSync({ live, uid: auth.uid, ready: !!auth.member, ui: auth.member?.ui, localMode: theme.mode, localWallpaper: wall.choice, setMode: theme.setMode, applyWallpaper: wall.applyChoice });
   const pub = publicView(profile);
   // „Ty” jako członek grupy — wyłącznie z danych, które uczestnik pokazał (publicView).
   const me: Member = { id: g.currentUserId, name: pub.name, role: 'participant', status: 'approved', emoji: profile.emoji, color: profile.color, photo: pub.usePhoto ? profile.photoDataUrl : undefined, about: pub.about || undefined };
@@ -249,8 +252,8 @@ export default function App() {
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
           profile={profile} onProfile={setProfile} onClearProfile={() => { clearProfile(); setProfileState(DEFAULT_PROFILE); }}
-          mode={theme.mode} onMode={theme.setMode}
-          wallpaper={wall.settings} onWallpaper={wall.setSettings} onResetWallpaper={wall.reset}
+          mode={theme.mode} onMode={m => { theme.setMode(m); uiSync.mode(m); }}
+          wallpaper={wall.settings} onWallpaper={s => uiSync.wallpaper(wall.setSettings(s))} onResetWallpaper={() => { wall.reset(); uiSync.resetWallpaper(); }}
           panels={panels.filter(x => allowed(x.id))} onTogglePanel={toggleVisibility} onResetPanels={resetLayout}
           isDemo={g.isDemo} onResetDemo={g.resetDemo}
           isAdmin={isAdmin} groupName={g.group?.name ?? ''}
