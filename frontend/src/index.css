@@ -123,3 +123,12 @@
 .rr-czat.rr-typing [data-rr-nav] { display: none; }
 .rr-czat [data-rr-lista] .text-base { font-size: 15px; line-height: 1.35; }
 .rr-czat [data-rr-lista] .text-xs { font-size: 11px; }
+
+/* Tryb czatu, menu minimalistyczne (Bartek 12.10): dolny pasek 2× niższy (same ikony), górny wyżej i mniejszy. */
+.rr-czat { --rr-top: 3.3rem; --rr-nav: 2.4rem; }
+.rr-czat [data-rr-header] { zoom: 0.7; top: max(0.25rem, env(safe-area-inset-top)) !important; }
+.rr-czat main { padding-top: max(0.25rem, env(safe-area-inset-top)) !important; }
+.rr-czat [data-rr-nav-label] { display: none; }
+.rr-czat [data-rr-nav] button { padding-top: 1px; padding-bottom: 1px; min-height: 0; height: 1.9rem; }
+.rr-czat [data-rr-nav] button > span:first-child { height: 1.6rem; }
+.rr-czat [data-rr-nav] > div { padding-top: 3px; padding-bottom: max(3px, env(safe-area-inset-bottom)); }

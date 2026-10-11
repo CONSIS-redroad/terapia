@@ -50,6 +50,16 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
   // Ekran „full” (czat) aktywny → karuzela dosuwa się pod pasek u góry i blokujemy przewijanie STRONY;
   // przewija się tylko lista wiadomości. Inny ekran → strona znów się przewija.
   const fullActive = !!slides[active]?.full;
+  const [trackH, setTrackH] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const el = track.current?.children[active] as HTMLElement | undefined;
+    if (!el) return;
+    const upd = () => setTrackH(el.offsetHeight);
+    upd();
+    const ro = new ResizeObserver(upd);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [active, slides.length]);
   useEffect(() => {
     if (!fullActive) return;
     const html = document.documentElement, prev = html.style.overflow;
@@ -81,7 +91,7 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
             <button key={s.id} onClick={() => scrollToIndex(i)} aria-current={active === i ? 'page' : undefined}
               className={`tap relative flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${active === i ? 'text-acc' : 'text-mut'}`}>
               <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${active === i ? 'bg-sky-500/20' : ''}`}><s.icon className="w-5 h-5" /></span>
-              {s.label}
+              <span data-rr-nav-label>{s.label}</span>
               {!!s.badge && <span className="absolute top-0 right-[calc(50%-1.6rem)] min-w-5 h-5 px-1 rounded-full bg-amber-400 text-xs leading-5 text-black">{s.badge}</span>}
             </button>
           ))}
@@ -89,7 +99,7 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
       </div>
       </nav>
 
-      <div ref={track} className="flex items-start overflow-x-auto snap-x snap-mandatory no-scrollbar overscroll-x-contain -mx-3" style={{ scrollbarWidth: 'none' }}>
+      <div ref={track} className="flex items-start overflow-x-auto overflow-y-hidden snap-x snap-mandatory no-scrollbar overscroll-x-contain -mx-3" style={{ scrollbarWidth: 'none', height: trackH }}>
         {slides.map(s => (
           <section key={s.id} aria-label={s.label} className={`w-full shrink-0 snap-start snap-always px-3 min-w-0 ${s.full ? 'h-[calc(var(--rr-vh,100dvh)-var(--rr-top)-var(--rr-nav)-env(safe-area-inset-bottom))]' : ''}`}>
             <div className={`rounded-2xl bg-panel backdrop-blur-md border border-line shadow-sm overflow-hidden ${s.full ? 'h-full flex flex-col' : ''}`}>
