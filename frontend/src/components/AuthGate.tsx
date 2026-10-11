@@ -11,12 +11,14 @@ import { RULES_VERSION } from '../demo/rules';
 import { Onboarding } from './Onboarding';
 import { CrisisBox } from './RulesPanel';
 import { Wallpaper } from './Wallpaper';
+import type { UiPrefs } from '../hooks/useUiSync';
 import { useIsDark, useWallpaper } from '../hooks/useWallpaper';
 
 export interface MemberRow {
   id: string; name: string; role: 'therapist' | 'participant'; status: 'pending' | 'approved' | 'blocked' | 'removed';
   emoji: string; color: string; photo_url: string | null; real_name: string; about: string;
   show_photo: boolean; show_real_name: boolean; show_about: boolean;
+  ui?: UiPrefs | null;   // wygląd przy profilu (migracja *_ui_profil.sql)
 }
 
 export interface AuthState {
