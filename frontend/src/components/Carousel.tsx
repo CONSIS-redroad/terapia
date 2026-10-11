@@ -52,19 +52,29 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
   const fullActive = !!slides[active]?.full;
   useEffect(() => {
     if (!fullActive) return;
-    root.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
     const html = document.documentElement, prev = html.style.overflow;
     html.style.overflow = 'hidden';
-    return () => { html.style.overflow = prev; };
+    html.classList.add('rr-czat');
+    // przypnij czat pod paskiem u góry — także po wysunięciu klawiatury (przeglądarka przewija wtedy stronę do pola)
+    const pin = () => root.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    pin();
+    const vv = window.visualViewport;
+    const onVv = () => requestAnimationFrame(pin);
+    vv?.addEventListener('resize', onVv);
+    window.addEventListener('scroll', onVv, { passive: true });
+    return () => {
+      html.style.overflow = prev; html.classList.remove('rr-czat', 'rr-typing');
+      vv?.removeEventListener('resize', onVv); window.removeEventListener('scroll', onVv);
+    };
   }, [fullActive]);
 
   // po zmianie liczby ekranów (np. przełączenie na admina) nie zostawać „poza” ostatnim
   useEffect(() => { if (active > slides.length - 1) scrollToIndex(slides.length - 1, false); }, [slides.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div ref={root} className="scroll-mt-24 pb-24">
+    <div ref={root} className="pb-24" style={{ scrollMarginTop: 'var(--rr-top)' }}>
       {/* dolny pasek ekranów — jak w aplikacjach: kciuk sięga, zawsze widoczny */}
-      <nav className={`fixed bottom-0 inset-x-0 z-40 transition-transform duration-300 ${navOn ? 'translate-y-0' : 'translate-y-full'}`} aria-hidden={!navOn}>
+      <nav data-rr-nav className={`fixed bottom-0 inset-x-0 z-40 transition-transform duration-300 ${navOn ? 'translate-y-0' : 'translate-y-full'}`} aria-hidden={!navOn}>
       <div className="px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-head backdrop-blur-2xl border-t border-line shadow-[0_-8px_24px_rgba(0,0,0,0.12)]" role="navigation" aria-label="Ekrany grupy">
         <div className="flex max-w-xl mx-auto">
           {slides.map((s, i) => (
@@ -81,9 +91,9 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
 
       <div ref={track} className="flex items-start overflow-x-auto snap-x snap-mandatory no-scrollbar overscroll-x-contain -mx-3" style={{ scrollbarWidth: 'none' }}>
         {slides.map(s => (
-          <section key={s.id} aria-label={s.label} className={`w-full shrink-0 snap-start snap-always px-3 min-w-0 ${s.full ? 'h-[calc(var(--rr-vh,100dvh)-6rem-4.75rem-env(safe-area-inset-bottom))]' : ''}`}>
+          <section key={s.id} aria-label={s.label} className={`w-full shrink-0 snap-start snap-always px-3 min-w-0 ${s.full ? 'h-[calc(var(--rr-vh,100dvh)-var(--rr-top)-var(--rr-nav)-env(safe-area-inset-bottom))]' : ''}`}>
             <div className={`rounded-2xl bg-panel backdrop-blur-md border border-line shadow-sm overflow-hidden ${s.full ? 'h-full flex flex-col' : ''}`}>
-              <h2 className={`px-4 text-xl font-extrabold tracking-tight text-fg flex items-center gap-2 ${s.full ? 'pt-3 pb-1 shrink-0' : 'pt-4 pb-2'}`}>
+              <h2 {...(s.full ? { 'data-rr-full-title': '' } : {})} className={`px-4 text-xl font-extrabold tracking-tight text-fg flex items-center gap-2 ${s.full ? 'pt-3 pb-1 shrink-0' : 'pt-4 pb-2'}`}>
                 <s.icon className="w-5 h-5 text-acc" />{s.label}
               </h2>
               {s.full ? <div className="flex-1 min-h-0">{s.content}</div> : s.content}

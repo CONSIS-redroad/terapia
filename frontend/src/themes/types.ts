@@ -15,7 +15,7 @@ export interface WallpaperTheme {
   /** Niebo / tło — osobno dla trybu jasnego i ciemnego. */
   sky: { light: string; dark: string };
   /** Scena (SVG) — dostaje tryb, żeby dobrać kolory. */
-  Scene: React.FC<{ dark: boolean }>;
+  Scene: React.FC<{ dark: boolean; motion?: boolean }>;
   particles: ParticleKind;
   /** Kolory cząsteczek (losowane z listy). */
   particleColors: { light: string[]; dark: string[] };

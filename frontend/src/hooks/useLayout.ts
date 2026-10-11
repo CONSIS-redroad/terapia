@@ -43,8 +43,16 @@ export function applyPhoneScale(mobile: boolean) {
   // .rr-phone wyłącza szerokie warianty Tailwinda (index.css); --rr-vh = wysokość ekranu w jednostkach po powiększeniu
   // (100dvh nie uwzględnia zoomu — czat na pełny ekran wychodziłby pod dolny pasek)
   html.classList.toggle('rr-phone', mobile);
-  if (r > 1) html.style.setProperty('--rr-vh', `${Math.round(window.innerHeight / r)}px`);
-  else html.style.removeProperty('--rr-vh');
+  updateVh();
+}
+
+/** --rr-vh = WIDOCZNA wysokość (visualViewport: bez klawiatury), w jednostkach po powiększeniu. Czat na pełny ekran
+ *  liczy się od niej — klawiatura Androida / iOS zmniejsza czat zamiast go wypychać (Bartek 11.10: „czat ucieka”). */
+export function updateVh() {
+  const html = document.documentElement;
+  const z = parseFloat((html.style as CSSStyleDeclaration & { zoom: string }).zoom) || 1;
+  const h = window.visualViewport?.height ?? window.innerHeight;
+  html.style.setProperty('--rr-vh', `${Math.round(h / z)}px`);
 }
 
 export function useLayout() {
@@ -57,7 +65,9 @@ export function useLayout() {
     mq.addEventListener('change', upd);
     window.addEventListener('resize', upd);
     window.addEventListener('orientationchange', upd);
-    return () => { mq.removeEventListener('change', upd); window.removeEventListener('resize', upd); window.removeEventListener('orientationchange', upd); };
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', updateVh);
+    return () => { mq.removeEventListener('change', upd); window.removeEventListener('resize', upd); window.removeEventListener('orientationchange', upd); vv?.removeEventListener('resize', updateVh); };
   }, [mode]);
   const setMode = (m: LayoutMode) => {
     setModeState(m);

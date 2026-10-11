@@ -27,7 +27,7 @@ function seeded(seed: number) {
 const CLOUDS = [
   { x: 120, y: 150, s: 1.15, d: 140 }, { x: 860, y: 95, s: 0.85, d: 180 }, { x: 420, y: 300, s: 0.7, d: 160 }, { x: 1010, y: 330, s: 1, d: 200 },
 ];
-const Day: React.FC = () => (
+const Day: React.FC<{ motion: boolean }> = ({ motion }) => (
   <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" className="w-full h-full" aria-hidden="true">
     <defs>
       <radialGradient id="slonce-halo">
@@ -49,8 +49,7 @@ const Day: React.FC = () => (
     <circle cx={CX} cy={CY} r={R * 2.6} fill="url(#slonce-halo)" />
     <circle cx={CX} cy={CY} r={R * 0.62} fill="url(#slonce-tarcza)" />
     {CLOUDS.map((c, i) => (
-      <g key={i} opacity="0.88">
-        <animateTransform attributeName="transform" type="translate" from="-160 0" to="160 0" dur={`${c.d}s`} repeatCount="indefinite" additive="sum" />
+      <g key={i} opacity="0.88" className={motion ? 'rr-chmura' : undefined} style={{ ['--rr-chmura-d' as string]: `${c.d}s` } as React.CSSProperties}>
         <g transform={`translate(${c.x} ${c.y}) scale(${c.s})`} fill="#ffffff">
           <ellipse cx="0" cy="0" rx="70" ry="26" /><ellipse cx="-42" cy="8" rx="44" ry="20" /><ellipse cx="46" cy="10" rx="50" ry="19" /><ellipse cx="6" cy="-18" rx="40" ry="24" />
         </g>
@@ -62,8 +61,8 @@ const Day: React.FC = () => (
   </svg>
 );
 
-const Scene: React.FC<{ dark: boolean }> = ({ dark }) => {
-  if (!dark) return <Day />;
+const Scene: React.FC<{ dark: boolean; motion?: boolean }> = ({ dark, motion = true }) => {
+  if (!dark) return <Day motion={motion} />;
   const rnd = seeded(29);
   // kilka nieruchomych gwiazd w SVG — niebo zostaje nocne także przy wyłączonych cząsteczkach
   const stars = Array.from({ length: 46 }, () => ({ x: rnd() * 1200, y: Math.pow(rnd(), 1.4) * 520, r: 0.6 + rnd() * 1.3, o: 0.25 + rnd() * 0.5 }));

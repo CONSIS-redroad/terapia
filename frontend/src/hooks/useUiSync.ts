@@ -5,9 +5,10 @@
 // - do bazy idą WYŁĄCZNIE kliknięcia w tej aplikacji (nie zdarzenia z innej karty), tylko zmienione pola, scalane
 //   z aktualnym wpisem w bazie (dwa urządzenia nie kasują sobie wyborów); „Przywróć” = pusty wybór tapety;
 // - pusty profil przy pierwszym logowaniu dostaje lokalny wybór (inaczej pierwsza zmiana innego pola by go zgubiła);
-// - zapisy idą JEDEN PO DRUGIM (kolejka) — dwa równoległe odczyt→zapis nadpisywały się nawzajem;
-// - nieudany zapis wraca do kolejki (z zachowaniem „Przywróć”) i idzie przy kolejnej zmianie / schowaniu karty;
-// - zamknięcie karty: jeden zapis `keepalive` (przeglądarka dośle go po zamknięciu) z ostatnim znanym stanem bazy.
+// - SCALANIE W BAZIE: wysyłamy tylko zmienione pola do funkcji ui_merge (migracja *_ui_merge.sql), baza dokleja je do
+//   aktualnego wpisu — zapis na ślepo całej kolumny gubił zmiany z innego urządzenia i zmiany w locie (adwersarz, runda 4);
+// - zapisy idą JEDEN PO DRUGIM (kolejka); nieudany wraca do kolejki (z zachowaniem „Przywróć”);
+// - schowanie / zamknięcie karty: zmiany zabieramy OD RAZU i wysyłamy `keepalive` (przeglądarka dośle je po zamknięciu).
 // Błędy są ciche — nie ruszają ekranu aplikacji.
 import { useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
@@ -28,7 +29,8 @@ function combine(older: Pending, newer: Pending): Pending {
     : (older.wallpaper || newer.wallpaper ? { ...(older.wallpaper ?? {}), ...(newer.wallpaper ?? {}) } : undefined);
   return { mode: newer.mode ?? older.mode, resetWallpaper: older.resetWallpaper || newer.resetWallpaper || undefined, wallpaper: wp };
 }
-function apply(base: UiPrefs, p: Pending): UiPrefs {
+/** (zostawione dla testów — scalanie robi teraz baza, ui_merge) */
+export function apply(base: UiPrefs, p: Pending): UiPrefs {
   const next: UiPrefs = { ...base };
   if (p.mode) next.mode = p.mode;
   if (p.resetWallpaper) next.wallpaper = {};
@@ -45,12 +47,13 @@ export function useUiSync(o: {
   const pending = useRef<Pending>({});
   const timer = useRef<number | undefined>(undefined);
   const chain = useRef<Promise<void>>(Promise.resolve());
-  const mirror = useRef<UiPrefs>({});       // ostatni znany stan members.ui (do zapisu przy zamknięciu karty)
   const token = useRef('');
   const uid = useRef(o.uid); uid.current = o.uid;
 
   const take = () => { const p = pending.current; pending.current = {}; return p; };
   const requeue = (p: Pending) => { pending.current = combine(p, pending.current); };
+
+  const toRpc = (p: Pending) => ({ patch: { ...(p.mode ? { mode: p.mode } : {}), ...(p.wallpaper ? { wallpaper: p.wallpaper } : {}) }, reset_wallpaper: !!p.resetWallpaper });
 
   const flush = () => {
     chain.current = chain.current.then(async () => {
@@ -58,14 +61,31 @@ export function useUiSync(o: {
       const sb = supabase;
       if (!sb || !uid.current || isEmpty(p)) return;
       try {
-        const cur = await sb.from('members').select('ui').eq('id', uid.current).maybeSingle();
-        if (cur.error) { requeue(p); return; }
-        const next = apply((cur.data?.ui ?? {}) as UiPrefs, p);
-        const up = await sb.from('members').update({ ui: next }).eq('id', uid.current);
-        if (up.error) requeue(p); else mirror.current = next;
+        const r = await sb.rpc('ui_merge', toRpc(p));
+        if (r.error && (r.error.code === 'PGRST202' || /ui_merge/.test(r.error.message))) {
+          // baza bez funkcji ui_merge (migracja *_ui_merge.sql jeszcze niewgrana) → po staremu: odczyt, scalenie, zapis
+          const cur = await sb.from('members').select('ui').eq('id', uid.current).maybeSingle();
+          if (cur.error) { requeue(p); return; }
+          const up = await sb.from('members').update({ ui: apply((cur.data?.ui ?? {}) as UiPrefs, p) }).eq('id', uid.current);
+          if (up.error) requeue(p);
+        } else if (r.error) requeue(p);
       } catch { requeue(p); }
     });
     return chain.current;
+  };
+
+  /** Schowanie / zamknięcie karty: zabierz zmiany SYNCHRONICZNIE i wyślij keepalive — przeglądarka dośle po zamknięciu. */
+  const sendNow = () => {
+    if (isEmpty(pending.current) || !SB_URL || !SB_KEY || !token.current) return;
+    window.clearTimeout(timer.current);
+    const p = take();
+    try {
+      void fetch(`${SB_URL}/rest/v1/rpc/ui_merge`, {
+        method: 'POST', keepalive: true,
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${token.current}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(toRpc(p)),
+      }).then(r => { if (!r.ok) requeue(p); }, () => requeue(p));
+    } catch { requeue(p); }
   };
 
   const schedule = (add: Pending) => {
@@ -80,7 +100,6 @@ export function useUiSync(o: {
     if (!o.live || !o.ready || applied.current) return;
     applied.current = true;
     const ui = (o.ui && typeof o.ui === 'object' ? o.ui : {}) as UiPrefs;
-    mirror.current = ui;
     if (ui.mode && MODES.includes(ui.mode)) o.setMode(ui.mode);
     else if (o.localMode !== 'system') schedule({ mode: o.localMode });
     if (ui.wallpaper && typeof ui.wallpaper === 'object' && !Array.isArray(ui.wallpaper)) o.applyWallpaper(cleanChoice(ui.wallpaper));
@@ -96,25 +115,12 @@ export function useUiSync(o: {
     return () => data.subscription.unsubscribe();
   }, [o.live]);
 
-  // 3) Schowanie karty → zapis od razu (strona żyje). Zamknięcie → jeden PATCH keepalive.
+  // 3) Schowanie karty (telefon: przejście do innej aplikacji) i zamknięcie → wyślij od razu, z keepalive.
   useEffect(() => {
-    const onHide = () => { if (document.visibilityState === 'hidden' && !isEmpty(pending.current)) { window.clearTimeout(timer.current); void flush(); } };
-    const onClose = () => {
-      if (isEmpty(pending.current) || !SB_URL || !SB_KEY || !token.current || !uid.current) return;
-      window.clearTimeout(timer.current);
-      const next = apply(mirror.current, take());
-      mirror.current = next;
-      try {
-        void fetch(`${SB_URL}/rest/v1/members?id=eq.${encodeURIComponent(uid.current)}`, {
-          method: 'PATCH', keepalive: true,
-          headers: { apikey: SB_KEY, Authorization: `Bearer ${token.current}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({ ui: next }),
-        });
-      } catch { /* zamykamy się — trudno */ }
-    };
+    const onHide = () => { if (document.visibilityState === 'hidden') sendNow(); };
     document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', onClose);
-    return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', onClose); };
+    window.addEventListener('pagehide', sendNow);
+    return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', sendNow); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {

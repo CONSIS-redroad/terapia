@@ -105,3 +105,21 @@
 /* karuzela: bez paska przewijania */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Chmury motywu Księżyc (dzień): ruch CSS, nie SMIL — wyłącza go ustawienie „Ruch tła” (klasa nadawana tylko przy
+   motion) i systemowe ograniczenie ruchu (adwersarz 11.10 OB-4: SMIL płynął mimo „wył.”). */
+@keyframes rr-chmura { from { transform: translateX(-160px); } to { transform: translateX(160px); } }
+.rr-chmura { animation: rr-chmura var(--rr-chmura-d, 160s) ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .rr-chmura { animation: none; } }
+
+/* TRYB CZATU NA TELEFONIE (Bartek 11.10; proporcje jak WhatsApp: pasek ~56 px, tekst 15 px, godzina 11 px).
+   Klasy na <html>: .rr-czat = aktywny ekran czatu (Carousel), .rr-typing = pisanie (klawiatura) — chowa dolny pasek.
+   --rr-vh = widoczna wysokość (visualViewport, hooks/useLayout.ts): klawiatura nie wypycha czatu. */
+:root { --rr-top: 6rem; --rr-nav: 4.75rem; }
+.rr-czat { --rr-top: 4.6rem; }
+.rr-czat.rr-typing { --rr-nav: 0rem; }
+.rr-czat [data-rr-header] { zoom: 0.82; }
+.rr-czat [data-rr-full-title] { display: none; }
+.rr-czat.rr-typing [data-rr-nav] { display: none; }
+.rr-czat [data-rr-lista] .text-base { font-size: 15px; line-height: 1.35; }
+.rr-czat [data-rr-lista] .text-xs { font-size: 11px; }

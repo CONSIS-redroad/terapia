@@ -237,7 +237,7 @@ export const Wallpaper: React.FC<{ settings: WallpaperSettings; dark: boolean }>
         className="absolute -inset-16 transition-transform duration-300 ease-out will-change-transform"
         style={{ transform: `translate3d(${m.mx + m.rotY * 3}px, ${m.my - m.rotX * 3 - lift}px, 0) rotateX(${m.rotX * 0.35}deg) rotateY(${m.rotY * 0.35}deg) scale(1.06)` }}
       >
-        <Scene dark={dark} />
+        <Scene dark={dark} motion={settings.motion} />
       </div>
       {settings.particles && <ParticleLayer kind={theme.particles} colorsKey={colors.join('|')} density={settings.density} motion={settings.motion} />}
       <div className="absolute inset-0 pointer-events-none" style={{ background: dark ? `rgba(7,11,16,${settings.veil})` : `rgba(255,255,255,${settings.veil})` }} />
