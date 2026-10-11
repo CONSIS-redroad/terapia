@@ -12,6 +12,7 @@ import { useIsDark, useWallpaper } from './hooks/useWallpaper';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { useTheme } from './hooks/useTheme';
 import { useUiSync } from './hooks/useUiSync';
+import { useLayout } from './hooks/useLayout';
 import { usePanelLayout } from './hooks/usePanelLayout';
 import { useGroup } from './hooks/useGroup';
 import { PanelContainer } from './components/PanelContainer';
@@ -43,17 +44,6 @@ export const DZIENNICZEK_URL = 'https://consis-redroad.github.io/dzienniczek/';
 /** Nazwy i ikonki ekranów — edytuj w src/config/ui.config.ts (NAV_SCREENS). */
 const SHORT = NAV_SCREENS;
 
-function useIsMobile() {
-  const q = '(max-width: 1023px)';
-  const [m, setM] = useState(() => window.matchMedia(q).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(q);
-    const on = () => setM(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return m;
-}
 
 export default function App() {
   const g = useGroup();
@@ -62,7 +52,8 @@ export default function App() {
   const theme = useTheme();
   const wall = useWallpaper();
   const dark = useIsDark();
-  const mobile = useIsMobile();
+  const layout = useLayout();   // telefon/komputer — nasze ustawienie, nie tryb przeglądarki (Bartek 11.10)
+  const mobile = layout.mobile;
   const carousel = useRef<CarouselHandle>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [meetingId, setMeetingId] = useState<string | undefined>();
@@ -125,7 +116,7 @@ export default function App() {
       case 'meetings': return <MeetingsPanel meetings={meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId} />;
       case 'homework': return <HomeworkPanel homework={g.homework} meetings={meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting}
         isAdmin={isAdmin} onAdd={g.addHomework} onUpdate={g.updateHomework} onDelete={g.deleteHomework} />;
-      case 'chat': return <ChatPanel messages={g.messages} members={members} announcements={g.announcements} currentUserId={g.currentUserId} isAdmin={isAdmin} isDemo={g.isDemo}
+      case 'chat': return <ChatPanel fill={mobile} messages={g.messages} members={members} announcements={g.announcements} currentUserId={g.currentUserId} isAdmin={isAdmin} isDemo={g.isDemo}
         onSend={g.sendMessage} onReact={g.react} onDeleteAttachment={g.deleteAttachment} onDeleteMessage={g.deleteMessage} />;
       case 'materials': return <MediaLibrary items={g.materials} meetings={meetings} onOpenMeeting={openMeeting} />;
       case 'members': return <MembersPanel members={members} onSetStatus={g.setMemberStatus} onAdd={g.addMember} selfId={g.currentUserId} usage={usage}
@@ -138,7 +129,7 @@ export default function App() {
 
   const slides: Slide[] = visible.map(p => ({
     id: p.id, label: SHORT[p.id].label, icon: SHORT[p.id].icon,
-    badge: p.id === 'members' ? pendingCount : p.id === 'homework' ? hwTodo : undefined, content: content(p.id),
+    full: p.id === 'chat', badge: p.id === 'members' ? pendingCount : p.id === 'homework' ? hwTodo : undefined, content: content(p.id),
   }));
 
   return (
@@ -252,6 +243,7 @@ export default function App() {
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
           profile={profile} onProfile={setProfile} onClearProfile={() => { clearProfile(); setProfileState(DEFAULT_PROFILE); }}
+          layout={layout.mode} onLayout={layout.setMode}
           mode={theme.mode} onMode={m => { theme.setMode(m); uiSync.mode(m); }}
           wallpaper={wall.settings} onWallpaper={s => uiSync.wallpaper(wall.setSettings(s))} onResetWallpaper={() => { wall.reset(); uiSync.resetWallpaper(); }}
           panels={panels.filter(x => allowed(x.id))} onTogglePanel={toggleVisibility} onResetPanels={resetLayout}

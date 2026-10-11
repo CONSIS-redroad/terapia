@@ -15,6 +15,8 @@ const QUICK = CHAT_QUICK_REACTIONS;
 interface Props {
   messages: Message[]; members: Member[]; announcements: Announcement[];
   currentUserId: string; isAdmin: boolean; isDemo: boolean;
+  /** Telefon: czat na całą wysokość ekranu, przewija się tylko lista wiadomości. */
+  fill?: boolean;
   onSend: (body: string, opts: { replyTo?: string; attachment?: Attachment }) => void;
   onReact: (id: string, emoji: string) => void;
   onDeleteAttachment: (id: string, by: 'admin' | 'author') => void;
@@ -39,7 +41,7 @@ const FileChip: React.FC<{ a: Attachment; mine: boolean }> = ({ a, mine }) => {
   );
 };
 
-export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, currentUserId, isAdmin, isDemo, onSend, onReact, onDeleteAttachment, onDeleteMessage }) => {
+export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, currentUserId, isAdmin, isDemo, fill, onSend, onReact, onDeleteAttachment, onDeleteMessage }) => {
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -93,7 +95,7 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
   const replyMsg = replyTo ? messages.find(m => m.id === replyTo) : undefined;
 
   return (
-    <div className="flex flex-col">
+    <div className={`flex flex-col ${fill ? 'h-full min-h-0' : ''}`}>
       {/* przypięte ogłoszenia prowadzącej */}
       {pinned.length > 0 && (
         <div className="mx-3 mt-1 mb-1 rounded-xl border border-amber-300/30 bg-amber-400/10">
@@ -119,7 +121,7 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
       )}
 
       {/* wiadomości */}
-      <div ref={listRef} className="relative h-[min(60dvh,560px)] overflow-y-auto overflow-x-hidden px-3 py-3 space-y-2.5" onClick={() => setActive(null)}>
+      <div ref={listRef} className={`relative ${fill ? 'flex-1 min-h-0' : 'h-[min(60dvh,560px)]'} overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3 space-y-2.5`} onClick={() => setActive(null)}>
         {messages.map(m => {
           const mine = m.authorId === currentUserId;
           const a = members.find(x => x.id === m.authorId);
@@ -248,11 +250,15 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
             className="flex-1 min-w-0 resize-none bg-surf border border-line rounded-3xl px-4 py-2.5 text-base text-fg placeholder:text-mut2 focus:outline-none focus:border-sky-400/40" />
           <button type="submit" disabled={!text.trim() && !file} className="tap w-11 h-11 shrink-0 flex items-center justify-center rounded-full bg-sky-500/30 text-acc border border-sky-400/40 disabled:opacity-30 cursor-pointer" aria-label="Wyślij"><Send className="w-5 h-5" /></button>
         </form>
-        <div className="flex items-center gap-2 px-1">
-          <div className="flex-1 h-1.5 rounded-full bg-surf2 overflow-hidden" aria-hidden="true"><div className="h-full bg-sky-400" style={{ width: `${Math.min(100, (used / MAX_USER_TOTAL) * 100)}%` }} /></div>
-          <span className="text-xs text-mut">Twoje pliki: {fmtSize(used)} / 40 MB · do 20 MB na plik</span>
-        </div>
-        {isDemo && <p className="px-1 text-xs text-mut2">Demo: wiadomości i pliki zostają tylko w tej przeglądarce (pliki — do odświeżenia strony).</p>}
+        {/* Telefon (fill): bez paska limitu i dopisku demo — każda linia to mniej rozmowy (Bartek 11.10); limit pilnuje
+            checkFile/baza i pokazuje komunikat dopiero przy przekroczeniu. Na komputerze zostaje. */}
+        {!fill && (
+          <div className="flex items-center gap-2 px-1">
+            <div className="flex-1 h-1.5 rounded-full bg-surf2 overflow-hidden" aria-hidden="true"><div className="h-full bg-sky-400" style={{ width: `${Math.min(100, (used / MAX_USER_TOTAL) * 100)}%` }} /></div>
+            <span className="text-xs text-mut">Twoje pliki: {fmtSize(used)} / 40 MB · do 20 MB na plik</span>
+          </div>
+        )}
+        {isDemo && !fill && <p className="px-1 text-xs text-mut2">Demo: wiadomości i pliki zostają tylko w tej przeglądarce (pliki — do odświeżenia strony).</p>}
       </div>
 
       {zoom && (

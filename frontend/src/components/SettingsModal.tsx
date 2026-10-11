@@ -1,7 +1,8 @@
 // PATH: src/components/SettingsModal.tsx | REQ-ID: TERAPIA-SETTINGS-01 (układ z Luna2: zakładki w oknie)
 import React, { useEffect, useState } from 'react';
-import { Bell, Database, Eye, EyeOff, Image as ImageIcon, LayoutGrid, Lock, Monitor, Moon, RotateCcw, Settings, Sun, Trash2, User, X } from 'lucide-react';
+import { Bell, Database, Smartphone, Eye, EyeOff, Image as ImageIcon, LayoutGrid, Lock, Monitor, Moon, RotateCcw, Settings, Sun, Trash2, User, X } from 'lucide-react';
 import { ProfilePanel } from './ProfilePanel';
+import type { LayoutMode } from '../hooks/useLayout';
 import { NotificationSettings } from './NotificationSettings';
 import type { Profile } from '../services/profile';
 import { THEMES } from '../themes';
@@ -17,6 +18,7 @@ interface Props {
   onClose: () => void;
   profile: Profile; onProfile: (p: Profile) => void; onClearProfile: () => void;
   mode: ThemeMode; onMode: (m: ThemeMode) => void;
+  layout: LayoutMode; onLayout: (m: LayoutMode) => void;
   wallpaper: WallpaperSettings; onWallpaper: (w: WallpaperSettings) => void; onResetWallpaper: () => void;
   panels: PanelConfig[]; onTogglePanel: (id: PanelId) => void; onResetPanels: () => void;
   isDemo: boolean; onResetDemo: () => void;
@@ -102,6 +104,16 @@ export const SettingsModal: React.FC<Props> = (p) => {
                   <button className={pill(p.mode === 'system')} onClick={() => p.onMode('system')}><Monitor className="w-3.5 h-3.5 inline mr-1" />Jak urządzenie</button>
                   <button className={pill(p.mode === 'light')} onClick={() => p.onMode('light')}><Sun className="w-3.5 h-3.5 inline mr-1" />Jasny</button>
                   <button className={pill(p.mode === 'dark')} onClick={() => p.onMode('dark')}><Moon className="w-3.5 h-3.5 inline mr-1" />Ciemny</button>
+                </div>
+              </div>
+
+              {/* Układ — per urządzenie; „Automatycznie” rozpoznaje telefon także w trybie „wersja na komputer” przeglądarki */}
+              <div className={row}>
+                <span className="text-xs font-semibold text-fg2">Układ</span>
+                <div className="flex gap-1">
+                  <button className={pill(p.layout === 'auto')} onClick={() => p.onLayout('auto')}>Automatycznie</button>
+                  <button className={pill(p.layout === 'phone')} onClick={() => p.onLayout('phone')}><Smartphone className="w-3.5 h-3.5 inline mr-1" />Telefon</button>
+                  <button className={pill(p.layout === 'desktop')} onClick={() => p.onLayout('desktop')}><Monitor className="w-3.5 h-3.5 inline mr-1" />Komputer</button>
                 </div>
               </div>
 
