@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* UKŁAD TELEFONU WYMUSZONY (Bartek 11.10): gdy przeglądarka w telefonie udaje komputer (~980 px), hooks/useLayout.ts
+   dokłada klasę .rr-phone na <html> — szerokie warianty sm/md/lg/xl wtedy NIE działają, strona ma układ telefonu. */
+@custom-variant sm { @media (width >= 40rem) { &:where(:root:not(.rr-phone) *) { @slot; } } }
+@custom-variant md { @media (width >= 48rem) { &:where(:root:not(.rr-phone) *) { @slot; } } }
+@custom-variant lg { @media (width >= 64rem) { &:where(:root:not(.rr-phone) *) { @slot; } } }
+@custom-variant xl { @media (width >= 80rem) { &:where(:root:not(.rr-phone) *) { @slot; } } }
+
 /* Motyw: zmienne --t-* (jasny domyślnie, ciemny pod [data-theme="dark"]).
    Klasy semantyczne: bg-bg, bg-head, bg-surf, bg-surf2, border-line, text-fg, text-fg2, text-mut, text-mut2,
    text-acc, text-ok, text-warn, text-bad. Nowych kolorów zinc/white na sztywno NIE dodajemy. */

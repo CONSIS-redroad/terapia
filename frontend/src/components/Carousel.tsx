@@ -2,7 +2,8 @@
 // Telefon/tablet: ekrany grupy przesuwane palcem w bok (CSS scroll-snap — natywny gest, bez bibliotek).
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
-export interface Slide { id: string; label: string; icon: React.FC<{ className?: string }>; badge?: number; content: React.ReactNode }
+// full = ekran na całą wysokość (czat): strona stoi, przewija się tylko jego zawartość (Bartek 11.10: „w trybie czat przewijanie ma być czatu”)
+export interface Slide { id: string; label: string; icon: React.FC<{ className?: string }>; badge?: number; full?: boolean; content: React.ReactNode }
 export interface CarouselHandle { goTo: (id: string) => void }
 
 export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slides }, ref) => {
@@ -46,6 +47,17 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
     return () => { el.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
   }, []);
 
+  // Ekran „full” (czat) aktywny → karuzela dosuwa się pod pasek u góry i blokujemy przewijanie STRONY;
+  // przewija się tylko lista wiadomości. Inny ekran → strona znów się przewija.
+  const fullActive = !!slides[active]?.full;
+  useEffect(() => {
+    if (!fullActive) return;
+    root.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    const html = document.documentElement, prev = html.style.overflow;
+    html.style.overflow = 'hidden';
+    return () => { html.style.overflow = prev; };
+  }, [fullActive]);
+
   // po zmianie liczby ekranów (np. przełączenie na admina) nie zostawać „poza” ostatnim
   useEffect(() => { if (active > slides.length - 1) scrollToIndex(slides.length - 1, false); }, [slides.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -69,12 +81,12 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
 
       <div ref={track} className="flex items-start overflow-x-auto snap-x snap-mandatory no-scrollbar overscroll-x-contain -mx-3" style={{ scrollbarWidth: 'none' }}>
         {slides.map(s => (
-          <section key={s.id} aria-label={s.label} className="w-full shrink-0 snap-start snap-always px-3 min-w-0">
-            <div className="rounded-2xl bg-panel backdrop-blur-md border border-line shadow-sm overflow-hidden">
-              <h2 className="px-4 pt-4 pb-2 text-xl font-extrabold tracking-tight text-fg flex items-center gap-2">
+          <section key={s.id} aria-label={s.label} className={`w-full shrink-0 snap-start snap-always px-3 min-w-0 ${s.full ? 'h-[calc(var(--rr-vh,100dvh)-6rem-4.75rem-env(safe-area-inset-bottom))]' : ''}`}>
+            <div className={`rounded-2xl bg-panel backdrop-blur-md border border-line shadow-sm overflow-hidden ${s.full ? 'h-full flex flex-col' : ''}`}>
+              <h2 className={`px-4 text-xl font-extrabold tracking-tight text-fg flex items-center gap-2 ${s.full ? 'pt-3 pb-1 shrink-0' : 'pt-4 pb-2'}`}>
                 <s.icon className="w-5 h-5 text-acc" />{s.label}
               </h2>
-              {s.content}
+              {s.full ? <div className="flex-1 min-h-0">{s.content}</div> : s.content}
             </div>
           </section>
         ))}
