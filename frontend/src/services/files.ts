@@ -40,3 +40,24 @@ export function checkFile(f: File, usedBytes: number): string | null {
 export function toAttachment(f: File): Attachment {
   return { name: f.name.slice(0, 120), type: f.type || 'application/octet-stream', size: f.size, kind: kindOf(f.name, f.type), url: URL.createObjectURL(f) };
 }
+
+/** KOMPRESJA ZDJĘĆ przed wysłaniem (Bartek 12.10: „do zdjęć kompresja sensowna”): dłuższy bok max 1920 px, JPEG 0,82
+ *  (jak komunikatory — ostre na telefonie, ~0,3–0,8 MB zamiast 3–8 MB). Obrót z EXIF uwzględniony. GIF (animacja),
+ *  SVG i pliki, których przeglądarka nie odczyta (np. HEIC w Chrome), idą bez zmian; wynik większy od oryginału = oryginał. */
+const MAX_SIDE = 1920, JPEG_Q = 0.82;
+export async function compressImage(f: File): Promise<File> {
+  if (!/^image\/(jpeg|png|webp)$/.test(f.type) || f.size < 300 * 1024) return f;
+  try {
+    const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
+    const k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * k), h = Math.round(bmp.height * k);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) return f;
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);      // PNG z przezroczystością → białe tło w JPEG
+    ctx.drawImage(bmp, 0, 0, w, h); bmp.close();
+    const blob = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', JPEG_Q));
+    if (!blob || blob.size >= f.size) return f;
+    return new File([blob], f.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg', lastModified: f.lastModified });
+  } catch { return f; }
+}

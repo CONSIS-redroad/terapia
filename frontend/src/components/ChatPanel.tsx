@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CornerUpLeft, Download, File as FileIcon, FileText, Film, Image as ImageIcon, Music, Paperclip, Pin, Send, Smile, Trash2, X } from 'lucide-react';
 import type { Announcement, Attachment, Member, Message } from '../types/group';
 import { fmtRelative } from '../services/format';
-import { ACCEPT, checkFile, fmtSize, MAX_USER_TOTAL, toAttachment } from '../services/files';
+import { ACCEPT, checkFile, compressImage, fmtSize, MAX_USER_TOTAL, toAttachment } from '../services/files';
 import { Avatar } from './ProfilePanel';
 import { CHAT_EMOJI_PICKER, CHAT_QUICK_REACTIONS } from '../config/ui.config';
 
@@ -87,9 +87,10 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
     setFlash(id); setTimeout(() => setFlash(null), 1600);
   };
 
-  const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; e.target.value = '';
-    if (!f) return;
+  const pickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.files?.[0]; e.target.value = '';
+    if (!raw) return;
+    const f = await compressImage(raw);   // zdjęcie → max 1920 px, JPEG 0,82
     const problem = checkFile(f, used);
     if (problem) { setErr(problem); setFile(null); return; }
     setErr(''); setFile(f);
