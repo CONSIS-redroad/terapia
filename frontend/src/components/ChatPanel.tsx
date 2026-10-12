@@ -23,6 +23,16 @@ interface Props {
   onDeleteMessage: (id: string, by: 'admin' | 'author', reason?: string) => void;
 }
 
+const ZoomImg: React.FC<{ url: string; thumb?: string }> = ({ url, thumb }) => {
+  const [ready, setReady] = useState(!thumb);
+  return (
+    <>
+      {!ready && <img src={thumb} alt="" className="max-w-full max-h-full rounded-lg" />}
+      <img src={url} alt="" onLoad={() => setReady(true)} className={ready ? 'max-w-full max-h-full rounded-lg' : 'hidden'} />
+    </>
+  );
+};
+
 const nameOf = (members: Member[], id: string) => members.find(m => m.id === id)?.name ?? 'Uczestnik';
 
 const FileChip: React.FC<{ a: Attachment; mine: boolean }> = ({ a, mine }) => {
@@ -50,7 +60,7 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
   const [emojiCat, setEmojiCat] = useState(0);                 // aktywna zakładka panelu emotek
   const [active, setActive] = useState<string | null>(null);   // wiadomość z otwartymi akcjami
   const [flash, setFlash] = useState<string | null>(null);     // podświetlenie po skoku do cytatu
-  const [zoom, setZoom] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<{ url: string; thumb?: string } | null>(null);
   const [pinsOpen, setPinsOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -173,7 +183,11 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
                   )}
                   {m.attachment && !m.attachmentDeleted && (
                     m.attachment.kind === 'image'
-                      ? <button onClick={e => { e.stopPropagation(); setZoom(m.attachment!.url); }} className="block mt-1 cursor-zoom-in"><img src={m.attachment.url} alt={m.attachment.name} className="block w-60 max-w-full h-auto max-h-72 object-cover rounded-xl border border-line" /></button>
+                      ? <button onClick={e => { e.stopPropagation(); setZoom({ url: m.attachment!.url, thumb: m.attachment!.thumbUrl }); }} className="block mt-1 cursor-zoom-in" aria-label={`Powiększ zdjęcie ${m.attachment.name}`}>
+                          {/* w liście miniatura; pełne zdjęcie dopiero po stuknięciu (Bartek 12.10) */}
+                          <img src={m.attachment.thumbUrl ?? m.attachment.url} alt={m.attachment.name} loading="lazy" decoding="async"
+                            onError={e => { const full = m.attachment!.url; if (e.currentTarget.src !== full && !full.startsWith('#')) e.currentTarget.src = full; }}
+                            className="block w-60 max-w-full h-auto max-h-72 object-cover rounded-xl border border-line" /></button>
                       : m.attachment.kind === 'video'
                         ? <video src={m.attachment.url} controls playsInline preload="metadata" className="mt-1 block w-64 max-w-full max-h-72 rounded-xl border border-line" onClick={e => e.stopPropagation()} />
                         : <FileChip a={m.attachment} mine={mine} />
@@ -284,7 +298,8 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
 
       {zoom && (
         <div className="fixed inset-0 z-[90] bg-black/85 flex items-center justify-center p-3" onClick={() => setZoom(null)} role="dialog" aria-label="Zdjęcie">
-          <img src={zoom} alt="" className="max-w-full max-h-full rounded-lg" />
+          {/* najpierw miniatura (jest już w pamięci), pełne zdjęcie podmienia ją po wczytaniu */}
+          <ZoomImg key={zoom.url} url={zoom.url} thumb={zoom.thumb} />
           <button onClick={e => { e.stopPropagation(); setZoom(null); }} aria-label="Zamknij zdjęcie" title="Zamknij"
             className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-3 w-11 h-11 flex items-center justify-center rounded-full bg-black/60 text-white border border-white/30 text-2xl leading-none cursor-pointer">✕</button>
         </div>

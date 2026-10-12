@@ -3,11 +3,12 @@
 // potem STRESZCZENIE (dla nieobecnych) z „Więcej” — rozwinięcie i zdjęcia z sali (tablica), które dodaje admin.
 // 12.10: MOJE NOTATKI (prywatne, „mój tytuł” obok oficjalnego tematu) + admin wybiera temat z programu cyklu albo wpisuje dowolny.
 import React, { useRef, useState } from 'react';
-import { CalendarDays, Camera, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Lock, MapPin, Pencil, Video, X } from 'lucide-react';
+import { CalendarDays, Camera, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Lock, MapPin, Pencil, Plus, Trash2, Video, X } from 'lucide-react';
 import type { Homework, Material, Meeting, MeetingNote, ProgramTopic } from '../types/group';
 import { fmtDayLong, fmtShort, fmtTime, isPast } from '../services/format';
 import { MaterialRow } from './panels';
 import { MyNoteSection } from './MyNoteSection';
+import { HomeworkEditor } from './HomeworkEditor';
 
 const card = 'rounded-xl bg-surf border border-line';
 
@@ -53,9 +54,13 @@ interface Props {
   onDeleteNote: (meetingId: string) => Promise<void>; notesStatus: 'ok' | 'unavailable' | 'error';
   /** Program cyklu — podpowiedź tematu dla admina. */
   program: ProgramTopic[];
+  /** Admin: praca domowa poprawiana od razu z karty zajęć (Bartek 12.10). */
+  onAddHomework?: (h: Omit<Homework, 'id'>) => Promise<void> | void;
+  onUpdateHomework?: (id: string, h: Partial<Homework>) => Promise<void> | void;
+  onDeleteHomework?: (id: string) => Promise<void> | void;
 }
 
-export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, meetings, materials, homework, done, onToggleDone, isAdmin, onUpdate, onPrev, onNext, onOpenMeeting, myNote, onSaveNote, onDeleteNote, notesStatus, program }) => {
+export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, meetings, materials, homework, done, onToggleDone, isAdmin, onUpdate, onPrev, onNext, onOpenMeeting, myNote, onSaveNote, onDeleteNote, notesStatus, program, onAddHomework, onUpdateHomework, onDeleteHomework }) => {
   const [more, setMore] = useState(false);
   const [edit, setEdit] = useState(false);
   const [summary, setSummary] = useState(m.summary ?? '');
@@ -63,6 +68,12 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
   const [topic, setTopic] = useState(m.topic ?? '');
   const [zoom, setZoom] = useState<string | null>(null);
   const [err, setErr] = useState('');
+  const [hwEdit, setHwEdit] = useState<string | null>(null); // id edytowanej pracy (klucz z trybem) albo 'new'
+  const [hwErr, setHwErr] = useState('');
+  const hwRun = async (f: () => Promise<void> | void) => {
+    try { setHwErr(''); await f(); setHwEdit(null); }
+    catch (x) { setHwErr((x as Error).message || 'Nie udało się zapisać.'); }
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   const past = isPast(m.date, m.durationMin);
   const mats = materials.filter(x => x.meetingId === m.id);
@@ -97,6 +108,19 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
               {mode === 'given' ? `na zajęcia ${noOf(target.id)} · ${fmtShort(target.date)} · ${dueLabel(target.date)}` : `zadane na zajęciach ${noOf(target.id)} (${fmtShort(target.date)})`}
             </button>
           )}
+          {isAdmin && (onUpdateHomework || onDeleteHomework) && (
+            <span className="mt-1.5 flex flex-wrap gap-1.5">
+              {onUpdateHomework && (
+                <button onClick={() => setHwEdit(`${mode}:${h.id}`)} className="tap inline-flex items-center gap-1 text-sm px-3 rounded-full border border-line text-fg2 hover:bg-surf2 cursor-pointer"><Pencil className="w-4 h-4" />Edytuj</button>
+              )}
+              {onDeleteHomework && (
+                <button onClick={() => { if (confirm(`Usunąć pracę „${h.title}”?`)) void hwRun(() => onDeleteHomework(h.id)); }} className="tap inline-flex items-center gap-1 text-sm px-3 rounded-full border border-rose-400/25 text-bad hover:bg-rose-500/10 cursor-pointer"><Trash2 className="w-4 h-4" />Usuń</button>
+              )}
+            </span>
+          )}
+          {hwEdit === `${mode}:${h.id}` && onUpdateHomework && (
+            <div className="mt-2"><HomeworkEditor meetings={meetings} initial={h} onSave={v => hwRun(() => onUpdateHomework(h.id, v))} onCancel={() => setHwEdit(null)} /></div>
+          )}
         </span>
       </li>
     );
@@ -124,7 +148,7 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
       </div>
 
       {/* PRACA DOMOWA — najważniejsze */}
-      {(due.length > 0 || given.length > 0) && (
+      {(due.length > 0 || given.length > 0 || (isAdmin && !!onAddHomework)) && (
         <section className="mt-4">
           <h5 className="flex items-center gap-1.5 text-sm font-bold text-warn"><ClipboardCheck className="w-4 h-4" />Praca domowa</h5>
           {due.length > 0 && (
@@ -139,6 +163,10 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
               <ul className="mt-1.5 space-y-2">{given.map(h => hwItem(h, 'given'))}</ul>
             </>
           )}
+          {isAdmin && onAddHomework && (hwEdit === 'new'
+            ? <div className="mt-3"><HomeworkEditor meetings={meetings} givenAt={m.id} onSave={v => hwRun(() => onAddHomework(v))} onCancel={() => setHwEdit(null)} /></div>
+            : <button onClick={() => setHwEdit('new')} className="tap mt-3 inline-flex items-center gap-1.5 rounded-xl px-4 text-base font-semibold border border-sky-400/30 bg-sky-500/15 text-acc hover:bg-sky-500/25 cursor-pointer"><Plus className="w-4 h-4" />Dodaj pracę zadaną na tych zajęciach</button>)}
+          {hwErr && <p role="alert" className="mt-2 text-sm text-bad">{hwErr}</p>}
         </section>
       )}
 

@@ -12,15 +12,17 @@ const btn = 'tap inline-flex items-center justify-center gap-1.5 rounded-xl px-4
 export const HomeworkEditor: React.FC<{
   meetings: Meeting[]; // tylko aktualny cykl (bez odwołanych), posortowane
   initial?: Homework;
+  /** Nowa praca dodawana z karty zajęć — „zadane na” od razu te zajęcia. */
+  givenAt?: string;
   onSave: (h: Omit<Homework, 'id'>) => Promise<void> | void;
   onCancel: () => void;
-}> = ({ meetings, initial, onSave, onCancel }) => {
+}> = ({ meetings, initial, givenAt, onSave, onCancel }) => {
   const sorted = useMemo(() => [...meetings].sort((a, b) => a.date.localeCompare(b.date)), [meetings]);
   // domyślnie: zadane na ostatnich zajęciach, które już się odbyły (albo pierwszych w cyklu)
   const lastPast = [...sorted].reverse().find(m => isPast(m.date, m.durationMin)) ?? sorted[0];
   const [title, setTitle] = useState(initial?.title ?? '');
   const [desc, setDesc] = useState(initial?.description ?? '');
-  const [given, setGiven] = useState(initial?.givenAt ?? lastPast?.id ?? '');
+  const [given, setGiven] = useState(initial?.givenAt ?? (givenAt && sorted.some(m => m.id === givenAt) ? givenAt : lastPast?.id) ?? '');
   const gi = sorted.findIndex(m => m.id === given);
   const [due, setDue] = useState(initial?.dueAt ?? sorted[Math.min(sorted.length - 1, gi + 1)]?.id ?? '');
   const di = sorted.findIndex(m => m.id === due);

@@ -61,3 +61,24 @@ export async function compressImage(f: File): Promise<File> {
     return new File([blob], f.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg', lastModified: f.lastModified });
   } catch { return f; }
 }
+
+/** MINIATURA do listy czatu (Bartek 12.10: „czat pokazuje miniaturki, a ładuje większe zdjęcie”): dłuższy bok 640 px,
+ *  JPEG 0,72 (~30–80 kB) — ostra w dymku 240 px także na ekranie 3×. Małe zdjęcie (<150 kB) i nieczytelne
+ *  (GIF, HEIC w Chrome) → null: czat pokaże wtedy sam plik. */
+export const THUMB_SUFFIX = '.min.jpg';
+const THUMB_SIDE = 640, THUMB_Q = 0.72;
+export async function makeThumb(b: Blob): Promise<Blob | null> {
+  if (!/^image\/(jpeg|png|webp)$/.test(b.type) || b.size < 150 * 1024) return null;
+  try {
+    const bmp = await createImageBitmap(b, { imageOrientation: 'from-image' });
+    const k = Math.min(1, THUMB_SIDE / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * k), h = Math.round(bmp.height * k);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) { bmp.close(); return null; }
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bmp, 0, 0, w, h); bmp.close();
+    const t = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', THUMB_Q));
+    return t && t.size < b.size / 2 ? t : null;   // nic nie zyskujemy → bez miniatury
+  } catch { return null; }
+}
