@@ -60,8 +60,10 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
     ro.observe(el);
     return () => ro.disconnect();
   }, [active, slides.length]);
+  // Blokada dopiero gdy karuzela jest na ekranie (navOn): wcześniej czat jako 1. ekran blokował stronę już na tapecie
+  // startowej i trzeba było klikać „Przewiń” (Bartek 12.10). Teraz lekki ruch palcem w dół → czat sam dosuwa się na cały ekran.
   useEffect(() => {
-    if (!fullActive) return;
+    if (!fullActive || !navOn) return;
     const html = document.documentElement, prev = html.style.overflow;
     html.style.overflow = 'hidden';
     html.classList.add('rr-czat');
@@ -76,7 +78,7 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
       html.style.overflow = prev; html.classList.remove('rr-czat', 'rr-typing');
       vv?.removeEventListener('resize', onVv); window.removeEventListener('scroll', onVv);
     };
-  }, [fullActive]);
+  }, [fullActive, navOn]);
 
   // po zmianie liczby ekranów (np. przełączenie na admina) nie zostawać „poza” ostatnim
   useEffect(() => { if (active > slides.length - 1) scrollToIndex(slides.length - 1, false); }, [slides.length]); // eslint-disable-line react-hooks/exhaustive-deps
