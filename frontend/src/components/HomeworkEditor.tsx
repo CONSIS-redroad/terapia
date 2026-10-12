@@ -69,6 +69,7 @@ export const HomeworkEditor: React.FC<{
         </button>
         <button className={`${btn} border-line text-fg2 hover:bg-surf2`} onClick={onCancel}><X className="w-4 h-4" />Anuluj</button>
       </div>
+      {!sorted[gi + 1] && <p className="text-base text-mut">Po tych zajęciach nie ma już terminu — wybierz wcześniejsze „Zadane na zajęciach”.</p>}
       {err && <p role="alert" className="text-base text-bad">{err}</p>}
     </div>
   );

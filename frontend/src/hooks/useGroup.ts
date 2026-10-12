@@ -84,7 +84,11 @@ export function useGroup() {
   const addMeetings = async (list: Omit<Meeting, 'id'>[]) => { await groupData.addMeetings(list); await load(); };
   const deleteMeeting = async (id: string) => { await groupData.deleteMeeting(id); await load(); };
   // praca domowa: błąd NIE jest połykany — edytor pokazuje go i zostaje otwarty, wpisany tekst nie ginie (adwersarz 12.10)
-  const keep = async (f: () => Promise<void>) => { try { await f(); } finally { await load(); } };
+  // błąd ODŚWIEŻENIA po udanym zapisie nie może udawać „Nie zapisano” (inaczej ponowne „Zapisz” robi dubel)
+  const keep = async (f: () => Promise<void>) => {
+    try { await f(); } catch (e) { void load().catch(() => { /* odświeżenie później */ }); throw e; }
+    try { await load(); } catch { /* zapisane; dane odświeżą się przy następnym wczytaniu */ }
+  };
   const addHomework = (h: Omit<Homework, 'id'>) => keep(() => groupData.addHomework(h));
   const updateHomework = (id: string, p: Partial<Homework>) => keep(() => groupData.updateHomework(id, p));
   const deleteHomework = (id: string) => guard(() => groupData.deleteHomework(id));
