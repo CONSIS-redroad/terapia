@@ -140,7 +140,7 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
       )}
 
       {/* wiadomości */}
-      <div ref={listRef} data-rr-lista className={`relative ${fill ? 'flex-1 min-h-0' : 'h-[min(60dvh,560px)]'} overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3 space-y-2.5`} onClick={() => setActive(null)}>
+      <div ref={listRef} data-rr-lista className={`relative ${fill ? 'flex-1 min-h-0' : 'h-[min(60dvh,560px)]'} overflow-y-auto overflow-x-hidden overscroll-y-contain px-3 py-3 space-y-2.5`} onClick={() => setActive(null)}>
         {messages.map(m => {
           const mine = m.authorId === currentUserId;
           const a = members.find(x => x.id === m.authorId);
