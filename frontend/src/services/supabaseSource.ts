@@ -28,6 +28,12 @@ function safeName(name: string): string {
 
 const SIGNED_TTL = 60 * 60; // podpisane adresy plików ważne 1 h (bucket jest prywatny)
 
+/** Tabeli nie ma (baza bez migracji): Postgres 42P01 / PostgREST PGRST205. Inne błędy (sieć, 42501 brak uprawnień) — NIE. */
+function isMissingTable(e: { code?: string; message?: string }): boolean {
+  if (e.code === '42P01' || e.code === 'PGRST205') return true;
+  return /relation .* does not exist|could not find the table .* in the schema cache/i.test(e.message ?? '');
+}
+
 export class SupabaseSource implements GroupDataSource {
   readonly isDemo = false;
   private uid = '';
@@ -296,32 +302,34 @@ export class SupabaseSource implements GroupDataSource {
   }
 
   /** Moje prywatne notatki do zajęć (RLS: wyłącznie własne wiersze — admin też). */
-  async myNotes(): Promise<Record<string, MeetingNote>> {
+  async myNotes(): Promise<Record<string, MeetingNote> | null> {
     const r = await sb().from('meeting_notes').select('meeting_id,title,note,updated_at').eq('member_id', this.uid);
     if (r.error) {
-      if (/meeting_notes|does not exist|schema cache/i.test(r.error.message)) return {}; // baza bez migracji 0009 — ekran działa bez notatek
-      throw new Error(r.error.message);
+      if (isMissingTable(r.error)) return null; // baza bez migracji 0009 — ekran działa bez notatek
+      throw new Error(r.error.message);         // sieć / brak uprawnień — NIE udawaj „brak notatek”
     }
     return Object.fromEntries((r.data as Array<{ meeting_id: string; title: string; note: string; updated_at: string }>)
       .map(x => [x.meeting_id, { meetingId: x.meeting_id, title: x.title, note: x.note, updatedAt: x.updated_at }]));
   }
 
-  async saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote | null> {
+  async saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote> {
     const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
-    if (!t && !n.trim()) {
-      must(await sb().from('meeting_notes').delete().eq('meeting_id', meetingId).eq('member_id', this.uid));
-      return null;
-    }
+    if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
     const row = must(await sb().from('meeting_notes')
       .upsert({ meeting_id: meetingId, member_id: this.uid, title: t, note: n }, { onConflict: 'meeting_id,member_id' })
       .select('meeting_id,title,note,updated_at').single()) as { meeting_id: string; title: string; note: string; updated_at: string };
     return { meetingId: row.meeting_id, title: row.title, note: row.note, updatedAt: row.updated_at };
   }
 
+  /** Świadome usunięcie (przycisk z potwierdzeniem) — autozapis nigdy nie kasuje. */
+  async deleteMyNote(meetingId: string) {
+    must(await sb().from('meeting_notes').delete().eq('meeting_id', meetingId).eq('member_id', this.uid));
+  }
+
   async program(): Promise<ProgramTopic[]> {
     const r = await sb().from('program_topics').select('id,position,title,note').order('position');
     if (r.error) {
-      if (/program_topics|does not exist|schema cache/i.test(r.error.message)) return [];
+      if (isMissingTable(r.error)) return [];
       throw new Error(r.error.message);
     }
     return (r.data as Array<{ id: string; position: number; title: string; note: string }>)

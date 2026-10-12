@@ -50,11 +50,12 @@ interface Props {
   onPrev?: () => void; onNext?: () => void; onOpenMeeting: (id: string) => void;
   /** Moja prywatna notatka do tych zajęć (12.10). */
   myNote?: MeetingNote; onSaveNote: (meetingId: string, title: string, note: string) => Promise<void>;
+  onDeleteNote: (meetingId: string) => Promise<void>; notesStatus: 'ok' | 'unavailable' | 'error';
   /** Program cyklu — podpowiedź tematu dla admina. */
   program: ProgramTopic[];
 }
 
-export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, meetings, materials, homework, done, onToggleDone, isAdmin, onUpdate, onPrev, onNext, onOpenMeeting, myNote, onSaveNote, program }) => {
+export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, meetings, materials, homework, done, onToggleDone, isAdmin, onUpdate, onPrev, onNext, onOpenMeeting, myNote, onSaveNote, onDeleteNote, notesStatus, program }) => {
   const [more, setMore] = useState(false);
   const [edit, setEdit] = useState(false);
   const [summary, setSummary] = useState(m.summary ?? '');
@@ -220,7 +221,9 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
       </section>
 
       {/* MOJE NOTATKI — prywatne */}
-      <MyNoteSection meetingId={m.id} note={myNote} onSave={onSaveNote} />
+      {notesStatus !== 'unavailable' && (
+        <MyNoteSection meetingId={m.id} note={myNote} onSave={onSaveNote} onDelete={onDeleteNote} loadError={notesStatus === 'error'} />
+      )}
 
       {/* MATERIAŁY */}
       <section className="mt-4">

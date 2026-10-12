@@ -17,26 +17,39 @@ export interface GroupState {
   usage: Record<string, number> | null;
   /** Moje prywatne notatki do zajęć (klucz = id zajęć). */
   myNotes: Record<string, MeetingNote>;
+  /** Odczyt notatek: ok · unavailable (baza bez 0009 — sekcja ukryta) · error (odczyt padł — edycja ZABLOKOWANA, żeby nie nadpisać starej). */
+  notesStatus: 'ok' | 'unavailable' | 'error';
   /** Oficjalny program cyklu. */
   program: ProgramTopic[];
+  /** Odczyt programu padł — admin nie może go edytować (zapis z pustej listy skasowałby tematy). */
+  programError: boolean;
 }
 
+type NotesLoad = Pick<GroupState, 'myNotes' | 'notesStatus'>;
+type ProgramLoad = Pick<GroupState, 'program' | 'programError'>;
+
 const EMPTY: GroupState = {
-  loading: true, group: null, members: [], meetings: [], materials: [], announcements: [], messages: [], homework: [], hwDone: {}, usage: null, myNotes: {}, program: [],
+  loading: true, group: null, members: [], meetings: [], materials: [], announcements: [], messages: [], homework: [], hwDone: {}, usage: null, myNotes: {}, notesStatus: 'ok', program: [], programError: false,
 };
 
 export function useGroup() {
   const [state, setState] = useState<GroupState>(EMPTY);
 
   const load = useCallback(async () => {
-    const [group, members, meetings, materials, announcements, messages, homework, hwDone, usage, myNotes, program] = await Promise.all([
+    const [group, members, meetings, materials, announcements, messages, homework, hwDone, usage, notes, prog] = await Promise.all([
       groupData.group(), groupData.members(), groupData.meetings(),
       groupData.materials(), groupData.announcements(), groupData.messages(),
       groupData.homework(), groupData.homeworkDone(),
       groupData.storageUsage ? groupData.storageUsage() : Promise.resolve(null),
-      groupData.myNotes().catch((): Record<string, MeetingNote> => ({})), groupData.program().catch((): ProgramTopic[] => []),
+      // błąd odczytu notatek ≠ „brak notatek”: osobny stan, ekran blokuje edycję
+      groupData.myNotes().then(
+        (r): NotesLoad => ({ myNotes: r ?? {}, notesStatus: r === null ? 'unavailable' : 'ok' }),
+        (): NotesLoad => ({ myNotes: {}, notesStatus: 'error' })),
+      groupData.program().then(
+        (r): ProgramLoad => ({ program: r, programError: false }),
+        (): ProgramLoad => ({ program: [], programError: true })),
     ]);
-    setState({ loading: false, group, members, meetings, materials, announcements, messages, homework, hwDone, usage, myNotes, program });
+    setState({ loading: false, group, members, meetings, materials, announcements, messages, homework, hwDone, usage, ...notes, ...prog });
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -78,11 +91,12 @@ export function useGroup() {
   /** Moja notatka: zapis BEZ przeładowania całej grupy (pole tekstowe nie miga). Błąd leci do ekranu (stan zapisu). */
   const saveMyNote = async (meetingId: string, title: string, note: string) => {
     const saved = await groupData.saveMyNote(meetingId, title, note);
-    setState(s => {
-      const myNotes = { ...s.myNotes };
-      if (saved) myNotes[meetingId] = saved; else delete myNotes[meetingId];
-      return { ...s, myNotes };
-    });
+    setState(s => ({ ...s, myNotes: { ...s.myNotes, [meetingId]: saved } }));
+  };
+  /** Świadome usunięcie mojej notatki (przycisk z potwierdzeniem w karcie) — autozapis nigdy nie kasuje. */
+  const deleteMyNote = async (meetingId: string) => {
+    await groupData.deleteMyNote(meetingId);
+    setState(s => { const myNotes = { ...s.myNotes }; delete myNotes[meetingId]; return { ...s, myNotes }; });
   };
   const saveProgram = (name: string, list: { id?: string; title: string; note?: string }[]) => guard(() => groupData.saveProgram(name, list));
 
@@ -95,6 +109,6 @@ export function useGroup() {
     ...state,
     isDemo: groupData.isDemo,
     currentUserId: groupData.currentUserId(),
-    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, renameMember, decideName, addMember, updateMeeting, addMeetings, deleteMeeting, addHomework, updateHomework, deleteHomework, toggleHomeworkDone, saveMyNote, saveProgram, resetDemo,
+    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, renameMember, decideName, addMember, updateMeeting, addMeetings, deleteMeeting, addHomework, updateHomework, deleteHomework, toggleHomeworkDone, saveMyNote, deleteMyNote, saveProgram, resetDemo,
   };
 }

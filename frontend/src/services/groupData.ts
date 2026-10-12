@@ -46,10 +46,13 @@ export interface GroupDataSource {
   deleteAttachment(messageId: string, by: 'admin' | 'author'): Promise<void>;
   /** Moderacja: admin usuwa wiadomość niezgodną z zasadami (zostaje ślad „usunięta”). */
   deleteMessage(messageId: string, by: 'admin' | 'author', reason?: string): Promise<void>;
-  /** PRYWATNE notatki zalogowanego do zajęć (klucz = id zajęć). Admin też widzi tylko swoje. */
-  myNotes(): Promise<Record<string, MeetingNote>>;
-  /** Zapisz moją notatkę (pusty tytuł i pusta treść = usuń notatkę). */
-  saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote | null>;
+  /** PRYWATNE notatki zalogowanego do zajęć (klucz = id zajęć). Admin też widzi tylko swoje.
+   *  `null` = funkcji nie ma (baza bez migracji 0009). Inny błąd odczytu RZUCA — ekran blokuje edycję (nie nadpisze starej notatki). */
+  myNotes(): Promise<Record<string, MeetingNote> | null>;
+  /** Zapisz moją notatkę. NIGDY nie kasuje — pusty tytuł i pusta treść = błąd (usuwanie tylko przez deleteMyNote). */
+  saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote>;
+  /** Świadome usunięcie mojej notatki (przycisk „Usuń moją notatkę” z potwierdzeniem). */
+  deleteMyNote(meetingId: string): Promise<void>;
   /** Oficjalny program cyklu (kolejność wg `position`). */
   program(): Promise<ProgramTopic[]>;
   /** Admin: zapisz cały program (nazwa + lista w tej kolejności; brak tematu na liście = usunięty). */
@@ -80,6 +83,11 @@ interface LocalState {
   myNotes?: Record<string, MeetingNote>;
   program?: ProgramTopic[];
   programName?: string;
+}
+
+/** Flagi WYŁĄCZNIE dla testów demo (localStorage); w wersji z bazą nieużywane. */
+function testFlag(key: string): string {
+  try { return localStorage.getItem(key) ?? ''; } catch { return ''; }
 }
 
 function readLocal(): LocalState {
@@ -215,16 +223,27 @@ class DemoSource implements GroupDataSource {
     return msg;
   }
 
-  async myNotes() { return readLocal().myNotes ?? {}; }
+  async myNotes() {
+    const fail = testFlag('terapia_test_notes_fail');
+    if (fail) throw new Error(fail); // test: błąd odczytu (sieć / brak uprawnień) — ekran ma zablokować edycję
+    return readLocal().myNotes ?? {};
+  }
   async saveMyNote(meetingId: string, title: string, note: string) {
+    // test: sztuczne opóźnienie zapisu (wyścig autozapisu) — localStorage 'terapia_test_save_delay' = ms
+    const delay = Number(testFlag('terapia_test_save_delay')) || 0;
+    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
+    if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
+    const s = readLocal();
+    const saved: MeetingNote = { meetingId, title: t, note: n, updatedAt: new Date().toISOString() };
+    s.myNotes = { ...(s.myNotes ?? {}), [meetingId]: saved }; writeLocal(s);
+    return saved;
+  }
+  async deleteMyNote(meetingId: string) {
     const s = readLocal();
     const notes = { ...(s.myNotes ?? {}) };
-    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
-    let saved: MeetingNote | null = null;
-    if (!t && !n.trim()) delete notes[meetingId];
-    else { saved = { meetingId, title: t, note: n, updatedAt: new Date().toISOString() }; notes[meetingId] = saved; }
+    delete notes[meetingId];
     s.myNotes = notes; writeLocal(s);
-    return saved;
   }
   async program() { return [...(readLocal().program ?? DEMO_PROGRAM)].sort((a, b) => a.position - b.position); }
   async saveProgram(name: string, list: { id?: string; title: string; note?: string }[]) {
