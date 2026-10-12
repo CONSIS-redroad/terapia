@@ -3,7 +3,7 @@
 // Uprawnienia egzekwuje BAZA (RLS + funkcje w 0001_init.sql); tutaj tylko tłumaczenie wierszy na typy aplikacji.
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { GroupDataSource } from './groupData';
-import type { Announcement, Attachment, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
+import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 import { FILES_BUCKET, supabase } from './supabaseClient';
 
 const sb = () => {
@@ -27,6 +27,12 @@ function safeName(name: string): string {
 }
 
 const SIGNED_TTL = 60 * 60; // podpisane adresy plików ważne 1 h (bucket jest prywatny)
+
+/** Tabeli nie ma (baza bez migracji): Postgres 42P01 / PostgREST PGRST205. Inne błędy (sieć, 42501 brak uprawnień) — NIE. */
+function isMissingTable(e: { code?: string; message?: string }): boolean {
+  if (e.code === '42P01' || e.code === 'PGRST205') return true;
+  return /relation .* does not exist|could not find the table .* in the schema cache/i.test(e.message ?? '');
+}
 
 export class SupabaseSource implements GroupDataSource {
   readonly isDemo = false;
@@ -59,7 +65,7 @@ export class SupabaseSource implements GroupDataSource {
 
   async group(): Promise<Group> {
     const g = must(await sb().from('group_info').select('*').eq('id', 1).maybeSingle()) as Record<string, string> | null;
-    return { id: 'grupa', name: g?.name ?? 'Grupa', description: g?.description ?? '', schedule: g?.schedule ?? '' };
+    return { id: 'grupa', name: g?.name ?? 'Grupa', description: g?.description ?? '', schedule: g?.schedule ?? '', programName: g?.program_name || undefined };
   }
 
   async members(): Promise<Member[]> {
@@ -293,6 +299,56 @@ export class SupabaseSource implements GroupDataSource {
     const a = must(await sb().from('attachments').select('path,deleted_at').eq('message_id', messageId).maybeSingle()) as { path: string; deleted_at: string | null } | null;
     if (a && !a.deleted_at) await sb().storage.from(FILES_BUCKET).remove([a.path]);
     must(await sb().rpc('delete_message', { p_id: messageId, p_reason: reason ?? null }));
+  }
+
+  /** Moje prywatne notatki do zajęć (RLS: wyłącznie własne wiersze — admin też). */
+  async myNotes(): Promise<Record<string, MeetingNote> | null> {
+    const r = await sb().from('meeting_notes').select('meeting_id,title,note,updated_at').eq('member_id', this.uid);
+    if (r.error) {
+      if (isMissingTable(r.error)) return null; // baza bez migracji 0009 — ekran działa bez notatek
+      throw new Error(r.error.message);         // sieć / brak uprawnień — NIE udawaj „brak notatek”
+    }
+    return Object.fromEntries((r.data as Array<{ meeting_id: string; title: string; note: string; updated_at: string }>)
+      .map(x => [x.meeting_id, { meetingId: x.meeting_id, title: x.title, note: x.note, updatedAt: x.updated_at }]));
+  }
+
+  async saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote> {
+    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
+    if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
+    const row = must(await sb().from('meeting_notes')
+      .upsert({ meeting_id: meetingId, member_id: this.uid, title: t, note: n }, { onConflict: 'meeting_id,member_id' })
+      .select('meeting_id,title,note,updated_at').single()) as { meeting_id: string; title: string; note: string; updated_at: string };
+    return { meetingId: row.meeting_id, title: row.title, note: row.note, updatedAt: row.updated_at };
+  }
+
+  /** Świadome usunięcie (przycisk z potwierdzeniem) — autozapis nigdy nie kasuje. */
+  async deleteMyNote(meetingId: string) {
+    must(await sb().from('meeting_notes').delete().eq('meeting_id', meetingId).eq('member_id', this.uid));
+  }
+
+  async program(): Promise<ProgramTopic[]> {
+    const r = await sb().from('program_topics').select('id,position,title,note').order('position');
+    if (r.error) {
+      if (isMissingTable(r.error)) return [];
+      throw new Error(r.error.message);
+    }
+    return (r.data as Array<{ id: string; position: number; title: string; note: string }>)
+      .map(x => ({ id: x.id, position: x.position, title: x.title, note: x.note || undefined }));
+  }
+
+  /** Admin: program w podanej kolejności — usuwa tematy spoza listy, zmienia istniejące, dodaje nowe. */
+  async saveProgram(name: string, list: { id?: string; title: string; note?: string }[]) {
+    const clean = list.map((x, i) => ({ ...x, position: i + 1, title: x.title.trim().slice(0, 200), note: (x.note ?? '').trim().slice(0, 2000) }))
+      .filter(x => x.title).map((x, i) => ({ ...x, position: i + 1 }));
+    must(await sb().from('group_info').update({ program_name: name.trim().slice(0, 200) }).eq('id', 1));
+    const current = must(await sb().from('program_topics').select('id')) as Array<{ id: string }>;
+    const keep = new Set(clean.map(x => x.id).filter(Boolean));
+    const gone = current.filter(c => !keep.has(c.id)).map(c => c.id);
+    if (gone.length) must(await sb().from('program_topics').delete().in('id', gone));
+    const existing = clean.filter(x => x.id);
+    if (existing.length) must(await sb().from('program_topics').upsert(existing.map(x => ({ id: x.id, position: x.position, title: x.title, note: x.note }))));
+    const fresh = clean.filter(x => !x.id);
+    if (fresh.length) must(await sb().from('program_topics').insert(fresh.map(x => ({ position: x.position, title: x.title, note: x.note }))));
   }
 
   /** Zajętość plików na osobę (admin: wszyscy; uczestnik: tylko on). */

@@ -3,10 +3,10 @@
 // FAZA 0: źródło demo (dane fikcyjne + zmiany tylko w tej przeglądarce).
 // FAZA 2: ten sam interfejs implementuje Supabase (services/supabaseSource.ts) — ekrany się nie zmieniają.
 // Wybór źródła: zmienna budowania VITE_DATA_SOURCE=supabase (+ VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY); brak = demo.
-import type { Announcement, Attachment, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
+import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 import {
   DEMO_ANNOUNCEMENTS, DEMO_CURRENT_USER_ID, DEMO_GROUP, DEMO_HOMEWORK, DEMO_MATERIALS,
-  DEMO_MEETINGS, DEMO_MEMBERS, DEMO_MESSAGES,
+  DEMO_MEETINGS, DEMO_MEMBERS, DEMO_MESSAGES, DEMO_PROGRAM, DEMO_PROGRAM_NAME,
 } from '../demo/demoData';
 import { DATA_MODE } from './supabaseClient';
 import { SupabaseSource } from './supabaseSource';
@@ -46,6 +46,17 @@ export interface GroupDataSource {
   deleteAttachment(messageId: string, by: 'admin' | 'author'): Promise<void>;
   /** Moderacja: admin usuwa wiadomość niezgodną z zasadami (zostaje ślad „usunięta”). */
   deleteMessage(messageId: string, by: 'admin' | 'author', reason?: string): Promise<void>;
+  /** PRYWATNE notatki zalogowanego do zajęć (klucz = id zajęć). Admin też widzi tylko swoje.
+   *  `null` = funkcji nie ma (baza bez migracji 0009). Inny błąd odczytu RZUCA — ekran blokuje edycję (nie nadpisze starej notatki). */
+  myNotes(): Promise<Record<string, MeetingNote> | null>;
+  /** Zapisz moją notatkę. NIGDY nie kasuje — pusty tytuł i pusta treść = błąd (usuwanie tylko przez deleteMyNote). */
+  saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote>;
+  /** Świadome usunięcie mojej notatki (przycisk „Usuń moją notatkę” z potwierdzeniem). */
+  deleteMyNote(meetingId: string): Promise<void>;
+  /** Oficjalny program cyklu (kolejność wg `position`). */
+  program(): Promise<ProgramTopic[]>;
+  /** Admin: zapisz cały program (nazwa + lista w tej kolejności; brak tematu na liście = usunięty). */
+  saveProgram(name: string, list: { id?: string; title: string; note?: string }[]): Promise<void>;
   resetDemo?(): void;
   /** Supabase: zajętość plików na osobę (bajty) — panel limitów admina. */
   storageUsage?(): Promise<Record<string, number>>;
@@ -69,6 +80,14 @@ interface LocalState {
   addedHomework?: Homework[];
   hwPatch?: Record<string, Partial<Homework>>;
   deletedHomework?: string[];
+  myNotes?: Record<string, MeetingNote>;
+  program?: ProgramTopic[];
+  programName?: string;
+}
+
+/** Flagi WYŁĄCZNIE dla testów demo (localStorage); w wersji z bazą nieużywane. */
+function testFlag(key: string): string {
+  try { return localStorage.getItem(key) ?? ''; } catch { return ''; }
 }
 
 function readLocal(): LocalState {
@@ -86,7 +105,7 @@ function writeLocal(state: LocalState) {
 class DemoSource implements GroupDataSource {
   readonly isDemo = true;
   currentUserId() { return DEMO_CURRENT_USER_ID; }
-  async group() { return DEMO_GROUP; }
+  async group() { return { ...DEMO_GROUP, programName: readLocal().programName ?? DEMO_PROGRAM_NAME }; }
 
   async members() {
     const { memberStatus } = readLocal();
@@ -202,6 +221,36 @@ class DemoSource implements GroupDataSource {
     s.extraMessages.push(msg);
     writeLocal(s);
     return msg;
+  }
+
+  async myNotes() {
+    const fail = testFlag('terapia_test_notes_fail');
+    if (fail) throw new Error(fail); // test: błąd odczytu (sieć / brak uprawnień) — ekran ma zablokować edycję
+    return readLocal().myNotes ?? {};
+  }
+  async saveMyNote(meetingId: string, title: string, note: string) {
+    // test: sztuczne opóźnienie zapisu (wyścig autozapisu) — localStorage 'terapia_test_save_delay' = ms
+    const delay = Number(testFlag('terapia_test_save_delay')) || 0;
+    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
+    if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
+    const s = readLocal();
+    const saved: MeetingNote = { meetingId, title: t, note: n, updatedAt: new Date().toISOString() };
+    s.myNotes = { ...(s.myNotes ?? {}), [meetingId]: saved }; writeLocal(s);
+    return saved;
+  }
+  async deleteMyNote(meetingId: string) {
+    const s = readLocal();
+    const notes = { ...(s.myNotes ?? {}) };
+    delete notes[meetingId];
+    s.myNotes = notes; writeLocal(s);
+  }
+  async program() { return [...(readLocal().program ?? DEMO_PROGRAM)].sort((a, b) => a.position - b.position); }
+  async saveProgram(name: string, list: { id?: string; title: string; note?: string }[]) {
+    const s = readLocal();
+    s.programName = name.trim().slice(0, 200);
+    s.program = list.filter(x => x.title.trim()).map((x, i) => ({ id: x.id ?? `local-prog-${Date.now()}-${i}`, position: i + 1, title: x.title.trim().slice(0, 200), note: x.note?.trim() || undefined }));
+    writeLocal(s);
   }
 
   resetDemo() {

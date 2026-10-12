@@ -162,7 +162,7 @@ export const ScheduleEditor: React.FC<Props> = ({ meetings, onAdd, onUpdate, onD
                   {m.cancelled
                     ? <button className={btnGhost} onClick={() => onUpdate(m.id, { cancelled: false })}><RotateCcw className="w-4 h-4" />Przywróć</button>
                     : <button className={btnGhost} onClick={() => onUpdate(m.id, { cancelled: true })}><X className="w-4 h-4" />Odwołaj</button>}
-                  {m.cancelled && <button className={`${btnGhost} text-bad`} onClick={() => { if (confirm('Usunąć to spotkanie na stałe? Materiały i prace przypięte do niego też znikną.')) void onDelete(m.id); }}><Trash2 className="w-4 h-4" />Usuń</button>}
+                  {m.cancelled && <button className={`${btnGhost} text-bad`} onClick={() => { if (confirm('Usunąć to spotkanie na stałe? Materiały i prace przypięte do niego też znikną — razem z prywatnymi notatkami uczestników do tych zajęć (tego nie da się cofnąć).')) void onDelete(m.id); }}><Trash2 className="w-4 h-4" />Usuń</button>}
                 </div>
               </div>
               {editId === m.id && editor}

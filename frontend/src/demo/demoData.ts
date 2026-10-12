@@ -1,7 +1,7 @@
 // PATH: src/demo/demoData.ts | REQ-ID: TERAPIA-DEMO-01
 // WYŁĄCZNIE DANE FIKCYJNE (FAZA 0). Imiona, rozmowy i spotkania są zmyślone.
 // Daty liczone względem „dziś”, żeby demo zawsze wyglądało świeżo.
-import type { Announcement, Group, Homework, Material, Meeting, Member, Message } from '../types/group';
+import type { Announcement, Group, Homework, Material, Meeting, Member, Message, ProgramTopic } from '../types/group';
 
 // Dni kalendarzowe (setDate), nie mnożenie 24 h — inaczej zmiana czasu (koniec X) przesuwa datę o dzień.
 function at(daysFromToday: number, hour: number, minute = 0): string {
@@ -123,3 +123,29 @@ export const DEMO_MESSAGES: Message[] = [
 
 /** W demo „Ty” to uczestnik  (profil z panelu „Mój profil”). Panel akceptacji pokazany jako podgląd widoku prowadzącej. */
 export const DEMO_CURRENT_USER_ID = 'me';
+
+/** Program cyklu (nazwy tematów z karty zajęć — ogólne, nie dane osobowe; te same co seed w 0009_notatki_program.sql). */
+export const DEMO_PROGRAM_NAME = '„ROZWÓJ OSOBISTY” DLA WSPÓŁUZALEŻNIONYCH';
+export const DEMO_PROGRAM: ProgramTopic[] = [
+  'Wychodzenie ze schematów współuzależnienia',
+  'Cele – stawianie ich i realizacja',
+  'Rozpoznawanie uczuć',
+  'Pozytywne myślenie',
+  'Zasoby – jak z nich korzystać',
+  'Granice, czyli czym jest siła wewnętrzna',
+  'Lęk',
+  'Złość',
+  'Potrzeby',
+  'Wstyd',
+  'Przemoc emocjonalna',
+  'Asertywność',
+  'Komunikacja',
+  'Jak pomóc dzieciom',
+  'Wartości',
+  'Bądź dobrym dla siebie',
+  'Duchowość',
+  'Miłość',
+  'Strategie radzenia sobie w związkach (film)',
+  'Żal po stracie',
+  'Poczucie krzywdy, poczucie winy',
+].map((title, i) => ({ id: `prog-${i + 1}`, position: i + 1, title }));

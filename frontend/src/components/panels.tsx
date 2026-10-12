@@ -5,10 +5,11 @@ import { Pencil,
   CalendarDays, ChevronLeft, ChevronRight, MapPin, Video, FileText, Image as ImageIcon, Music, Link2, Pin, Send,
   Check, X, Clock, ExternalLink, Shield, UserPlus, UserMinus, Undo2,
 } from 'lucide-react';
-import type { Announcement, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
+import type { Announcement, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 import { fmtDayLong, fmtRelative, fmtShort, fmtTime, isPast } from '../services/format';
 import { Avatar } from './ProfilePanel';
 import { LessonCard } from './LessonCard';
+import { ProgramSection } from './ProgramSection';
 import { fmtSize, MAX_USER_TOTAL } from '../services/files';
 
 const card = 'rounded-xl bg-surf border border-line';
@@ -25,7 +26,11 @@ export const MeetingsPanel: React.FC<{
   meetings: Meeting[]; materials: Material[]; homework: Homework[]; hwDone: Record<string, boolean>;
   onToggleDone: (id: string) => void; isAdmin: boolean; onUpdateMeeting: (id: string, patch: Partial<Meeting>) => void;
   selectedId?: string; onSelect?: (id: string) => void;
-}> = ({ meetings, materials, homework, hwDone, onToggleDone, isAdmin, onUpdateMeeting, selectedId: ctrlId, onSelect }) => {
+  myNotes: Record<string, MeetingNote>; onSaveNote: (meetingId: string, title: string, note: string) => Promise<void>;
+  onDeleteNote: (meetingId: string) => Promise<void>; notesStatus: 'ok' | 'unavailable' | 'error';
+  program: ProgramTopic[]; programName?: string; programError?: boolean;
+  onSaveProgram: (name: string, list: { id?: string; title: string; note?: string }[]) => Promise<void>;
+}> = ({ meetings, materials, homework, hwDone, onToggleDone, isAdmin, onUpdateMeeting, selectedId: ctrlId, onSelect, myNotes, onSaveNote, onDeleteNote, notesStatus, program, programName, programError, onSaveProgram }) => {
   const next = meetings.find(m => !isPast(m.date, m.durationMin)) ?? meetings[meetings.length - 1];
   const [ownId, setOwnId] = useState<string | undefined>(next?.id);
   const selectedId = ctrlId ?? ownId;
@@ -111,7 +116,12 @@ export const MeetingsPanel: React.FC<{
         onPrev={selIdx > 0 ? () => select(meetings[selIdx - 1]) : undefined}
         onNext={selIdx < meetings.length - 1 ? () => select(meetings[selIdx + 1]) : undefined}
         onOpenMeeting={id => { const x = meetings.find(y => y.id === id); if (x) select(x); }}
+        myNote={myNotes[selected.id]} onSaveNote={onSaveNote} onDeleteNote={onDeleteNote} notesStatus={notesStatus} program={program}
       />
+
+      {/* PROGRAM CYKLU — do wglądu, rozwijany (12.10) */}
+      <ProgramSection program={program} programName={programName} loadError={programError} meetings={meetings} isAdmin={isAdmin} onSave={onSaveProgram}
+        onOpenMeeting={id => { const x = meetings.find(y => y.id === id); if (x) select(x); }} />
     </div>
   );
 };
@@ -271,7 +281,7 @@ export const MembersPanel: React.FC<{
               {onRename && <button onClick={() => rename(m)} className="flex items-center gap-1 text-xs px-2 py-1 rounded-full text-fg2 border border-line hover:bg-surf2 cursor-pointer" title="Zmień imię"><Pencil className="w-3.5 h-3.5" /><span className="hidden sm:inline">Imię</span></button>}
               {m.role !== 'therapist' && m.id !== selfId && (
                 <button
-                  onClick={() => { if (confirm(`Usunąć „${m.name}” z grupy? Straci dostęp do wszystkiego w grupie.`)) onSetStatus(m.id, 'removed'); }}
+                  onClick={() => { if (confirm(`Usunąć „${m.name}” z grupy? Straci dostęp do wszystkiego w grupie, a jego/jej prywatne notatki do zajęć zostaną skasowane (tego nie da się cofnąć).`)) onSetStatus(m.id, 'removed'); }}
                   className="flex items-center gap-1 text-xs px-2 py-1 rounded-full text-bad border border-rose-400/25 hover:bg-rose-500/10 cursor-pointer" title="Usuń z grupy">
                   <UserMinus className="w-3.5 h-3.5" /><span className="hidden sm:inline">Usuń</span>
                 </button>
