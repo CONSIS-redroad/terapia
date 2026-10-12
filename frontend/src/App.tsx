@@ -113,7 +113,8 @@ export default function App() {
   const content = (id: PanelId) => {
     if (g.loading) return <div className="p-4 text-sm text-mut2">Wczytywanie…</div>;
     switch (id) {
-      case 'meetings': return <MeetingsPanel meetings={meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId} />;
+      case 'meetings': return <MeetingsPanel meetings={meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId}
+        myNotes={g.myNotes} onSaveNote={g.saveMyNote} program={g.program} programName={g.group?.programName} onSaveProgram={g.saveProgram} />;
       case 'homework': return <HomeworkPanel homework={g.homework} meetings={meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting}
         isAdmin={isAdmin} onAdd={g.addHomework} onUpdate={g.updateHomework} onDelete={g.deleteHomework} />;
       case 'chat': return <ChatPanel fill={mobile} messages={g.messages} members={members} announcements={g.announcements} currentUserId={g.currentUserId} isAdmin={isAdmin} isDemo={g.isDemo}

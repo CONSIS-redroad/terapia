@@ -1,7 +1,7 @@
 // PATH: src/hooks/useGroup.ts | REQ-ID: TERAPIA-HOOK-01
 import { useCallback, useEffect, useState } from 'react';
 import { groupData } from '../services/groupData';
-import type { Announcement, Attachment, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
+import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 
 export interface GroupState {
   loading: boolean;
@@ -15,23 +15,28 @@ export interface GroupState {
   hwDone: Record<string, boolean>;
   /** Zajętość plików na osobę (Supabase; w demo liczona z wiadomości w App). */
   usage: Record<string, number> | null;
+  /** Moje prywatne notatki do zajęć (klucz = id zajęć). */
+  myNotes: Record<string, MeetingNote>;
+  /** Oficjalny program cyklu. */
+  program: ProgramTopic[];
 }
 
 const EMPTY: GroupState = {
-  loading: true, group: null, members: [], meetings: [], materials: [], announcements: [], messages: [], homework: [], hwDone: {}, usage: null,
+  loading: true, group: null, members: [], meetings: [], materials: [], announcements: [], messages: [], homework: [], hwDone: {}, usage: null, myNotes: {}, program: [],
 };
 
 export function useGroup() {
   const [state, setState] = useState<GroupState>(EMPTY);
 
   const load = useCallback(async () => {
-    const [group, members, meetings, materials, announcements, messages, homework, hwDone, usage] = await Promise.all([
+    const [group, members, meetings, materials, announcements, messages, homework, hwDone, usage, myNotes, program] = await Promise.all([
       groupData.group(), groupData.members(), groupData.meetings(),
       groupData.materials(), groupData.announcements(), groupData.messages(),
       groupData.homework(), groupData.homeworkDone(),
       groupData.storageUsage ? groupData.storageUsage() : Promise.resolve(null),
+      groupData.myNotes().catch((): Record<string, MeetingNote> => ({})), groupData.program().catch((): ProgramTopic[] => []),
     ]);
-    setState({ loading: false, group, members, meetings, materials, announcements, messages, homework, hwDone, usage });
+    setState({ loading: false, group, members, meetings, materials, announcements, messages, homework, hwDone, usage, myNotes, program });
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -70,6 +75,17 @@ export function useGroup() {
   const deleteHomework = (id: string) => guard(() => groupData.deleteHomework(id));
   const toggleHomeworkDone = async (id: string) => { await groupData.toggleHomeworkDone(id); await load(); };
 
+  /** Moja notatka: zapis BEZ przeładowania całej grupy (pole tekstowe nie miga). Błąd leci do ekranu (stan zapisu). */
+  const saveMyNote = async (meetingId: string, title: string, note: string) => {
+    const saved = await groupData.saveMyNote(meetingId, title, note);
+    setState(s => {
+      const myNotes = { ...s.myNotes };
+      if (saved) myNotes[meetingId] = saved; else delete myNotes[meetingId];
+      return { ...s, myNotes };
+    });
+  };
+  const saveProgram = (name: string, list: { id?: string; title: string; note?: string }[]) => guard(() => groupData.saveProgram(name, list));
+
   const resetDemo = async () => {
     groupData.resetDemo?.();
     await load();
@@ -79,6 +95,6 @@ export function useGroup() {
     ...state,
     isDemo: groupData.isDemo,
     currentUserId: groupData.currentUserId(),
-    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, renameMember, decideName, addMember, updateMeeting, addMeetings, deleteMeeting, addHomework, updateHomework, deleteHomework, toggleHomeworkDone, resetDemo,
+    sendMessage, react, deleteAttachment, deleteMessage, setMemberStatus, renameMember, decideName, addMember, updateMeeting, addMeetings, deleteMeeting, addHomework, updateHomework, deleteHomework, toggleHomeworkDone, saveMyNote, saveProgram, resetDemo,
   };
 }

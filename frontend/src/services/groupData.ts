@@ -3,10 +3,10 @@
 // FAZA 0: źródło demo (dane fikcyjne + zmiany tylko w tej przeglądarce).
 // FAZA 2: ten sam interfejs implementuje Supabase (services/supabaseSource.ts) — ekrany się nie zmieniają.
 // Wybór źródła: zmienna budowania VITE_DATA_SOURCE=supabase (+ VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY); brak = demo.
-import type { Announcement, Attachment, Group, Homework, Material, Meeting, Member, MembershipStatus, Message } from '../types/group';
+import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 import {
   DEMO_ANNOUNCEMENTS, DEMO_CURRENT_USER_ID, DEMO_GROUP, DEMO_HOMEWORK, DEMO_MATERIALS,
-  DEMO_MEETINGS, DEMO_MEMBERS, DEMO_MESSAGES,
+  DEMO_MEETINGS, DEMO_MEMBERS, DEMO_MESSAGES, DEMO_PROGRAM, DEMO_PROGRAM_NAME,
 } from '../demo/demoData';
 import { DATA_MODE } from './supabaseClient';
 import { SupabaseSource } from './supabaseSource';
@@ -46,6 +46,14 @@ export interface GroupDataSource {
   deleteAttachment(messageId: string, by: 'admin' | 'author'): Promise<void>;
   /** Moderacja: admin usuwa wiadomość niezgodną z zasadami (zostaje ślad „usunięta”). */
   deleteMessage(messageId: string, by: 'admin' | 'author', reason?: string): Promise<void>;
+  /** PRYWATNE notatki zalogowanego do zajęć (klucz = id zajęć). Admin też widzi tylko swoje. */
+  myNotes(): Promise<Record<string, MeetingNote>>;
+  /** Zapisz moją notatkę (pusty tytuł i pusta treść = usuń notatkę). */
+  saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote | null>;
+  /** Oficjalny program cyklu (kolejność wg `position`). */
+  program(): Promise<ProgramTopic[]>;
+  /** Admin: zapisz cały program (nazwa + lista w tej kolejności; brak tematu na liście = usunięty). */
+  saveProgram(name: string, list: { id?: string; title: string; note?: string }[]): Promise<void>;
   resetDemo?(): void;
   /** Supabase: zajętość plików na osobę (bajty) — panel limitów admina. */
   storageUsage?(): Promise<Record<string, number>>;
@@ -69,6 +77,9 @@ interface LocalState {
   addedHomework?: Homework[];
   hwPatch?: Record<string, Partial<Homework>>;
   deletedHomework?: string[];
+  myNotes?: Record<string, MeetingNote>;
+  program?: ProgramTopic[];
+  programName?: string;
 }
 
 function readLocal(): LocalState {
@@ -86,7 +97,7 @@ function writeLocal(state: LocalState) {
 class DemoSource implements GroupDataSource {
   readonly isDemo = true;
   currentUserId() { return DEMO_CURRENT_USER_ID; }
-  async group() { return DEMO_GROUP; }
+  async group() { return { ...DEMO_GROUP, programName: readLocal().programName ?? DEMO_PROGRAM_NAME }; }
 
   async members() {
     const { memberStatus } = readLocal();
@@ -202,6 +213,25 @@ class DemoSource implements GroupDataSource {
     s.extraMessages.push(msg);
     writeLocal(s);
     return msg;
+  }
+
+  async myNotes() { return readLocal().myNotes ?? {}; }
+  async saveMyNote(meetingId: string, title: string, note: string) {
+    const s = readLocal();
+    const notes = { ...(s.myNotes ?? {}) };
+    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
+    let saved: MeetingNote | null = null;
+    if (!t && !n.trim()) delete notes[meetingId];
+    else { saved = { meetingId, title: t, note: n, updatedAt: new Date().toISOString() }; notes[meetingId] = saved; }
+    s.myNotes = notes; writeLocal(s);
+    return saved;
+  }
+  async program() { return [...(readLocal().program ?? DEMO_PROGRAM)].sort((a, b) => a.position - b.position); }
+  async saveProgram(name: string, list: { id?: string; title: string; note?: string }[]) {
+    const s = readLocal();
+    s.programName = name.trim().slice(0, 200);
+    s.program = list.filter(x => x.title.trim()).map((x, i) => ({ id: x.id ?? `local-prog-${Date.now()}-${i}`, position: i + 1, title: x.title.trim().slice(0, 200), note: x.note?.trim() || undefined }));
+    writeLocal(s);
   }
 
   resetDemo() {

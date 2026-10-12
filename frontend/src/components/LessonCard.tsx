@@ -1,11 +1,13 @@
 // PATH: src/components/LessonCard.tsx | REQ-ID: TERAPIA-LESSON-01
 // Karta zajęć (Bartek 08.10): bez „Dołącz online”. Najpierw PRACA DOMOWA (co oddać / co zadano),
 // potem STRESZCZENIE (dla nieobecnych) z „Więcej” — rozwinięcie i zdjęcia z sali (tablica), które dodaje admin.
+// 12.10: MOJE NOTATKI (prywatne, „mój tytuł” obok oficjalnego tematu) + admin wybiera temat z programu cyklu albo wpisuje dowolny.
 import React, { useRef, useState } from 'react';
-import { CalendarDays, Camera, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, MapPin, Pencil, Video, X } from 'lucide-react';
-import type { Homework, Material, Meeting } from '../types/group';
+import { CalendarDays, Camera, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Lock, MapPin, Pencil, Video, X } from 'lucide-react';
+import type { Homework, Material, Meeting, MeetingNote, ProgramTopic } from '../types/group';
 import { fmtDayLong, fmtShort, fmtTime, isPast } from '../services/format';
 import { MaterialRow } from './panels';
+import { MyNoteSection } from './MyNoteSection';
 
 const card = 'rounded-xl bg-surf border border-line';
 
@@ -46,13 +48,18 @@ interface Props {
   done: Record<string, boolean>; onToggleDone: (id: string) => void;
   isAdmin: boolean; onUpdate: (id: string, patch: Partial<Meeting>) => void;
   onPrev?: () => void; onNext?: () => void; onOpenMeeting: (id: string) => void;
+  /** Moja prywatna notatka do tych zajęć (12.10). */
+  myNote?: MeetingNote; onSaveNote: (meetingId: string, title: string, note: string) => Promise<void>;
+  /** Program cyklu — podpowiedź tematu dla admina. */
+  program: ProgramTopic[];
 }
 
-export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, meetings, materials, homework, done, onToggleDone, isAdmin, onUpdate, onPrev, onNext, onOpenMeeting }) => {
+export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, meetings, materials, homework, done, onToggleDone, isAdmin, onUpdate, onPrev, onNext, onOpenMeeting, myNote, onSaveNote, program }) => {
   const [more, setMore] = useState(false);
   const [edit, setEdit] = useState(false);
   const [summary, setSummary] = useState(m.summary ?? '');
   const [details, setDetails] = useState(m.details ?? '');
+  const [topic, setTopic] = useState(m.topic ?? '');
   const [zoom, setZoom] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -63,8 +70,8 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
   const meetingOf = (id: string) => meetings.find(x => x.id === id);
   const noOf = (id: string) => meetings.findIndex(x => x.id === id) + 1;
 
-  const startEdit = () => { setSummary(m.summary ?? ''); setDetails(m.details ?? ''); setEdit(true); };
-  const save = () => { onUpdate(m.id, { summary: summary.trim() || undefined, details: details.trim() || undefined }); setEdit(false); };
+  const startEdit = () => { setTopic(m.topic ?? ''); setSummary(m.summary ?? ''); setDetails(m.details ?? ''); setEdit(true); };
+  const save = () => { onUpdate(m.id, { topic: topic.trim(), summary: summary.trim() || undefined, details: details.trim() || undefined }); setEdit(false); };
   const addPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; e.target.value = '';
     if (!f) return;
@@ -103,7 +110,13 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
           <button disabled={!onNext} onClick={onNext} className="tap w-10 flex items-center justify-center rounded-full hover:bg-surf2 text-mut disabled:opacity-30 cursor-pointer" aria-label="Następne zajęcia"><ChevronRight className="w-5 h-5" /></button>
         </span>
       </div>
-      <h4 className="mt-1 text-xl font-bold text-fg leading-snug">{m.topic}</h4>
+      <h4 className="mt-1 text-xl font-bold text-fg leading-snug break-words">{m.topic || <span className="text-mut font-semibold">Temat jeszcze nie wpisany</span>}</h4>
+      {myNote?.title && (
+        <p className="mt-1 flex items-start gap-1.5 text-base lg:text-sm text-fg2 min-w-0" title="Mój tytuł — widzisz tylko Ty">
+          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-ok" aria-hidden />
+          <span className="min-w-0 break-words"><span className="text-mut">Mój tytuł:</span> <strong className="text-fg">{myNote.title}</strong></span>
+        </p>
+      )}
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm lg:text-xs text-fg2">
         <span className="flex items-center gap-1.5"><CalendarDays className="w-4 h-4 text-mut" />{fmtDayLong(m.date)}, {fmtTime(m.date)}</span>
         <span className="flex items-center gap-1.5">{m.place === 'online' ? <Video className="w-4 h-4 text-mut" /> : <MapPin className="w-4 h-4 text-mut" />}{m.place}</span>
@@ -138,6 +151,19 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
         </div>
         {edit ? (
           <div className="mt-2 space-y-2">
+            <label className="block text-sm text-mut">Temat zajęć (oficjalny — widzi grupa)
+              <input value={topic} maxLength={200} onChange={e => setTopic(e.target.value)} placeholder="wpisz albo wybierz z programu"
+                className="tap mt-1 w-full bg-surf border border-line rounded-lg px-3 text-base lg:text-sm text-fg focus:outline-none focus:border-sky-400/40" />
+            </label>
+            {program.length > 0 && (
+              <label className="block text-sm text-mut">Wybierz z programu cyklu
+                <select value={program.some(t => t.title === topic) ? topic : ''} onChange={e => { if (e.target.value) setTopic(e.target.value); }}
+                  className="tap mt-1 w-full bg-surf border border-line rounded-lg px-3 text-base lg:text-sm text-fg">
+                  <option value="">— dowolny tekst powyżej —</option>
+                  {program.map((t, i) => <option key={t.id} value={t.title}>{i + 1}. {t.title}</option>)}
+                </select>
+              </label>
+            )}
             <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={2} maxLength={300} placeholder="Krótko: co było przedmiotem zajęć"
               className="w-full bg-surf border border-line rounded-lg px-3 py-2 text-base lg:text-sm text-fg focus:outline-none focus:border-sky-400/40" />
             <textarea value={details} onChange={e => setDetails(e.target.value)} rows={5} maxLength={3000} placeholder="Więcej: przebieg, ćwiczenia, wnioski — dla nieobecnych"
@@ -192,6 +218,9 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
           </>
         )}
       </section>
+
+      {/* MOJE NOTATKI — prywatne */}
+      <MyNoteSection meetingId={m.id} note={myNote} onSave={onSaveNote} />
 
       {/* MATERIAŁY */}
       <section className="mt-4">

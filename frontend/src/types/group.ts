@@ -24,6 +24,25 @@ export interface Group {
   name: string;
   description: string;
   schedule: string; // opis cyklu, np. „czwartki 18:00–19:30”
+  /** Nazwa programu cyklu, np. „ROZWÓJ OSOBISTY” DLA WSPÓŁUZALEŻNIONYCH (group_info.program_name). */
+  programName?: string;
+}
+
+/** Oficjalny temat z programu cyklu (do wglądu; NIE przypięty do dat — Bartek 12.10). */
+export interface ProgramTopic {
+  id: string;
+  position: number;
+  title: string;
+  note?: string;
+}
+
+/** PRYWATNA notatka uczestnika do zajęć — widzi tylko autor (admin też nie widzi cudzych). */
+export interface MeetingNote {
+  meetingId: string;
+  /** „Mój tytuł” — po swojemu, obok oficjalnego tematu. */
+  title: string;
+  note: string;
+  updatedAt?: string;
 }
 
 export interface Meeting {
