@@ -186,7 +186,7 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
                       ? <button onClick={e => { e.stopPropagation(); setZoom({ url: m.attachment!.url, thumb: m.attachment!.thumbUrl }); }} className="block mt-1 cursor-zoom-in" aria-label={`Powiększ zdjęcie ${m.attachment.name}`}>
                           {/* w liście miniatura; pełne zdjęcie dopiero po stuknięciu (Bartek 12.10) */}
                           <img src={m.attachment.thumbUrl ?? m.attachment.url} alt={m.attachment.name} loading="lazy" decoding="async"
-                            onError={e => { const full = m.attachment!.url; if (e.currentTarget.src !== full && !full.startsWith('#')) e.currentTarget.src = full; }}
+                            onError={e => { const img = e.currentTarget, full = m.attachment!.url; if (img.dataset.fb || full.startsWith('#')) return; img.dataset.fb = '1'; img.src = full; }}
                             className="block w-60 max-w-full h-auto max-h-72 object-cover rounded-xl border border-line" /></button>
                       : m.attachment.kind === 'video'
                         ? <video src={m.attachment.url} controls playsInline preload="metadata" className="mt-1 block w-64 max-w-full max-h-72 rounded-xl border border-line" onClick={e => e.stopPropagation()} />

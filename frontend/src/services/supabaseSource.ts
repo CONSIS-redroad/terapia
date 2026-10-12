@@ -44,13 +44,15 @@ export class SupabaseSource implements GroupDataSource {
   setUser(uid: string) { this.uid = uid; }
   currentUserId() { return this.uid; }
 
-  private async signedUrls(paths: string[]): Promise<Record<string, string>> {
+  private async signedUrls(paths: string[], rememberMissing = false): Promise<Record<string, string>> {
     const now = Date.now();
     const need = [...new Set(paths)].filter(p => (this.signed.get(p)?.until ?? 0) < now + 60_000);
     if (need.length) {
       const { data, error } = await sb().storage.from(FILES_BUCKET).createSignedUrls(need, SIGNED_TTL);
       if (error) throw new Error(error.message);
       for (const d of data ?? []) if (d.path && d.signedUrl) this.signed.set(d.path, { url: d.signedUrl, until: now + SIGNED_TTL * 1000 });
+      // brak obiektu (np. starsze zdjęcie bez miniatury) — zapamiętaj, żeby nie pytać przy każdym odświeżeniu czatu
+      if (rememberMissing) for (const p of need) if (!this.signed.has(p) || (this.signed.get(p)!.until < now)) this.signed.set(p, { url: '#brak-pliku', until: now + SIGNED_TTL * 1000 });
     }
     return Object.fromEntries(paths.map(p => [p, this.signed.get(p)?.url ?? '#brak-pliku']));
   }
@@ -240,7 +242,7 @@ export class SupabaseSource implements GroupDataSource {
     const thumbs = arows.filter(a => !a.deleted_at && a.kind === 'image').map(a => (a.path as string) + THUMB_SUFFIX);
     const urls = live.length ? await this.signedUrls(live) : {};
     // osobne wołanie: brak miniatury nigdy nie może zablokować czatu
-    if (thumbs.length) { try { Object.assign(urls, await this.signedUrls(thumbs)); } catch { /* czat pokaże pełne pliki */ } }
+    if (thumbs.length) { try { Object.assign(urls, await this.signedUrls(thumbs, true)); } catch { /* czat pokaże pełne pliki */ } }
     const byMsg = new Map(arows.map(a => [a.message_id as string, a]));
     const reactions = new Map<string, Record<string, string[]>>();
     for (const r of rrows) {

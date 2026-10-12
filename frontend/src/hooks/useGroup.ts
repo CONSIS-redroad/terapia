@@ -83,8 +83,10 @@ export function useGroup() {
   const updateMeeting = async (id: string, patch: Partial<Meeting>) => { await groupData.updateMeeting(id, patch); await load(); };
   const addMeetings = async (list: Omit<Meeting, 'id'>[]) => { await groupData.addMeetings(list); await load(); };
   const deleteMeeting = async (id: string) => { await groupData.deleteMeeting(id); await load(); };
-  const addHomework = (h: Omit<Homework, 'id'>) => guard(() => groupData.addHomework(h));
-  const updateHomework = (id: string, p: Partial<Homework>) => guard(() => groupData.updateHomework(id, p));
+  // praca domowa: błąd NIE jest połykany — edytor pokazuje go i zostaje otwarty, wpisany tekst nie ginie (adwersarz 12.10)
+  const keep = async (f: () => Promise<void>) => { try { await f(); } finally { await load(); } };
+  const addHomework = (h: Omit<Homework, 'id'>) => keep(() => groupData.addHomework(h));
+  const updateHomework = (id: string, p: Partial<Homework>) => keep(() => groupData.updateHomework(id, p));
   const deleteHomework = (id: string) => guard(() => groupData.deleteHomework(id));
   const toggleHomeworkDone = async (id: string) => { await groupData.toggleHomeworkDone(id); await load(); };
 

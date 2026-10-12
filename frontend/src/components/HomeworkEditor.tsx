@@ -27,10 +27,12 @@ export const HomeworkEditor: React.FC<{
   const [due, setDue] = useState(initial?.dueAt ?? sorted[Math.min(sorted.length - 1, gi + 1)]?.id ?? '');
   const di = sorted.findIndex(m => m.id === due);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const label = (m: Meeting, i: number) => `${i + 1}. ${fmtShort(m.date)}${m.topic ? ` — ${m.topic}` : ''}`;
   const pickAfter = (n: number) => { const t = sorted[gi + n]; if (t) setDue(t.id); };
 
   if (sorted.length === 0) return <p className="p-3 text-base text-mut">Najpierw dodaj spotkania w zakładce Terminy.</p>;
+  if (sorted.length < 2) return <p className="p-3 text-base text-mut">Potrzebne są co najmniej dwa terminy zajęć (zadane → termin oddania).</p>;
   return (
     <div className="p-3 rounded-2xl border border-sky-400/30 bg-sky-500/5 space-y-2 min-w-0">
       <h3 className="text-lg font-bold">{initial ? 'Edytuj pracę domową' : 'Nowa praca domowa'}</h3>
@@ -57,11 +59,17 @@ export const HomeworkEditor: React.FC<{
       </select>
       <div className="flex flex-wrap gap-2 pt-1">
         <button className={`${btn} bg-sky-500/20 border-sky-400/30 text-acc hover:bg-sky-500/30`} disabled={busy || !title.trim() || !given || !due || di <= gi}
-          onClick={async () => { setBusy(true); await onSave({ title: title.trim(), description: desc.trim(), givenAt: given, dueAt: due }); setBusy(false); }}>
+          onClick={async () => {
+            setBusy(true); setErr('');
+            try { await onSave({ title: title.trim(), description: desc.trim(), givenAt: given, dueAt: due }); }
+            catch (x) { setErr(`Nie zapisano: ${(x as Error)?.message || 'brak połączenia'}. Tekst został — spróbuj jeszcze raz.`); }
+            finally { setBusy(false); }
+          }}>
           <Check className="w-4 h-4" />{busy ? 'Zapisuję…' : 'Zapisz'}
         </button>
         <button className={`${btn} border-line text-fg2 hover:bg-surf2`} onClick={onCancel}><X className="w-4 h-4" />Anuluj</button>
       </div>
+      {err && <p role="alert" className="text-base text-bad">{err}</p>}
     </div>
   );
 };
