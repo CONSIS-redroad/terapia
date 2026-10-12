@@ -115,7 +115,8 @@ export default function App() {
     switch (id) {
       case 'meetings': return <MeetingsPanel meetings={meetings} materials={g.materials} homework={g.homework} hwDone={g.hwDone} onToggleDone={g.toggleHomeworkDone} isAdmin={isAdmin} onUpdateMeeting={g.updateMeeting} selectedId={meetingId} onSelect={setMeetingId}
         myNotes={g.myNotes} onSaveNote={g.saveMyNote} onDeleteNote={g.deleteMyNote} notesStatus={g.notesStatus}
-        program={g.program} programName={g.group?.programName} programError={g.programError} onSaveProgram={g.saveProgram} />;
+        program={g.program} programName={g.group?.programName} programError={g.programError} onSaveProgram={g.saveProgram}
+        onAddHomework={g.addHomework} onUpdateHomework={g.updateHomework} onDeleteHomework={g.deleteHomework} />;
       case 'homework': return <HomeworkPanel homework={g.homework} meetings={meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting}
         isAdmin={isAdmin} onAdd={g.addHomework} onUpdate={g.updateHomework} onDelete={g.deleteHomework} />;
       case 'chat': return <ChatPanel fill={mobile} messages={g.messages} members={members} announcements={g.announcements} currentUserId={g.currentUserId} isAdmin={isAdmin} isDemo={g.isDemo}

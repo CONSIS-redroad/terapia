@@ -2,6 +2,7 @@
 // FAZA 2: implementacja GroupDataSource na Supabase grupy. Ekrany się nie zmieniają — ten sam interfejs co demo.
 // Uprawnienia egzekwuje BAZA (RLS + funkcje w 0001_init.sql); tutaj tylko tłumaczenie wierszy na typy aplikacji.
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { makeThumb, THUMB_SUFFIX } from './files';
 import type { GroupDataSource } from './groupData';
 import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 import { FILES_BUCKET, supabase } from './supabaseClient';
@@ -43,13 +44,15 @@ export class SupabaseSource implements GroupDataSource {
   setUser(uid: string) { this.uid = uid; }
   currentUserId() { return this.uid; }
 
-  private async signedUrls(paths: string[]): Promise<Record<string, string>> {
+  private async signedUrls(paths: string[], rememberMissing = false): Promise<Record<string, string>> {
     const now = Date.now();
     const need = [...new Set(paths)].filter(p => (this.signed.get(p)?.until ?? 0) < now + 60_000);
     if (need.length) {
       const { data, error } = await sb().storage.from(FILES_BUCKET).createSignedUrls(need, SIGNED_TTL);
       if (error) throw new Error(error.message);
       for (const d of data ?? []) if (d.path && d.signedUrl) this.signed.set(d.path, { url: d.signedUrl, until: now + SIGNED_TTL * 1000 });
+      // brak obiektu (np. starsze zdjęcie bez miniatury) — zapamiętaj, żeby nie pytać przy każdym odświeżeniu czatu
+      if (rememberMissing) for (const p of need) if (!this.signed.has(p) || (this.signed.get(p)!.until < now)) this.signed.set(p, { url: '#brak-pliku', until: now + SIGNED_TTL * 1000 });
     }
     return Object.fromEntries(paths.map(p => [p, this.signed.get(p)?.url ?? '#brak-pliku']));
   }
@@ -235,7 +238,11 @@ export class SupabaseSource implements GroupDataSource {
     const arows = must(atts) as Array<Record<string, string | number | null>>;
     const rrows = must(reacts) as Array<{ message_id: string; member_id: string; emoji: string }>;
     const live = arows.filter(a => !a.deleted_at).map(a => a.path as string);
+    // miniatury zdjęć (<ścieżka>.min.jpg) — starsze zdjęcia ich nie mają: wtedy podpis wraca pusty i czat pokazuje plik
+    const thumbs = arows.filter(a => !a.deleted_at && a.kind === 'image').map(a => (a.path as string) + THUMB_SUFFIX);
     const urls = live.length ? await this.signedUrls(live) : {};
+    // osobne wołanie: brak miniatury nigdy nie może zablokować czatu
+    if (thumbs.length) { try { Object.assign(urls, await this.signedUrls(thumbs, true)); } catch { /* czat pokaże pełne pliki */ } }
     const byMsg = new Map(arows.map(a => [a.message_id as string, a]));
     const reactions = new Map<string, Record<string, string[]>>();
     for (const r of rrows) {
@@ -251,6 +258,8 @@ export class SupabaseSource implements GroupDataSource {
       };
       if (a) {
         msg.attachment = { name: a.name as string, type: a.mime as string, size: Number(a.size), kind: a.kind as Attachment['kind'], url: a.deleted_at ? '#usuniety' : urls[a.path as string] };
+        const t = !a.deleted_at && a.kind === 'image' ? urls[(a.path as string) + THUMB_SUFFIX] : undefined;
+        if (t && !t.startsWith('#')) msg.attachment.thumbUrl = t;
         if (a.deleted_by) msg.attachmentDeleted = a.deleted_by as 'admin' | 'author';
       }
       if (m.deleted_by) msg.deleted = { by: m.deleted_by as 'admin' | 'author', reason: m.deleted_reason ?? undefined };
@@ -259,15 +268,20 @@ export class SupabaseSource implements GroupDataSource {
   }
 
   async sendMessage(body: string, opts: { replyTo?: string; attachment?: Attachment } = {}): Promise<Message> {
-    let uploadedPath: string | null = null;
+    let uploadedPath: string | null = null, thumbPath: string | null = null;
     if (opts.attachment) {
       const blob = await toBlob(opts.attachment.url);
       uploadedPath = `${this.uid}/${crypto.randomUUID()}-${safeName(opts.attachment.name)}`;
       await this.upload(uploadedPath, blob, opts.attachment.type); // limit 20/40 MB pilnuje baza — błąd = nic nie wysłane
+      if (opts.attachment.kind === 'image') {
+        // miniatura do listy czatu; nieudana = zdjęcie i tak idzie (czat pokaże wtedy pełny plik)
+        const t = await makeThumb(blob);
+        if (t) { try { await this.upload(uploadedPath + THUMB_SUFFIX, t, 'image/jpeg'); thumbPath = uploadedPath + THUMB_SUFFIX; } catch { /* bez miniatury */ } }
+      }
     }
     const ins = await sb().from('messages').insert({ body: body.trim().slice(0, 2000), reply_to: opts.replyTo ?? null }).select('*').single();
     if (ins.error) {
-      if (uploadedPath) await sb().storage.from(FILES_BUCKET).remove([uploadedPath]);
+      if (uploadedPath) await sb().storage.from(FILES_BUCKET).remove([uploadedPath, ...(thumbPath ? [thumbPath] : [])]);
       throw new Error(ins.error.message);
     }
     const row = ins.data as Record<string, string>;
@@ -275,7 +289,7 @@ export class SupabaseSource implements GroupDataSource {
       const a = opts.attachment;
       const r = await sb().from('attachments').insert({ message_id: row.id, path: uploadedPath, name: a.name.slice(0, 120), mime: a.type || 'application/octet-stream', size: a.size, kind: a.kind });
       if (r.error) {
-        await sb().storage.from(FILES_BUCKET).remove([uploadedPath]);
+        await sb().storage.from(FILES_BUCKET).remove([uploadedPath, ...(thumbPath ? [thumbPath] : [])]);
         await sb().rpc('delete_message', { p_id: row.id });
         throw new Error(r.error.message);
       }
@@ -291,13 +305,13 @@ export class SupabaseSource implements GroupDataSource {
 
   async deleteAttachment(messageId: string, _by: 'admin' | 'author') {
     const a = must(await sb().from('attachments').select('path').eq('message_id', messageId).maybeSingle()) as { path: string } | null;
-    if (a) await sb().storage.from(FILES_BUCKET).remove([a.path]); // zwalnia limit (zajętość liczona z magazynu)
+    if (a) await sb().storage.from(FILES_BUCKET).remove([a.path, a.path + THUMB_SUFFIX]); // zwalnia limit (zajętość liczona z magazynu)
     must(await sb().rpc('delete_attachment', { p_message_id: messageId }));
   }
 
   async deleteMessage(messageId: string, _by: 'admin' | 'author', reason?: string) {
     const a = must(await sb().from('attachments').select('path,deleted_at').eq('message_id', messageId).maybeSingle()) as { path: string; deleted_at: string | null } | null;
-    if (a && !a.deleted_at) await sb().storage.from(FILES_BUCKET).remove([a.path]);
+    if (a && !a.deleted_at) await sb().storage.from(FILES_BUCKET).remove([a.path, a.path + THUMB_SUFFIX]);
     must(await sb().rpc('delete_message', { p_id: messageId, p_reason: reason ?? null }));
   }
 

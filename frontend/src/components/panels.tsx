@@ -30,7 +30,10 @@ export const MeetingsPanel: React.FC<{
   onDeleteNote: (meetingId: string) => Promise<void>; notesStatus: 'ok' | 'unavailable' | 'error';
   program: ProgramTopic[]; programName?: string; programError?: boolean;
   onSaveProgram: (name: string, list: { id?: string; title: string; note?: string }[]) => Promise<void>;
-}> = ({ meetings, materials, homework, hwDone, onToggleDone, isAdmin, onUpdateMeeting, selectedId: ctrlId, onSelect, myNotes, onSaveNote, onDeleteNote, notesStatus, program, programName, programError, onSaveProgram }) => {
+  onAddHomework?: (h: Omit<Homework, 'id'>) => Promise<void> | void;
+  onUpdateHomework?: (id: string, h: Partial<Homework>) => Promise<void> | void;
+  onDeleteHomework?: (id: string) => Promise<void> | void;
+}> = ({ meetings, materials, homework, hwDone, onToggleDone, isAdmin, onUpdateMeeting, selectedId: ctrlId, onSelect, myNotes, onSaveNote, onDeleteNote, notesStatus, program, programName, programError, onSaveProgram, onAddHomework, onUpdateHomework, onDeleteHomework }) => {
   const next = meetings.find(m => !isPast(m.date, m.durationMin)) ?? meetings[meetings.length - 1];
   const [ownId, setOwnId] = useState<string | undefined>(next?.id);
   const selectedId = ctrlId ?? ownId;
@@ -117,6 +120,7 @@ export const MeetingsPanel: React.FC<{
         onNext={selIdx < meetings.length - 1 ? () => select(meetings[selIdx + 1]) : undefined}
         onOpenMeeting={id => { const x = meetings.find(y => y.id === id); if (x) select(x); }}
         myNote={myNotes[selected.id]} onSaveNote={onSaveNote} onDeleteNote={onDeleteNote} notesStatus={notesStatus} program={program}
+        onAddHomework={onAddHomework} onUpdateHomework={onUpdateHomework} onDeleteHomework={onDeleteHomework}
       />
 
       {/* PROGRAM CYKLU — do wglądu, rozwijany (12.10) */}

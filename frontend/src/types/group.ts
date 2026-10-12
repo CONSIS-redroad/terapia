@@ -106,6 +106,8 @@ export interface Attachment {
   size: number; // bajty — do limitu 20 MB/plik i 40 MB/osobę
   kind: AttachmentKind;
   url: string;
+  /** Miniatura zdjęcia do listy czatu (~640 px); pełne zdjęcie (`url`) ładuje się dopiero po stuknięciu. */
+  thumbUrl?: string;
 }
 
 export interface Message {

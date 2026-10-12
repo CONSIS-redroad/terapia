@@ -48,10 +48,10 @@ export const HomeworkPanel: React.FC<{
             zadane: zajęcia {no(given!.id)}{given!.topic ? ` „${given!.topic}”` : ''}
           </button>
           {isAdmin && onUpdate && (
-            <button onClick={() => setEditing(h.id)} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-line text-fg2 hover:bg-surf2 cursor-pointer"><Pencil className="w-3 h-3" />Edytuj</button>
+            <button onClick={() => setEditing(h.id)} className="tap inline-flex items-center gap-1 text-sm px-3 rounded-full border border-line text-fg2 hover:bg-surf2 cursor-pointer"><Pencil className="w-4 h-4" />Edytuj</button>
           )}
           {isAdmin && onDelete && (
-            <button onClick={() => { if (confirm(`Usunąć pracę „${h.title}”?`)) void onDelete(h.id); }} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-rose-400/25 text-bad hover:bg-rose-500/10 cursor-pointer"><Trash2 className="w-3 h-3" />Usuń</button>
+            <button onClick={() => { if (confirm(`Usunąć pracę „${h.title}”?`)) void onDelete(h.id); }} className="tap inline-flex items-center gap-1 text-sm px-3 rounded-full border border-rose-400/25 text-bad hover:bg-rose-500/10 cursor-pointer"><Trash2 className="w-4 h-4" />Usuń</button>
           )}
         </span>
         {editing === h.id && onUpdate && (

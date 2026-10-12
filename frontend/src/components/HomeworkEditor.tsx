@@ -12,23 +12,27 @@ const btn = 'tap inline-flex items-center justify-center gap-1.5 rounded-xl px-4
 export const HomeworkEditor: React.FC<{
   meetings: Meeting[]; // tylko aktualny cykl (bez odwołanych), posortowane
   initial?: Homework;
+  /** Nowa praca dodawana z karty zajęć — „zadane na” od razu te zajęcia. */
+  givenAt?: string;
   onSave: (h: Omit<Homework, 'id'>) => Promise<void> | void;
   onCancel: () => void;
-}> = ({ meetings, initial, onSave, onCancel }) => {
+}> = ({ meetings, initial, givenAt, onSave, onCancel }) => {
   const sorted = useMemo(() => [...meetings].sort((a, b) => a.date.localeCompare(b.date)), [meetings]);
   // domyślnie: zadane na ostatnich zajęciach, które już się odbyły (albo pierwszych w cyklu)
   const lastPast = [...sorted].reverse().find(m => isPast(m.date, m.durationMin)) ?? sorted[0];
   const [title, setTitle] = useState(initial?.title ?? '');
   const [desc, setDesc] = useState(initial?.description ?? '');
-  const [given, setGiven] = useState(initial?.givenAt ?? lastPast?.id ?? '');
+  const [given, setGiven] = useState(initial?.givenAt ?? (givenAt && sorted.some(m => m.id === givenAt) ? givenAt : lastPast?.id) ?? '');
   const gi = sorted.findIndex(m => m.id === given);
   const [due, setDue] = useState(initial?.dueAt ?? sorted[Math.min(sorted.length - 1, gi + 1)]?.id ?? '');
   const di = sorted.findIndex(m => m.id === due);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const label = (m: Meeting, i: number) => `${i + 1}. ${fmtShort(m.date)}${m.topic ? ` — ${m.topic}` : ''}`;
   const pickAfter = (n: number) => { const t = sorted[gi + n]; if (t) setDue(t.id); };
 
   if (sorted.length === 0) return <p className="p-3 text-base text-mut">Najpierw dodaj spotkania w zakładce Terminy.</p>;
+  if (sorted.length < 2) return <p className="p-3 text-base text-mut">Potrzebne są co najmniej dwa terminy zajęć (zadane → termin oddania).</p>;
   return (
     <div className="p-3 rounded-2xl border border-sky-400/30 bg-sky-500/5 space-y-2 min-w-0">
       <h3 className="text-lg font-bold">{initial ? 'Edytuj pracę domową' : 'Nowa praca domowa'}</h3>
@@ -55,11 +59,18 @@ export const HomeworkEditor: React.FC<{
       </select>
       <div className="flex flex-wrap gap-2 pt-1">
         <button className={`${btn} bg-sky-500/20 border-sky-400/30 text-acc hover:bg-sky-500/30`} disabled={busy || !title.trim() || !given || !due || di <= gi}
-          onClick={async () => { setBusy(true); await onSave({ title: title.trim(), description: desc.trim(), givenAt: given, dueAt: due }); setBusy(false); }}>
+          onClick={async () => {
+            setBusy(true); setErr('');
+            try { await onSave({ title: title.trim(), description: desc.trim(), givenAt: given, dueAt: due }); }
+            catch (x) { setErr(`Nie zapisano: ${(x as Error)?.message || 'brak połączenia'}. Tekst został — spróbuj jeszcze raz.`); }
+            finally { setBusy(false); }
+          }}>
           <Check className="w-4 h-4" />{busy ? 'Zapisuję…' : 'Zapisz'}
         </button>
         <button className={`${btn} border-line text-fg2 hover:bg-surf2`} onClick={onCancel}><X className="w-4 h-4" />Anuluj</button>
       </div>
+      {!sorted[gi + 1] && <p className="text-base text-mut">Po tych zajęciach nie ma już terminu — wybierz wcześniejsze „Zadane na zajęciach”.</p>}
+      {err && <p role="alert" className="text-base text-bad">{err}</p>}
     </div>
   );
 };
