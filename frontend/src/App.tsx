@@ -35,7 +35,15 @@ import { supabaseSource } from './services/groupData';
 /** Faza 2: profil z bazy (wiersz members) w kształcie profilu aplikacji. */
 function profileFromMember(m: MemberRow): Profile {
   return { ...DEFAULT_PROFILE, pseudonym: m.name, emoji: m.emoji, color: m.color, realName: m.real_name, about: m.about,
+    photoDataUrl: m.photo_url ?? undefined, avatarKind: m.photo_url ? 'photo' : 'emoji',
     show: { photo: m.show_photo, realName: m.show_real_name, about: m.show_about } };
+}
+
+/** Pola wiersza members, które uczestnik zmienia z ekranu profilu. */
+function memberRow(p: Profile): Record<string, unknown> {
+  const photo = p.photoDataUrl ?? null;
+  return { name: p.pseudonym.trim(), emoji: p.emoji, color: p.color, real_name: p.realName, about: p.about, photo_url: photo,
+    show_photo: !!photo && p.show.photo, show_real_name: p.show.realName, show_about: p.show.about };
 }
 
 /** Prywatny dzienniczek samoobserwacji — osobna aplikacja (GitHub Pages). */
@@ -64,7 +72,15 @@ export default function App() {
   const { panels, toggleCollapse, toggleVisibility, reorderPanels, movePanelStep, resetLayout } = usePanelLayout();
   const [draggedId, setDraggedId] = useState<PanelId | null>(null);
   const [localProfile, setProfileState] = useState<Profile>(loadProfile);
-  const profile = live && auth.member ? { ...localProfile, ...profileFromMember(auth.member), avatarKind: localProfile.avatarKind, photoDataUrl: localProfile.photoDataUrl } : localProfile;
+  // Faza 2: profil (też miniatura zdjęcia, 0011) z bazy — ten sam na każdym urządzeniu.
+  // `draft` = zmiany w locie, zanim baza je potwierdzi (inaczej przełącznik „wracał” do odpowiedzi serwera).
+  const [draft, setDraft] = useState<Profile | null>(null);
+  const pending = useRef<Record<string, unknown>>({});   // zmienione pola czekające na zapis (późniejsze wygrywają)
+  const saving = useRef(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const authRef = useRef(auth); authRef.current = auth;
+  const fromDb = live && auth.member ? { ...localProfile, ...profileFromMember(auth.member) } : localProfile;
+  const profile = live && draft ? draft : fromDb;
   // Zgoda na zasady + regulamin — wersjonowana: zmiana zasad (RULES_VERSION) = ponowna akceptacja.
   const [consent, setConsent] = useState<{ version: string; at: string } | null>(() => { try { return JSON.parse(localStorage.getItem('terapia_consent_v1') ?? 'null'); } catch { return null; } });
   const [consentAgain, setConsentAgain] = useState(false);
@@ -78,17 +94,47 @@ export default function App() {
     if (live) void auth.accept(firstName);
   };
   const setProfile = (p: Profile) => {
-    setProfileState(p); saveProfile(p);
-    // Faza 2: imię, ikonka i przełączniki „pokaż grupie” idą do bazy (zdjęcie na razie tylko w tym urządzeniu)
-    if (live) void auth.saveMember({ name: p.pseudonym.trim() || auth.member?.name, emoji: p.emoji, color: p.color, real_name: p.realName, about: p.about,
-      show_photo: false, show_real_name: p.show.realName, show_about: p.show.about }).catch(e => alert(`Nie zapisano profilu: ${e.message}`));
+    // w grupie zdjęcie żyje w bazie — lokalnie nie trzymamy kopii (inny telefon / wylogowanie)
+    const local = live ? { ...p, photoDataUrl: undefined } : p;
+    setProfileState(local); saveProfile(local);
+    if (!live) return;
+    // Faza 2: profil idzie do bazy (adwersarz 13.10, 3 rundy):
+    // - wysyłamy TYLKO pola, które użytkownik właśnie zmienił (różnica względem ekranu przed kliknięciem) — drugie
+    //   urządzenie nie cofnie np. ukrycia zdjęcia, bo nie wyśle przełącznika, którego nie ruszało;
+    // - zapisy ŚCIŚLE po kolei: następny idzie dopiero po odpowiedzi na poprzedni (celowo bez limitu czasu — po nim
+    //   nowszy zapis mógłby wyprzedzić spóźniony starszy); w trakcie ekran profilu pokazuje „Zapisuję…”;
+    // - zmiany w trakcie zapisu scalają się w jeden następny zapis; imię zapisuje się dopiero po wyjściu z pola.
+    const before = memberRow(profile), after = memberRow(p);
+    const patch = Object.fromEntries(Object.entries(after).filter(([k, v]) => before[k] !== v && !(k === 'name' && v === '')));
+    if (!Object.keys(patch).length) return;
+    setDraft(p);
+    pending.current = { ...pending.current, ...patch };
+    void pumpProfile();
+  };
+  const pumpProfile = async () => {
+    if (saving.current) return;
+    saving.current = true; setProfileSaving(true);
+    try {
+      while (Object.keys(pending.current).length) {
+        const patch = pending.current; pending.current = {};
+        try { await authRef.current.saveMember(patch as Partial<MemberRow>); }
+        catch (e) {
+          pending.current = {};   // ekran wraca do stanu bazy — użytkownik widzi, co faktycznie jest zapisane
+          if (authRef.current.uid) alert(`Nie zapisano profilu: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    } finally {
+      saving.current = false; setProfileSaving(false);
+      setDraft(null);
+    }
   };
   // Wygląd przy profilu w bazie: ten sam na każdym urządzeniu, przeżywa aktualizacje (Bartek 11.10)
   const uiSync = useUiSync({ live, uid: auth.uid, ready: !!auth.member, ui: auth.member?.ui, localMode: theme.mode, localWallpaper: wall.choice, setMode: theme.setMode, applyWallpaper: wall.applyChoice });
   const pub = publicView(profile);
   // „Ty” jako członek grupy — wyłącznie z danych, które uczestnik pokazał (publicView).
   const me: Member = { id: g.currentUserId, name: pub.name, role: 'participant', status: 'approved', emoji: profile.emoji, color: profile.color, photo: pub.usePhoto ? profile.photoDataUrl : undefined, about: pub.about || undefined };
-  const members = live ? g.members : [...g.members, me];
+  // „Ty” w grupie zawsze tak, jak widzą Cię inni (baza oddaje właścicielowi jego zdjęcie i opis także ukryte)
+  const members = live ? g.members.map(m => m.id === g.currentUserId ? { ...m, photo: me.photo, about: me.about } : m) : [...g.members, me];
   const allowed = (id: PanelId) => (id !== 'members' && id !== 'schedule') || isAdmin;
   // odwołane spotkania widzi tylko Harmonogram admina; reszta ekranów — tylko aktualny cykl
   const meetings = g.meetings.filter(m => !m.cancelled);
@@ -245,7 +291,7 @@ export default function App() {
       {settingsOpen && (
         <SettingsModal
           onClose={() => setSettingsOpen(false)}
-          profile={profile} onProfile={setProfile} onClearProfile={() => { clearProfile(); setProfileState(DEFAULT_PROFILE); }}
+          profile={profile} profileSaving={profileSaving} onProfile={setProfile} onClearProfile={() => { clearProfile(); setProfileState(DEFAULT_PROFILE); }}
           layout={layout.mode} onLayout={layout.setMode}
           mode={theme.mode} onMode={m => { theme.setMode(m); uiSync.mode(m); }}
           wallpaper={wall.settings} onWallpaper={s => uiSync.wallpaper(wall.setSettings(s))} onResetWallpaper={() => { wall.reset(); uiSync.resetWallpaper(); }}

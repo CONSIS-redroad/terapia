@@ -2,7 +2,7 @@
 // Czat „trochę jak WhatsApp” (Bartek 08.10): odpowiedź na wiadomość, reakcje emotkami, panel emotek,
 // załączniki (20 MB/plik, 40 MB/osobę), admin usuwa pliki, ogłoszenia prowadzącej przypięte na górze.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CornerUpLeft, Download, File as FileIcon, FileText, Film, Image as ImageIcon, Music, Paperclip, Pin, Send, Smile, Trash2, X } from 'lucide-react';
+import { ChevronRight, CornerUpLeft, Download, File as FileIcon, FileText, Film, Image as ImageIcon, Music, Paperclip, Pin, Send, Smile, Trash2, Users, X } from 'lucide-react';
 import type { Announcement, Attachment, Member, Message } from '../types/group';
 import { fmtRelative } from '../services/format';
 import { ACCEPT, checkFile, compressImage, fmtSize, MAX_USER_TOTAL, toAttachment } from '../services/files';
@@ -35,6 +35,58 @@ const ZoomImg: React.FC<{ url: string; thumb?: string }> = ({ url, thumb }) => {
 
 const nameOf = (members: Member[], id: string) => members.find(m => m.id === id)?.name ?? 'Uczestnik';
 
+const osob = (n: number) => n === 1 ? 'osoba' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'osoby' : 'osób';
+
+/** Karta osoby i lista grupy (jak „informacje o grupie / kontakcie” w WhatsApp). Pokazuje tylko to, co osoba
+ *  udostępniła — group_members() w bazie wycina ukryte zdjęcie i opis; e-mail nigdy tu nie trafia. */
+const MemberSheet: React.FC<{ members: Member[]; selfId: string; personId: string; onPick: (id: string) => void; onClose: () => void }> = ({ members, selfId, personId, onPick, onClose }) => {
+  const person = personId === 'list' ? undefined : members.find(m => m.id === personId);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-[90] bg-black/60 flex items-end sm:items-center justify-center" onClick={onClose} role="dialog" aria-modal="true" aria-label={person ? `Profil: ${person.name}` : 'Członkowie grupy'}>
+      <div className="w-full sm:max-w-md max-h-[85dvh] overflow-y-auto bg-panel border border-line rounded-t-3xl sm:rounded-3xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-fg" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-2">
+          {person && <button onClick={() => onPick('list')} className="tap px-3 rounded-full text-base text-acc hover:bg-surf2 cursor-pointer">← Grupa</button>}
+          <span className="flex-1" />
+          <button onClick={onClose} className="tap w-11 h-11 flex items-center justify-center rounded-full text-mut hover:bg-surf2 cursor-pointer" aria-label="Zamknij"><X className="w-5 h-5" /></button>
+        </div>
+        {person ? (
+          <div className="flex flex-col items-center text-center gap-2 pb-2">
+            <Avatar emoji={person.emoji} color={person.color} photo={person.photo} size={112} />
+            <div className="text-xl font-bold break-words max-w-full">{person.name}{person.id === selfId && <span className="text-mut font-normal"> (Ty)</span>}</div>
+            <div className="text-sm text-mut">{person.role === 'therapist' ? 'Prowadząca' : 'Uczestnik'}</div>
+            {person.about
+              ? <p className="mt-2 w-full text-left text-base text-fg2 whitespace-pre-line break-words rounded-2xl bg-surf border border-line p-3">{person.about}</p>
+              : person.id === selfId && <p className="mt-2 text-sm text-mut2">Zdjęcie i opis dla grupy ustawisz w Ustawieniach → Profil.</p>}
+          </div>
+        ) : (
+          <>
+            <div className="text-lg font-bold mb-2 px-1">Grupa · {members.length} {osob(members.length)}</div>
+            <ul className="space-y-1">
+              {members.map(m => (
+                <li key={m.id}>
+                  <button onClick={() => onPick(m.id)} className="tap w-full flex items-center gap-3 px-2 py-1.5 rounded-2xl text-left hover:bg-surf2 cursor-pointer">
+                    <Avatar emoji={m.emoji} color={m.color} photo={m.photo} size={44} />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-base font-semibold truncate">{m.name}{m.id === selfId && <span className="text-mut font-normal"> (Ty)</span>}</span>
+                      <span className="block text-sm text-mut truncate">{m.role === 'therapist' ? 'Prowadząca' : m.about || 'Uczestnik'}</span>
+                    </span>
+                    <ChevronRight className="w-5 h-5 text-mut2 shrink-0" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const FileChip: React.FC<{ a: Attachment; mine: boolean }> = ({ a, mine }) => {
   const Icon = a.kind === 'pdf' || a.kind === 'txt' ? FileText : a.kind === 'video' ? Film : a.kind === 'audio' ? Music : a.kind === 'image' ? ImageIcon : FileIcon;
   return (
@@ -53,6 +105,10 @@ const FileChip: React.FC<{ a: Attachment; mine: boolean }> = ({ a, mine }) => {
 
 export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, currentUserId, isAdmin, isDemo, fill, onSend, onReact, onDeleteAttachment, onDeleteMessage }) => {
   const [text, setText] = useState('');
+  const [sheet, setSheet] = useState<string | null>(null);   // 'list' = lista grupy, inaczej id osoby
+  // lista „Grupa”: tylko przyjęci (admin dostaje z bazy też oczekujących i zaproszenia — te są w panelu Admin)
+  const group = useMemo(() => members.filter(m => m.status === 'approved' && !m.id.startsWith('invite:'))
+    .sort((a, b) => Number(b.role === 'therapist') - Number(a.role === 'therapist') || a.name.localeCompare(b.name, 'pl')), [members]);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [err, setErr] = useState('');
@@ -125,6 +181,17 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
 
   return (
     <div className={`flex flex-col ${fill ? 'h-full min-h-0' : ''}`}>
+      {/* „Grupa · N osób” — jak nagłówek grupy w WhatsApp: lista członków i ich profile */}
+      {group.length > 0 && (
+        <button onClick={() => setSheet('list')} className="tap mx-3 mt-1 mb-1 flex items-center gap-2 px-3 rounded-xl bg-surf border border-line text-left cursor-pointer hover:bg-surf2">
+          <Users className="w-5 h-5 text-acc shrink-0" />
+          <span className="flex -space-x-2 shrink-0" aria-hidden="true">
+            {group.slice(0, 4).map(m => <Avatar key={m.id} emoji={m.emoji} color={m.color} photo={m.photo} size={26} />)}
+          </span>
+          <span className="flex-1 min-w-0 text-base text-fg truncate">Grupa · {group.length} {osob(group.length)}</span>
+          <ChevronRight className="w-5 h-5 text-mut2 shrink-0" />
+        </button>
+      )}
       {/* przypięte ogłoszenia prowadzącej */}
       {pinned.length > 0 && (
         <div className="mx-3 mt-1 mb-1 rounded-xl border border-amber-300/30 bg-amber-400/10">
@@ -154,6 +221,7 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
         {messages.map(m => {
           const mine = m.authorId === currentUserId;
           const a = members.find(x => x.id === m.authorId);
+          const inGroup = !!a && group.some(x => x.id === a.id);   // karta tylko dla osób z listy „Grupa”
           const quoted = m.replyTo ? messages.find(x => x.id === m.replyTo) : undefined;
           const reacts = Object.entries(m.reactions ?? {}).filter(([, ids]) => ids.length > 0);
           const canDeleteFile = !!m.attachment && !m.attachmentDeleted && !m.deleted && (isAdmin || mine);
@@ -168,12 +236,16 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
           }
           return (
             <div key={m.id} id={`msg-${m.id}`} className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
-              {!mine && <Avatar emoji={a?.emoji} color={a?.color} photo={a?.photo} size={30} />}
+              {!mine && (a && inGroup
+                ? <button onClick={e => { e.stopPropagation(); setSheet(a.id); }} className="shrink-0 rounded-full cursor-pointer p-[7px] -m-[7px]" aria-label={`Profil: ${a.name}`}><Avatar emoji={a.emoji} color={a.color} photo={a.photo} size={30} /></button>
+                : <Avatar emoji={a?.emoji} color={a?.color} photo={a?.photo} size={30} />)}
               <div className={`max-w-[82%] min-w-0 ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                 <div
                   onClick={e => { e.stopPropagation(); setActive(active === m.id ? null : m.id); }}
                   className={`max-w-full min-w-0 overflow-hidden rounded-2xl px-3.5 py-2 cursor-pointer transition-shadow ${mine ? 'bg-sky-500/20 border border-sky-400/25 rounded-br-md' : 'bg-surf border border-line rounded-bl-md'} ${flash === m.id ? 'ring-2 ring-amber-400' : ''}`}>
-                  <div className="text-xs text-mut mb-0.5">{mine ? 'Ty' : nameOf(members, m.authorId)} · {fmtRelative(m.date)}</div>
+                  <div className="text-xs text-mut mb-0.5">{!mine && a && inGroup
+                    ? <button onClick={e => { e.stopPropagation(); setSheet(a.id); }} className="inline-block py-3 -my-3 pr-2 font-semibold text-fg2 hover:underline cursor-pointer">{a.name}</button>
+                    : mine ? 'Ty' : nameOf(members, m.authorId)} · {fmtRelative(m.date)}</div>
                   {quoted && (
                     <button onClick={e => { e.stopPropagation(); jumpTo(quoted.id); }}
                       className="mb-1.5 block w-full min-w-0 max-w-full overflow-hidden text-left border-l-4 border-sky-400/70 bg-black/5 rounded-md px-2 py-1 cursor-pointer">
@@ -295,6 +367,8 @@ export const ChatPanel: React.FC<Props> = ({ messages, members, announcements, c
         )}
         {isDemo && !fill && <p className="px-1 text-xs text-mut2">Demo: wiadomości i pliki zostają tylko w tej przeglądarce (pliki — do odświeżenia strony).</p>}
       </div>
+
+      {sheet && <MemberSheet members={group} selfId={currentUserId} personId={sheet} onPick={setSheet} onClose={() => setSheet(null)} />}
 
       {zoom && (
         <div className="fixed inset-0 z-[90] bg-black/85 flex items-center justify-center p-3" onClick={() => setZoom(null)} role="dialog" aria-label="Zdjęcie">
