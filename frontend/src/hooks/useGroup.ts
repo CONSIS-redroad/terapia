@@ -1,5 +1,5 @@
 // PATH: src/hooks/useGroup.ts | REQ-ID: TERAPIA-HOOK-01
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { groupData } from '../services/groupData';
 import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 
@@ -34,10 +34,20 @@ const EMPTY: GroupState = {
 
 export function useGroup() {
   const [state, setState] = useState<GroupState>(EMPTY);
+  // Lista członków niesie miniatury zdjęć (do 40 KB/osobę, 0011) — przy zdarzeniach czatu (każda wiadomość, reakcja)
+  // NIE pobieramy jej od nowa, tylko gdy minęła minuta; pełne wczytanie (start, zmiany admina) zawsze odświeża.
+  const membersCache = useRef<{ list: Member[]; at: number } | null>(null);
+  const loadMembers = useCallback(async (chatOnly: boolean) => {
+    const c = membersCache.current;
+    if (chatOnly && c && Date.now() - c.at < 60_000) return c.list;
+    const list = await groupData.members();
+    membersCache.current = { list, at: Date.now() };
+    return list;
+  }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (chatOnly = false) => {
     const [group, members, meetings, materials, announcements, messages, homework, hwDone, usage, notes, prog] = await Promise.all([
-      groupData.group(), groupData.members(), groupData.meetings(),
+      groupData.group(), loadMembers(chatOnly), groupData.meetings(),
       groupData.materials(), groupData.announcements(), groupData.messages(),
       groupData.homework(), groupData.homeworkDone(),
       groupData.storageUsage ? groupData.storageUsage() : Promise.resolve(null),
@@ -50,21 +60,21 @@ export function useGroup() {
         (): ProgramLoad => ({ program: [], programError: true })),
     ]);
     setState({ loading: false, group, members, meetings, materials, announcements, messages, homework, hwDone, usage, ...notes, ...prog });
-  }, []);
+  }, [loadMembers]);
 
   useEffect(() => { void load(); }, [load]);
   // Supabase: czat na żywo (nowe wiadomości, reakcje, pliki innych osób)
-  useEffect(() => groupData.subscribe?.(() => { void load(); }), [load]);
+  useEffect(() => groupData.subscribe?.(() => { void load(true); }), [load]);
 
   const sendMessage = async (body: string, opts: { replyTo?: string; attachment?: Attachment } = {}) => {
     if (!body.trim() && !opts.attachment) return;
     try { await groupData.sendMessage(body, opts); }
     catch (e) { alert(`Nie wysłano: ${e instanceof Error ? e.message : String(e)}`); } // np. limit 40 MB pilnowany przez bazę
-    await load();
+    await load(true);
   };
-  const react = async (id: string, emoji: string) => { await groupData.react(id, emoji); await load(); };
-  const deleteAttachment = async (id: string, by: 'admin' | 'author') => { await groupData.deleteAttachment(id, by); await load(); };
-  const deleteMessage = async (id: string, by: 'admin' | 'author', reason?: string) => { await groupData.deleteMessage(id, by, reason); await load(); };
+  const react = async (id: string, emoji: string) => { await groupData.react(id, emoji); await load(true); };
+  const deleteAttachment = async (id: string, by: 'admin' | 'author') => { await groupData.deleteAttachment(id, by); await load(true); };
+  const deleteMessage = async (id: string, by: 'admin' | 'author', reason?: string) => { await groupData.deleteMessage(id, by, reason); await load(true); };
 
   const setMemberStatus = (id: string, status: MembershipStatus) => guard(() => groupData.setMemberStatus(id, status));
 

@@ -11,7 +11,7 @@ export interface Profile {
   avatarKind: AvatarKind;
   emoji: string;
   color: string;
-  photoDataUrl?: string; // własne zdjęcie — w demo tylko lokalnie, nigdzie nie wysyłane
+  photoDataUrl?: string; // miniatura JPEG 160 px (data URL); w demo tylko lokalnie, w grupie w members.photo_url (0011)
   realName: string;
   about: string;
   show: { photo: boolean; realName: boolean; about: boolean };
@@ -52,12 +52,15 @@ export function clearProfile() {
 export function publicView(p: Profile) {
   return {
     name: p.show.realName && p.realName.trim() ? `${p.pseudonym} (${p.realName.trim()})` : p.pseudonym,
-    usePhoto: p.show.photo && p.avatarKind === 'photo' && !!p.photoDataUrl,
+    usePhoto: p.show.photo && !!p.photoDataUrl,
     about: p.show.about ? p.about.trim() : '',
   };
 }
 
-/** Zmniejsza zdjęcie do 160 px, żeby nie zapchać pamięci przeglądarki. */
+/** Miniatura profilowa: kwadrat 160 px, JPEG — ok. 10 KB, mieści się w limicie bazy (40 000 znaków, 0011).
+ *  Duże zdjęcie z telefonu nigdy nie wychodzi z urządzenia — wysyłamy tylko tę miniaturę. */
+export const MAX_PHOTO_CHARS = 40000;
+
 export function shrinkImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) { reject(new Error('To nie jest obraz.')); return; }
@@ -72,7 +75,10 @@ export function shrinkImage(file: File): Promise<string> {
       const s = Math.min(img.width, img.height);
       ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
       URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', 0.85));
+      let out = '';
+      for (const q of [0.82, 0.7, 0.55, 0.4]) { out = c.toDataURL('image/jpeg', q); if (out.length <= MAX_PHOTO_CHARS) break; }
+      if (!out.startsWith('data:image/jpeg;base64,') || out.length > MAX_PHOTO_CHARS) { reject(new Error('Nie udało się zmniejszyć zdjęcia.')); return; }
+      resolve(out);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Nie udało się wczytać obrazu.')); };
     img.src = url;

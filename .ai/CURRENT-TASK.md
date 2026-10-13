@@ -1,19 +1,19 @@
 # Current Task — stan na 13.10.2026
 
-> Najpierw przeczytaj ten plik, potem `.ai/DECISIONS.md` (D001–D033) i koniec `.ai/CHANGELOG.md`.
+> Najpierw przeczytaj ten plik, potem `.ai/DECISIONS.md` (D001–D035) i koniec `.ai/CHANGELOG.md`.
 > Treści grupy (imiona, notatki, zdjęcia tablicy, skany, PDF z zajęć) NIGDY w repo — leżą w Supabase grupy;
 > pliki robocze od prowadzącego trzymaj w `prywatne/` (w `.gitignore`).
 
 ## Co działa na żywo
 
-- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.10.3**
+- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.10.4**
   (sprawdzenie: `…/terapia/grupa/version.json`). Demo bez bazy: `…/terapia/`.
-- **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0010`.
+- **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0011`.
 - **Logowanie (D025, D033):** Google albo e-mail + hasło bez potwierdzania maila. Admin = e-mail z tabeli `admins`
   (prowadzący). Zaproszenie (`invites`: e-mail + imię) wpuszcza od razu **tylko przy logowaniu Google**;
   konto z hasłem zawsze trafia do kolejki „czeka na akceptację”.
 - **Ekrany:** Kalendarz (karta zajęć: praca domowa z edycją/usuwaniem i „Dodaj pracę zadaną na tych zajęciach”,
-  streszczenie, zdjęcia tablicy, materiały, Moje notatki), Program cyklu, Prace, Czat (miniatury zdjęć),
+  streszczenie, zdjęcia tablicy, materiały, Moje notatki), Program cyklu, Prace, Czat (miniatury zdjęć, „Grupa · N osób” + karta osoby — D035),
   Media, Zasady, Archiwum, Admin, Terminy.
 
 ## Stan danych grupy

@@ -16,7 +16,7 @@ type Tab = 'profile' | 'look' | 'notif' | 'panels' | 'data';
 interface Props {
   initialTab?: Tab;
   onClose: () => void;
-  profile: Profile; onProfile: (p: Profile) => void; onClearProfile: () => void;
+  profile: Profile; profileSaving?: boolean; onProfile: (p: Profile) => void; onClearProfile: () => void;
   mode: ThemeMode; onMode: (m: ThemeMode) => void;
   layout: LayoutMode; onLayout: (m: LayoutMode) => void;
   wallpaper: WallpaperSettings; onWallpaper: (w: WallpaperSettings) => void; onResetWallpaper: () => void;
@@ -94,7 +94,7 @@ export const SettingsModal: React.FC<Props> = (p) => {
         </div>
 
         <div className="overflow-y-auto px-1 pb-4">
-          {tab === 'profile' && <ProfilePanel profile={p.profile} onChange={p.onProfile} onClear={p.onClearProfile} isDemo={p.isDemo} />}
+          {tab === 'profile' && <ProfilePanel profile={p.profile} saving={p.profileSaving} onChange={p.onProfile} onClear={p.onClearProfile} isDemo={p.isDemo} />}
 
           {tab === 'look' && (
             <div className="px-4 space-y-4">
