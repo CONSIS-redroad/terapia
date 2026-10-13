@@ -1,6 +1,8 @@
 # Instrukcja dla admina grupy — krok po kroku, bez znajomości programowania
 
-> **Stan:** dziś (wersja 0.9) aplikacja działa jako **demo** — nic nie trzeba zakładać, wystarczy otworzyć
+> **Stan 13.10.2026:** wersja grupy z bazą działa (0.10.3, `/terapia/grupa/`); poniższa instrukcja zakładania własnej kopii jest dla INNYCH grup. Zaproszenie po e-mailu wpuszcza od razu tylko przy logowaniu Google (D033).
+>
+> Pierwotnie (wersja 0.9) aplikacja działała jako **demo** — nic nie trzeba zakładać, wystarczy otworzyć
 > https://consis-redroad.github.io/terapia/ . Kroki 2–6 (Supabase, logowanie) zaczną działać po **fazie 2**
 > (prawdziwe dane). Instrukcja jest napisana już teraz, żeby było wiadomo, co Cię czeka.
 > Nazwy przycisków na stronach GitHuba, Supabase i Google czasem się zmieniają — szukaj podobnie brzmiących.

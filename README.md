@@ -20,18 +20,18 @@ biblioteka mediów i zasady grupy. Prywatny **Dzienniczek samoobserwacji** jest 
 - **Konfiguracja grupy w pliku YAML** (nazwa, e-mail admina, dni i godziny zajęć, cykl, zasady). Admin zmienia ją
   w aplikacji albo lokalnie na komputerze z pomocą AI (edycja pliku) — szczegóły: [`docs/KONFIGURACJA.md`](docs/KONFIGURACJA.md).
 
-## Co jest w aplikacji (stan: 09.10.2026 — demo + wersja grupy na Supabase)
+## Co jest w aplikacji (stan: 13.10.2026, wersja 0.10.3 — demo + wersja grupy na Supabase; bieżący stan i otwarte sprawy: `.ai/CURRENT-TASK.md`)
 
 | Ekran | Co robi |
 |---|---|
 | Start | Sama tapeta (motywy: wiśnia na śniegu, deszcz, świt) i nazwa grupy; ruch tła jak w Luna2 |
-| Kalendarz | Cykl zajęć (np. 24 wtorki), kropki w dni zajęć; karta zajęć: **praca domowa → streszczenie + „Więcej” (zdjęcia tablicy) → materiały** |
+| Kalendarz | Cykl zajęć (np. 24 wtorki), kropki w dni zajęć; karta zajęć: **praca domowa (admin: dodaj / edytuj / usuń) → streszczenie + „Więcej” (zdjęcia tablicy) → materiały** |
 | Prace | Prace domowe według terminu („za tydzień”, „za 3 tygodnie”), odhaczanie „zrobione” (prywatne) |
-| Czat | Odpowiedzi z cytatem, reakcje emotkami, emotki, pliki (zdjęcia, wideo, PDF, DOC/DOCX, TXT…) do **20 MB/plik, 40 MB/osobę**; przypięte ogłoszenia prowadzącej |
+| Czat | Miniatury zdjęć (pełne po stuknięciu), odpowiedzi z cytatem, reakcje emotkami, emotki, pliki (zdjęcia, wideo, PDF, DOC/DOCX, TXT…) do **20 MB/plik, 40 MB/osobę**; przypięte ogłoszenia prowadzącej |
 | Media | Biblioteka: szukanie, kategorie (do zajęć, książki, poradniki, podcasty, filmy), data dodania, powiązanie z zajęciami albo „luźne” |
 | Zasady | Zasady grupy, regulamin (za przesłane treści odpowiada ich autor), numery kryzysowe; zgoda przy pierwszym wejściu (wersjonowana) |
 | Archiwum | „Powrót do przeszłości”: lektury z dawnych zajęć (tekst, okładka, galeria, nagranie MP3 z odtwarzaczem, PDF, filmy YouTube) |
-| Admin | Wpuszczanie / odrzucanie / zaproszenia, zmiana i zatwierdzanie imion, limity plików, „Usuń całą grupę” (z potwierdzeniem nazwą) |
+| Admin | Wpuszczanie / odrzucanie / zaproszenia (zaproszony wchodzi od razu tylko przez Google — D033), zmiana i zatwierdzanie imion, limity plików, „Usuń całą grupę” (z potwierdzeniem nazwą) |
 | Terminy (admin) | Seria spotkań (np. 24 wtorki), odwołanie dnia, przeniesienie (np. zastępczo w środę), dołożenie terminów, spotkanie dodatkowe |
 
 Telefon: dolny pasek ekranów, przesuwanie palcem w bok, tekst ≥ 16 px, cele dotyku ≥ 44 px. Motyw jasny i ciemny.
