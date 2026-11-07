@@ -39,3 +39,26 @@ files/admin/zajecia/<data>/…       PDF-y z zajęć
 
 Pliki: Storage API kontem admina (zalogowany) — ścieżki `admin/…` liczą się do puli grupy, nie do 40 MB uczestnika.
 Wiersze: `insert into materials …` z manifestu. Skrypt wgrywający dopisze faza 2 / ETAP I.
+
+## Czytnik (0.11) — format treści `archive_items.body`
+
+Czytnik w Archiwum (`frontend/src/components/ReaderView.tsx`) czyta `body` w tym kształcie (wszystko poza `sections` opcjonalne):
+
+```json
+{ "source": "Remedium · grudzień 1993", "epigraph": "„motto”", "agenda": ["w artykule…"], "endnote": ["skąd tekst"],
+  "sections": [ { "title": "Gorąca przemoc", "page": "5",
+                  "blocks": [ {"t":"p","text":"…"}, {"t":"quote","text":"…"}, {"t":"callout","text":"zdanie wyróżnione"},
+                              {"t":"ul","items":["…"]}, {"t":"img","path":"admin/lektury/<slug>/obraz.jpg","caption":"podpis, autor, licencja"} ] } ] }
+```
+
+- `blocks` = kolejność jak w oryginale. Sekcja **bez** `blocks` działa jak dotąd (`paragraphs` → `bullets` → `quotes` → `after`) — zmiana jest wstecznie zgodna.
+- `page` = numer strony oryginału; w układzie „Gazeta” nowa strona = nowy arkusz. `img` przyjmuje **tylko** `path` z magazynu grupy
+  (podpisywany jak galeria) — adresów zewnętrznych celowo nie ma (obcy serwer widziałby IP uczestników).
+- Nowe pole = opcjonalne; zmiana znaczenia istniejącego pola = migracja danych w bazie i wpis tutaj w tym samym PR.
+
+**Z HTML do paczki:** `python tools/import/html_do_lektury.py --html <plik> --slug <slug> --wyjscie prywatne/import-<slug> [--okladka obraz.jpg --okladka-podpis "…"]`
+(wynik tylko w `prywatne/`), potem `python tools/import/wgraj_archiwum.py --paczka prywatne/import-<slug>` (wgrywa też obrazy z bloków `img`).
+
+**Na urządzeniu (localStorage, try/catch):** `rr_czytnik_v1` — miejsce czytania `{ <id wpisu>: {p: 0…1, at} }` (max 100, zapis tylko po przewinięciu);
+`rr_czytnik_uklad_v1` — `gazeta` | `czytanie`; `rr_czytnik_rozmiar_v1` — `0…4`; `rr_czytnik_lektor_v1` — `{voice, rate ∈ 0.8/1/1.2/1.4}`.
+Lektor = Web Speech API przeglądarki (głosy systemu; głosy oznaczone „online” przetwarza ich dostawca).
