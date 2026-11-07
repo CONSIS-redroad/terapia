@@ -1,0 +1,155 @@
+/* PATH: src/components/reader.css | REQ-ID: TERAPIA-READER-01
+   Czytnik materiałów (0.11): papier w kolorze piasku (Bartek 07.11: „piaskowy kolor mi się podoba”), krój szeryfowy,
+   dwa układy — Gazeta (arkusze ze szpaltami, jak oryginał) i Czytanie (jedna kolumna na telefon/tablet).
+   Pasek narzędzi i przyciski = styl aplikacji (zmienne --t-*), sam papier ma własne zmienne --rd-*. */
+.rd {
+  --rd-desk: #ece4d6;      /* tło pod arkuszami */
+  --rd-paper: #fcfaf5;     /* arkusz */
+  --rd-ink: #1f1b16;
+  --rd-ink2: #4a4238;
+  --rd-rule: rgba(60, 45, 25, .22);
+  --rd-accent: #7a2a1d;    /* inicjał, wyróżnienia */
+  --rd-quote: #f3ecdf;
+  --rd-hit: #fde68a;
+  --rd-hit-cur: #f59e0b;
+  --rd-size: 1.06rem;
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; flex-direction: column;
+  background: var(--rd-desk); color: var(--rd-ink);
+}
+:root[data-theme="dark"] .rd {
+  --rd-desk: #14110d;
+  --rd-paper: #1d1914;
+  --rd-ink: #ece3d3;
+  --rd-ink2: #c4b8a4;
+  --rd-rule: rgba(236, 227, 211, .18);
+  --rd-accent: #e2a184;
+  --rd-quote: #26211a;
+  --rd-hit: #854d0e;
+  --rd-hit-cur: #d97706;
+}
+.rd-scroll { position: relative; /* offsetTop nagłówków liczony od tekstu */ flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scroll-behavior: auto; }
+
+/* ---------- pasek narzędzi (styl aplikacji) ---------- */
+.rd-bar { flex: 0 0 auto; position: relative; z-index: 2; padding: max(8px, env(safe-area-inset-top)) 10px 6px; }
+.rd-bar-in { max-width: 980px; margin: 0 auto; display: flex; align-items: center; gap: 6px;
+  background: var(--t-head); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--t-line); border-radius: 999px; padding: 5px; box-shadow: 0 8px 30px rgba(0,0,0,.12); color: var(--t-fg); }
+.rd-btn { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; height: 44px; padding: 0 10px;
+  border-radius: 999px; border: 0; background: transparent; color: var(--t-fg); cursor: pointer; font: inherit; font-weight: 600; font-size: .9rem; }
+.rd-btn:hover { background: var(--t-surf2); }
+.rd-btn[aria-pressed="true"], .rd-btn[aria-expanded="true"] { background: var(--t-surf2); color: var(--t-acc); }
+.rd-btn:focus-visible { outline: 2px solid var(--t-acc); outline-offset: 1px; }
+.rd-btn svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.rd-title { flex: 1 1 auto; min-width: 0; padding: 0 4px; font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rd-title small { display: block; font-weight: 500; font-size: .78rem; color: var(--t-mut); }
+.rd-btn-label { display: none; }
+@media (min-width: 760px) { .rd-btn-label { display: inline; } }
+.rd-progress { max-width: 980px; margin: 6px auto 0; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--rd-ink) 12%, transparent); overflow: hidden; }
+.rd-progress > div { height: 100%; width: 0; background: var(--t-acc); border-radius: 999px; transition: width .15s linear; }
+.rd-progress-txt { max-width: 980px; margin: 2px auto 0; display: flex; justify-content: space-between; font-size: .78rem; color: var(--rd-ink2); padding: 0 4px; }
+
+/* panele pod paskiem (szukaj, rozdziały, Aa) */
+.rd-pop { max-width: 980px; margin: 8px auto 0; background: var(--t-panel); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  border: 1px solid var(--t-line); border-radius: 18px; padding: 10px; color: var(--t-fg); box-shadow: 0 12px 34px rgba(0,0,0,.16); }
+.rd-pop[hidden] { display: none; }
+.rd-search { display: flex; gap: 6px; align-items: center; }
+.rd-search input { flex: 1 1 auto; min-width: 0; height: 44px; border-radius: 12px; border: 1px solid var(--t-line); background: var(--t-surf); color: var(--t-fg); padding: 0 12px; font: inherit; font-size: 1rem; }
+.rd-search input:focus { outline: 2px solid var(--t-acc); outline-offset: 1px; }
+.rd-count { flex: 0 0 auto; font-size: .85rem; color: var(--t-mut); min-width: 4.5em; text-align: center; }
+.rd-toc { list-style: none; margin: 0; padding: 0; max-height: min(60vh, 420px); overflow-y: auto; }
+.rd-toc button { display: flex; width: 100%; gap: 10px; align-items: baseline; text-align: left; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--t-fg); font: inherit; font-size: .98rem; cursor: pointer; }
+.rd-toc button:hover { background: var(--t-surf2); }
+.rd-toc button[aria-current="true"] { background: var(--t-surf2); color: var(--t-acc); font-weight: 700; }
+.rd-toc small { flex: 0 0 auto; color: var(--t-mut); font-size: .8rem; margin-left: auto; }
+.rd-sizes { display: flex; gap: 6px; align-items: center; }
+.rd-sizes .rd-btn { flex: 1 1 0; border: 1px solid var(--t-line); }
+.rd-sizes .rd-aa { font-family: Lora, Georgia, serif; font-weight: 700; }
+.rd-say-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rd-btn-main { background: var(--t-acc); color: var(--t-bg); padding: 0 16px; }
+.rd-btn-main:hover { background: var(--t-acc); opacity: .9; }
+.rd-say-rates { display: inline-flex; gap: 4px; margin-left: auto; }
+.rd-say-rates .rd-btn { border: 1px solid var(--t-line); min-width: 52px; }
+.rd-say-voice { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .9rem; color: var(--t-fg2); }
+.rd-say-voice select { flex: 1 1 auto; min-width: 0; height: 44px; border-radius: 12px; border: 1px solid var(--t-line); background: var(--t-surf); color: var(--t-fg); padding: 0 10px; font: inherit; }
+.rd-say-note { margin: 8px 2px 0; font-size: .82rem; color: var(--t-mut); line-height: 1.4; }
+.rd .rd-say { background: color-mix(in srgb, var(--t-acc) 16%, transparent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--t-acc) 16%, transparent); border-radius: 6px; transition: background .2s; }
+.rd-btn:disabled { opacity: .4; cursor: default; }
+
+/* baner „wracasz do…” */
+.rd-resume { max-width: 760px; margin: 10px auto 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+  background: var(--t-panel); border: 1px solid var(--t-line); color: var(--t-fg); border-radius: 16px; padding: 8px 8px 8px 14px; font-size: .95rem; }
+.rd-resume .rd-btn { border: 1px solid var(--t-line); }
+
+/* ---------- papier ---------- */
+.rd-doc { font-family: Lora, Georgia, 'Times New Roman', serif; font-size: var(--rd-size); line-height: 1.7; padding: 14px 10px calc(40px + env(safe-area-inset-bottom)); }
+.rd-sheet { background: var(--rd-paper); margin: 0 auto 16px; border-radius: 14px; box-shadow: 0 2px 14px rgba(40, 28, 10, .08);
+  padding: 22px 18px 26px; max-width: 760px; overflow-wrap: anywhere; }
+.rd-sheet-head { text-align: left; display: flex; justify-content: space-between; gap: 10px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: .72rem;
+  font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--rd-ink2); border-bottom: 2px solid var(--rd-ink); padding-bottom: 4px; margin-bottom: 16px; }
+.rd p { margin: 0 0 1em; }
+.rd h2 { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 800; font-size: 1.05em; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--rd-ink); border-bottom: 1px solid var(--rd-rule); padding-bottom: 3px; margin: 1.6em 0 .7em; break-after: avoid; scroll-margin-top: 12px; }
+.rd h2:first-child { margin-top: 0; }
+.rd ul { margin: 0 0 1em; padding-left: 1.3em; }
+.rd li { margin: 0 0 .35em; }
+.rd-quote { background: var(--rd-quote); border-left: 3px solid var(--rd-accent); padding: .7em .9em; margin: 1.1em 0; font-style: italic; color: var(--rd-ink2); border-radius: 0 8px 8px 0; break-inside: avoid; }
+.rd-callout { border-top: 2.5px solid var(--rd-ink); border-bottom: 2.5px solid var(--rd-ink); padding: .7em .4em; margin: 1.4em 0; text-align: center;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 800; font-size: 1.05em; line-height: 1.35; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--rd-accent); break-inside: avoid; }
+.rd-fig { margin: 1.2em 0; break-inside: avoid; }
+.rd-fig button { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.rd-fig img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 8px; }
+.rd-fig figcaption { font-size: .82em; color: var(--rd-ink2); text-align: center; margin-top: .4em; font-style: italic; }
+.rd mark { background: var(--rd-hit); color: inherit; border-radius: 3px; padding: 0 1px; }
+.rd mark.is-cur { background: var(--rd-hit-cur); color: #111; box-shadow: 0 0 0 2px var(--rd-hit-cur); }
+
+/* okładka materiału */
+.rd-cover { text-align: center; }
+.rd-cover h1 { font-family: Lora, Georgia, serif; font-weight: 700; font-size: clamp(1.7em, 6vw, 2.6em); line-height: 1.15; letter-spacing: .02em; margin: .2em 0 .15em; color: var(--rd-ink); }
+.rd-author { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 700; font-size: 1em; color: var(--rd-ink2); margin: 0 0 1em; }
+.rd-epigraph { font-style: italic; border-top: 1px solid var(--rd-rule); border-bottom: 1px solid var(--rd-rule); padding: .8em .4em; margin: 1em 0; color: var(--rd-ink2); }
+.rd-agenda { text-align: left; background: var(--rd-quote); border-top: 3px double var(--rd-ink); border-bottom: 3px double var(--rd-ink); padding: .9em 1em .9em 2em; margin: 1em 0 0;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: .88em; font-weight: 700; line-height: 1.6; list-style: square; }
+.rd-lead { font-size: 1.08em; }
+.rd-end { margin-top: 1.6em; padding-top: .8em; border-top: 1px solid var(--rd-rule); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: .82em; color: var(--rd-ink2); break-inside: avoid; }
+.rd-fin { text-align: center; color: var(--rd-ink2); font-size: .9em; margin: 6px 0 0; }
+
+/* ---------- układ GAZETA: arkusz ze szpaltami, wyjustowany, inicjał ---------- */
+.rd--gazeta .rd-sheet { max-width: 1020px; padding: 26px 24px 30px; border-radius: 4px; }
+.rd--gazeta .rd-cols { text-align: justify; hyphens: auto; -webkit-hyphens: auto; line-height: 1.55; }
+.rd--gazeta .rd-cols p { margin-bottom: .75em; text-indent: 1.2em; }
+.rd--gazeta .rd-cols h2 + p, .rd--gazeta .rd-cols p.rd-first { text-indent: 0; }
+.rd--gazeta .rd-dropcap::first-letter { float: left; font-weight: 700; font-size: 3.4em; line-height: .8; padding: 4px 8px 0 0; color: var(--rd-accent); }
+@media (min-width: 700px) { .rd--gazeta .rd-cols { column-count: 2; column-gap: 26px; column-rule: 1px solid var(--rd-rule); } }
+@media (min-width: 1100px) { .rd--gazeta .rd-cols { column-count: 3; } }
+
+/* ---------- układ CZYTANIE: jedna kolumna, większy oddech ---------- */
+.rd--czytanie .rd-sheet { padding: 22px 18px 28px; }
+.rd--czytanie .rd-sheet + .rd-sheet { margin-top: -6px; }
+.rd--czytanie .rd-sheet-head { border-bottom-width: 1px; opacity: .8; }
+@media (min-width: 700px) { .rd--czytanie .rd-sheet { padding: 34px 44px 38px; } }
+
+@media (prefers-reduced-motion: reduce) { .rd-progress > div { transition: none; } }
+@media print {
+  .rd { position: static; background: #fff; }
+  .rd-bar, .rd-resume { display: none !important; }
+  .rd-scroll { overflow: visible; }
+  .rd-sheet { box-shadow: none; break-after: page; }
+}
+.rd-sheet-head span:last-child { white-space: nowrap; }
+.rd-title-name { display: block; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 459px) { .rd-title-name { display: none; } .rd-title small { font-size: .85rem; } }
+/* gazeta: tytuły i listy bez justowania i wcięć (justowanie rozciągało tytuł po słowach) */
+.rd--gazeta .rd-cols h2 { text-align: left; hyphens: manual; }
+.rd--gazeta .rd-cols li, .rd--gazeta .rd-cols .rd-callout, .rd--gazeta .rd-cols .rd-quote { text-indent: 0; }
+.rd--gazeta .rd-cols li { text-align: left; }
+@media (max-width: 459px) { .rd-min { display: none; } .rd-title { flex: 0 1 auto; } }
+/* bardzo wąski telefon: 6 przycisków × 44 px — procent schowany (pasek postępu zostaje), ciaśniejsze odstępy */
+@media (max-width: 379px) { .rd-title { display: none; } .rd-bar-in { gap: 2px; padding: 4px; justify-content: space-between; } .rd-bar { padding-left: 8px; padding-right: 8px; } }
+/* druk: zawsze jasny papier i ciemny tekst, aplikacja pod czytnikiem się nie drukuje */
+@media print {
+  .rd, :root[data-theme="dark"] .rd { --rd-desk: #fff; --rd-paper: #fff; --rd-ink: #111; --rd-ink2: #333; --rd-rule: rgba(0,0,0,.25); --rd-accent: #6d1a1a; --rd-quote: #f4f0e8; color: #111; }
+  body:has(.rd) > *:not(.rd) { display: none !important; }
+}

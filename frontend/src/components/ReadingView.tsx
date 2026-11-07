@@ -2,11 +2,12 @@
 // Ekran czytania wpisu archiwum (ETAP I): okładka, nagranie lektora, tekst (sekcje, wypunktowania, cytaty),
 // galeria z powiększeniem, linki (YouTube z miniaturą), pliki (PDF w nowej karcie, inne rozszerzenia = pobierz).
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Download, ExternalLink, File, FileArchive, FileAudio, FileImage, FileText, FileVideo, Link2, Play, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, ExternalLink, File, FileArchive, FileAudio, FileImage, FileText, FileVideo, Link2, Play, X } from 'lucide-react';
 import type { ArchiveFile, ArchiveImage, ArchiveItem } from '../services/archive';
-import { youtubeId } from '../services/archive';
+import { hasReadableText, sectionBlocks, youtubeId } from '../services/archive';
 import { fmtSize } from '../services/files';
 import { AudioPlayer } from './AudioPlayer';
+import { ReaderView, readingProgress } from './ReaderView';
 
 export function fmtArchiveDate(d?: string): string {
   if (!d) return '';
@@ -103,6 +104,10 @@ const h2 = 'text-lg font-semibold text-fg';
 
 export const ReadingView: React.FC<{ item: ArchiveItem; onBack?: () => void }> = ({ item, onBack }) => {
   const [zoom, setZoom] = useState<ArchiveImage | null>(null);
+  const [reading, setReading] = useState(false);
+  const [readP, setReadP] = useState(() => readingProgress(item.id));
+  const readable = hasReadableText(item);
+  const words = readable ? [item.lead ?? '', ...item.sections.flatMap(s => sectionBlocks(s).map(b => ('text' in b ? b.text : 'items' in b ? b.items.join(' ') : '')))].join(' ').split(/\s+/).filter(Boolean).length : 0;
   const date = fmtArchiveDate(item.date);
   const images: ArchiveImage[] = [...(item.cover ? [{ url: item.cover, name: item.title }] : []), ...item.gallery];
 
@@ -133,23 +138,20 @@ export const ReadingView: React.FC<{ item: ArchiveItem; onBack?: () => void }> =
         </section>
       )}
 
-      {item.lead && <p className="text-lg text-fg leading-relaxed break-words">{item.lead}</p>}
-
-      {item.sections.map((s, i) => (
-        <section key={i} className="space-y-2 min-w-0">
-          {s.title && <h2 className={h2}>{s.title}</h2>}
-          {s.paragraphs?.map((p, j) => <p key={j} className="text-base text-fg leading-relaxed break-words">{p}</p>)}
-          {!!s.bullets?.length && (
-            <ul className="list-disc pl-6 space-y-1">
-              {s.bullets.map((b, j) => <li key={j} className="text-base text-fg leading-relaxed break-words">{b}</li>)}
-            </ul>
-          )}
-          {s.quotes?.map((q, j) => (
-            <blockquote key={j} className="border-l-4 border-sky-400/40 bg-surf rounded-r-lg pl-3 pr-2 py-2 text-base italic text-fg2 break-words">{q}</blockquote>
-          ))}
-          {s.after && <p className="text-base text-fg2 leading-relaxed break-words">{s.after}</p>}
+      {readable && (
+        <section className="space-y-2 min-w-0">
+          {item.lead && <p className="text-lg text-fg leading-relaxed break-words line-clamp-4">{item.lead}</p>}
+          <button type="button" onClick={() => setReading(true)} data-rr-czytaj
+            className="tap w-full flex items-center gap-3 rounded-2xl bg-acc text-bg px-4 py-3 text-left cursor-pointer hover:opacity-90">
+            <BookOpen className="w-6 h-6 shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-base font-semibold">{readP > 0.02 && readP < 0.97 ? 'Czytaj dalej' : readP >= 0.97 ? 'Czytaj jeszcze raz' : 'Czytaj'}</span>
+              <span className="block text-sm opacity-90">ok. {Math.max(1, Math.round(words / 200))} min{readP > 0.02 ? ` · przeczytane ${Math.round(readP * 100)}%` : ''}{item.sections.filter(s => s.title).length ? ` · ${item.sections.filter(s => s.title).length} rozdz.` : ''}</span>
+            </span>
+          </button>
+          {readP > 0.02 && <div className="h-1.5 rounded-full bg-surf2 overflow-hidden" aria-hidden="true"><div className="h-full bg-acc" style={{ width: `${Math.round(readP * 100)}%` }} /></div>}
         </section>
-      ))}
+      )}
 
       {item.gallery.length > 0 && (
         <section className="space-y-2">
@@ -182,6 +184,7 @@ export const ReadingView: React.FC<{ item: ArchiveItem; onBack?: () => void }> =
       )}
 
       {zoom && <Lightbox img={zoom} onClose={() => setZoom(null)} />}
+      {reading && <ReaderView item={item} onClose={() => { setReading(false); setReadP(readingProgress(item.id)); }} />}
     </article>
   );
 };

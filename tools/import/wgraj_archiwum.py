@@ -143,6 +143,28 @@ def main() -> None:
         pliki[dst] = src
         return dst
 
+    def body_of(t: dict) -> dict:
+        """Treść czytnika (0.11): sekcje + okładka materiału; obrazy w tekście ({t:'img', plik:{…}}) wgrywane jak inne pliki."""
+        secs = []
+        for sec in t.get('sections') or []:
+            sec = dict(sec)
+            if isinstance(sec.get('blocks'), list):
+                bl = []
+                for b in sec['blocks']:
+                    if isinstance(b, dict) and b.get('t') == 'img' and b.get('plik'):
+                        path = plik(b['plik'])
+                        if path:
+                            bl.append({'t': 'img', 'path': path, **({'caption': b['caption']} if b.get('caption') else {})})
+                    else:
+                        bl.append(b)
+                sec['blocks'] = bl
+            secs.append(sec)
+        out = {'sections': secs}
+        for k in ('source', 'epigraph', 'agenda', 'endnote'):
+            if t.get(k):
+                out[k] = t[k]
+        return out
+
     rows: list[dict] = []
     for l in man.get('lektury', []):
         m = l['material']
@@ -155,7 +177,7 @@ def main() -> None:
         rows.append({
             'slug': slugify(l['slug']), 'kind': 'lektura', 'category': m.get('category') or 'inne',
             'title': m['title'], 'author': m.get('author') or '', 'note': m.get('note') or '',
-            'lead': t.get('lead') or '', 'body': {'sections': t.get('sections') or []},
+            'lead': t.get('lead') or '', 'body': body_of(t),
             'links': only_https(l.get('linki')), 'cover_path': plik(l.get('obraz_glowny')),
             'audio_path': plik(l.get('nagranie')), 'gallery': [p for p in (plik(g) for g in l.get('galeria') or []) if p],
             'files': files, 'source_date': m.get('meeting_date') or (m.get('added_at') or '')[:10] or None,
