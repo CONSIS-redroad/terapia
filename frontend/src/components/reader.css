@@ -44,7 +44,8 @@
 .rd-title { flex: 1 1 auto; min-width: 0; padding: 0 4px; font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rd-title small { display: block; font-weight: 500; font-size: .78rem; color: var(--t-mut); }
 .rd-btn-label { display: none; }
-@media (min-width: 760px) { .rd-btn-label { display: inline; } }
+/* etykiety tylko na komputerze z myszą — telefon w trybie „wersja na komputer” ma szeroki ekran, a pasek się nie mieści (Bartek 08.11) */
+@media (min-width: 760px) and (hover: hover) and (pointer: fine) { .rd-btn-label { display: inline; } }
 .rd-progress { max-width: 980px; margin: 6px auto 0; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--rd-ink) 12%, transparent); overflow: hidden; }
 .rd-progress > div { height: 100%; width: 0; background: var(--t-acc); border-radius: 999px; transition: width .15s linear; }
 .rd-progress-txt { max-width: 980px; margin: 2px auto 0; display: flex; justify-content: space-between; font-size: .78rem; color: var(--rd-ink2); padding: 0 4px; }
