@@ -10,15 +10,8 @@ export const Carousel = forwardRef<CarouselHandle, { slides: Slide[] }>(({ slide
   const track = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
-  // dolny pasek dopiero gdy karuzela jest na ekranie — na ekranie startowym nie zasłania „Przewiń”
-  const [navOn, setNavOn] = useState(false);
-  useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setNavOn(e.isIntersecting), { rootMargin: '0px 0px -35% 0px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  // dolny pasek widoczny od razu, także na ekranie startowym (Bartek 08.11: przeskok bez przewijania)
+  const navOn = true;
 
   const scrollToIndex = (i: number, smooth = true) => {
     const el = track.current;

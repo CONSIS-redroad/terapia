@@ -30,16 +30,18 @@ export const HomeworkPanel: React.FC<{
   const todo = open.filter(x => !done[x.h.id]).length;
 
   const row = ({ h, due, given }: (typeof withDates)[number]) => (
-    <li key={h.id} className="rounded-xl bg-surf border border-line p-3 flex gap-3">
-      <button onClick={() => onToggleDone(h.id)} aria-pressed={!!done[h.id]} aria-label={done[h.id] ? 'Zrobione' : 'Oznacz jako zrobione'}
-        className={`tap shrink-0 w-7 h-7 mt-0.5 rounded-lg border-2 flex items-center justify-center cursor-pointer ${done[h.id] ? 'bg-emerald-500/80 border-emerald-500 text-white' : 'border-line'}`}>
-        {done[h.id] && '✓'}
-      </button>
-      <span className="flex-1 min-w-0">
-        <span className="flex flex-wrap items-baseline gap-x-2">
+    <li key={h.id} className="rounded-xl bg-surf border border-line p-2.5 sm:p-3">
+      <span className="flex items-start gap-2">
+        <button onClick={() => onToggleDone(h.id)} aria-pressed={!!done[h.id]} aria-label={done[h.id] ? 'Zrobione' : 'Oznacz jako zrobione'}
+          className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center cursor-pointer relative before:content-[''] before:absolute before:-inset-2 ${done[h.id] ? 'bg-emerald-500/80 border-emerald-500 text-white' : 'border-line'}`}>
+          {done[h.id] && '✓'}
+        </button>
+        <span className="flex-1 min-w-0 pt-0.5 flex flex-wrap items-baseline gap-x-2">
           <span className={`text-base lg:text-sm font-semibold ${done[h.id] ? 'line-through text-mut' : 'text-fg'}`}>{h.title}</span>
           <span className={`text-sm lg:text-xs font-semibold ${done[h.id] ? 'text-mut' : 'text-warn'}`}>{dueLabel(due!.date)}</span>
         </span>
+      </span>
+      <span className="block min-w-0">
         <span className="block text-sm lg:text-xs text-fg2 mt-0.5 whitespace-pre-line">{h.description}</span>
         <HomeworkLinks h={h} materials={materials} />
         <span className="mt-1.5 flex flex-wrap gap-1.5">

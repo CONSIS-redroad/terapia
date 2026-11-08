@@ -6,7 +6,8 @@
 
 alter table public.admins add column if not exists can_wipe boolean not null default false;
 -- dotychczasowi admini to właściciele (stan 08.11: jedno konto)
-update public.admins set can_wipe = true;
+-- tylko przy pierwszym uruchomieniu (adwersarz 08.11: ponowne bez warunku robiło właściciela z admina 2. stopnia)
+update public.admins set can_wipe = true where not exists (select 1 from public.admins where can_wipe);
 
 create or replace function public.is_owner() returns boolean
 language sql stable security definer set search_path = '' as $$
@@ -17,6 +18,8 @@ grant execute on function public.is_owner() to authenticated;
 
 -- lista adminów: czyta każdy admin, zmienia tylko właściciel
 drop policy if exists admins_admin_all on public.admins;
+drop policy if exists admins_admin_read on public.admins;
+drop policy if exists admins_owner_write on public.admins;
 create policy admins_admin_read on public.admins for select to authenticated using (public.is_admin());
 create policy admins_owner_write on public.admins for all to authenticated using (public.is_owner()) with check (public.is_owner());
 

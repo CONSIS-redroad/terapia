@@ -223,7 +223,7 @@ export default function App() {
         </header>
 
         {/* EKRAN STARTOWY — sama tapeta i nazwa (jak w Luna2) */}
-        <section className="min-h-[calc(100dvh-5.5rem)] flex flex-col items-center justify-between text-center py-6 select-none" aria-label="Start">
+        <section className="min-h-[calc(100dvh-5.5rem-var(--rr-nav))] lg:min-h-[calc(100dvh-5.5rem)] flex flex-col items-center justify-between text-center py-6 select-none" aria-label="Start">
           <div className="h-6" />
           <div className="flex flex-col items-center">
             <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-fg drop-shadow-[0_2px_18px_var(--t-bg)]">{g.group?.name ?? '…'}</h1>
