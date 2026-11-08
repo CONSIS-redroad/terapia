@@ -163,7 +163,7 @@ export default function App() {
         myNotes={g.myNotes} onSaveNote={g.saveMyNote} onDeleteNote={g.deleteMyNote} notesStatus={g.notesStatus}
         program={g.program} programName={g.group?.programName} programError={g.programError} onSaveProgram={g.saveProgram}
         onAddHomework={g.addHomework} onUpdateHomework={g.updateHomework} onDeleteHomework={g.deleteHomework} />;
-      case 'homework': return <HomeworkPanel homework={g.homework} meetings={meetings} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting}
+      case 'homework': return <HomeworkPanel homework={g.homework} meetings={meetings} materials={g.materials} done={g.hwDone} onToggleDone={g.toggleHomeworkDone} onOpenMeeting={openMeeting}
         isAdmin={isAdmin} onAdd={g.addHomework} onUpdate={g.updateHomework} onDelete={g.deleteHomework} />;
       case 'chat': return <ChatPanel fill={mobile} messages={g.messages} members={members} announcements={g.announcements} currentUserId={g.currentUserId} isAdmin={isAdmin} isDemo={g.isDemo}
         onSend={g.sendMessage} onReact={g.react} onDeleteAttachment={g.deleteAttachment} onDeleteMessage={g.deleteMessage} />;

@@ -71,6 +71,8 @@ export interface Homework {
   dueAt: string;   // id zajęć
   title: string;
   description: string;
+  materialId?: string; // materiał wyjściowy (PDF z zajęć)
+  archiveId?: string;  // nasza wersja w czytniku z lektorem (pozycja archiwum)
 }
 
 export type MaterialKind = 'pdf' | 'image' | 'video' | 'audio' | 'link';

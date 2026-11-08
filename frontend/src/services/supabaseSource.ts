@@ -181,7 +181,8 @@ export class SupabaseSource implements GroupDataSource {
 
   async homework(): Promise<Homework[]> {
     const rows = must(await sb().from('homework').select('*').order('created_at')) as Array<Record<string, string>>;
-    return rows.map(r => ({ id: r.id, givenAt: r.given_meeting, dueAt: r.due_meeting, title: r.title, description: r.description }));
+    return rows.map(r => ({ id: r.id, givenAt: r.given_meeting, dueAt: r.due_meeting, title: r.title, description: r.description,
+      materialId: r.material_id || undefined, archiveId: r.archive_item_id || undefined }));
   }
 
   async addHomework(h: Omit<Homework, 'id'>) {

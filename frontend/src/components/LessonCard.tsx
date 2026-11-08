@@ -10,6 +10,8 @@ import { MaterialRow } from './panels';
 import { MyNoteSection } from './MyNoteSection';
 import { HomeworkEditor } from './HomeworkEditor';
 
+import { HomeworkLinks } from './HomeworkLinks';
+
 const card = 'rounded-xl bg-surf border border-line';
 
 /** „za tydzień”, „za 2 tygodnie”, „dziś”, „minęło” — liczone w dniach kalendarzowych. */
@@ -100,6 +102,7 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
         </span>
         <span className="block min-w-0">
           <span className="block text-sm lg:text-xs text-fg2 mt-1 whitespace-pre-line">{h.description}</span>
+          <HomeworkLinks h={h} materials={materials} />
           {target && (
             <button onClick={() => onOpenMeeting(target.id)} className="mt-1.5 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-acc border border-sky-400/25 cursor-pointer">
               <CalendarDays className="w-3 h-3" />
