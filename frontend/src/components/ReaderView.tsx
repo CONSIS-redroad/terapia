@@ -170,7 +170,7 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
     tts.cancel(); const gen = ++sayGen.current;
     document.querySelectorAll('audio').forEach(a => a.pause());   // nie mówić na nagranie lektury
     const from = speaking === 'pause' && sayIdx.current >= 0 ? sayIdx.current : firstVisible();
-    setSpeaking('play'); speakFrom(from, gen);
+    setSpeaking('play'); setPanel(''); speakFrom(from, gen);
   };
   // pauza = zatrzymaj i zapamiętaj akapit (pause() na Androidzie bywa zawodne)
   const pause = () => { sayGen.current++; tts?.cancel(); setSpeaking('pause'); };
@@ -339,7 +339,6 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
             </label>
           )}
           {!voices.length && <p className="rd-say-note">Na tym urządzeniu nie widać polskiego głosu. Android: Ustawienia → Zamiana tekstu na mowę → język polski. iPhone: Ustawienia → Dostępność → Treść mówiona → Głosy → Polski.</p>}
-          <p className="rd-say-note">Czytanie zaczyna się od akapitu widocznego u góry. Głos pochodzi z Twojego telefonu lub komputera, aplikacja nigdzie tekstu nie wysyła. Głosy z dopiskiem „online” czyta serwer ich dostawcy (Google, Microsoft) — wybierz inny, jeśli wolisz, żeby tekst nie wychodził z urządzenia.</p>
         </div>
         <div className="rd-pop" hidden={panel !== 'aa'}>
           <div className="rd-sizes" role="group" aria-label="Wielkość tekstu w czytniku">
@@ -352,7 +351,7 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
         </div>
       </div>
 
-      <div className="rd-scroll" ref={scrollRef}>
+      <div className="rd-scroll" ref={scrollRef} onPointerDown={() => setPanel('')}>
         {resume > 0 && (
           <div className="rd-resume" role="status">
             <span>Ostatnio przeczytane: {Math.round(resume * 100)}%.</span>
