@@ -1,17 +1,20 @@
-# Current Task — stan na 13.10.2026
+# Current Task — stan na 08.11.2026
 
-> Najpierw przeczytaj ten plik, potem `.ai/DECISIONS.md` (D001–D035) i koniec `.ai/CHANGELOG.md`.
+> Najpierw przeczytaj ten plik, potem `.ai/DECISIONS.md` (D001–D039) i koniec `.ai/CHANGELOG.md`.
 > Treści grupy (imiona, notatki, zdjęcia tablicy, skany, PDF z zajęć) NIGDY w repo — leżą w Supabase grupy;
 > pliki robocze od prowadzącego trzymaj w `prywatne/` (w `.gitignore`).
 
 ## Co działa na żywo
 
-- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.10.4**
+- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.13.2**
   (sprawdzenie: `…/terapia/grupa/version.json`). Demo bez bazy: `…/terapia/`.
-- **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0011`.
+- **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0014`.
 - **Logowanie (D025, D033):** Google albo e-mail + hasło bez potwierdzania maila. Admin = e-mail z tabeli `admins`
   (prowadzący). Zaproszenie (`invites`: e-mail + imię) wpuszcza od razu **tylko przy logowaniu Google**;
   konto z hasłem zawsze trafia do kolejki „czeka na akceptację”.
+- **Admini (D037):** właściciel (`admins.can_wipe = true`) + admin 2. stopnia (`can_wipe = false`, prowadzi grupę,
+  nie kasuje osób/zajęć/archiwum, nie rusza konta właściciela ani nazwy/opisu/harmonogramu grupy).
+- **Praca domowa (D038):** może wskazywać materiał (PDF) i pozycję archiwum (czytnik z lektorem).
 - **Ekrany:** Kalendarz (karta zajęć: praca domowa z edycją/usuwaniem i „Dodaj pracę zadaną na tych zajęciach”,
   streszczenie, zdjęcia tablicy, materiały, Moje notatki), Program cyklu, Prace, Czat (miniatury zdjęć, „Grupa · N osób” + karta osoby — D035),
   Media, Zasady, Archiwum, Admin, Terminy.
@@ -37,6 +40,10 @@ zaproszeniem z hasłem = 0, konta z hasłem na zaproszony adres = 0).
   (`sbp_…`, tymczasowy od prowadzącego — od razu do sejfu `rrv`, nigdy w pliku/repo/argv; po robocie prowadzący go wyłącza).
 - Próba bez skutków: `begin; … raise exception 'WYNIK: %'` (rollback, wynik w treści błędu).
 - Pliki: bucket `group-files`, ścieżki admina `admin/…`; klucz serwisowy pobierany na chwilę z API (`api-keys?reveal=true`).
+- Skrypty okna w `prywatne/` (gitignored, na whiteliście sejfu dla `TERAPIA_SUPABASE_TOKEN`; uruchamiać
+  `env -u TERAPIA_SUPABASE_TOKEN python prywatne/<skrypt>.py`): `sql_admin.py "<sql>"`, `auth_admin.py`,
+  `przypnij_material.py`, `wgraj_ostatnie_zajecia.py`. Testy uprawnień jako użytkownik: `set local role authenticated`
+  + `request.jwt.claims`, rollback; id z `auth.users` liczyć wcześniej jako postgres (rola authenticated go nie czyta).
 - `messages_guard` blokuje UPDATE wiadomości (DELETE dla właściciela/admina działa).
 - Każda zmiana na żywo dopiero po adwersarzu (wyjątek: prowadzący mówi wprost „wrzucaj”).
 
@@ -47,4 +54,8 @@ zaproszeniem z hasłem = 0, konta z hasłem na zaproszony adres = 0).
 2. `is_admin()` ufa e-mailowi z tokenu — bezpieczne, dopóki konto admina istnieje (rejestracja na zajęty e-mail
    jest odrzucana); docelowo admin tylko przy sesji Google (jak D033).
 3. Małe przyciski „Usuń z grupy” w panelu Admin (< 44 px) — do poprawy.
-4. Zapas: FAZA 1 `group.yml` / konfigurator dla innych grup (`docs/PLAN-SKLADANIA.md`) — odłożone.
+4. Edytor prac domowych nie ustawia ani nie czyści załączników (PDF / czytnik) — dziś tylko SQL (D038).
+5. Przycisk PDF zawsze „Oryginał (PDF)”; podpisany link wygasa po 1 h (odświeżenie strony go odnawia).
+6. Kolumna `archive_items.sort` jest pomijana — Archiwum układa się datą (od najnowszej).
+7. Do decyzji prowadzącego: krótka uwaga przy głosach „(online)” w lektorze (tekst idzie do Google/Microsoft).
+8. Zapas: FAZA 1 `group.yml` / konfigurator dla innych grup (`docs/PLAN-SKLADANIA.md`) — odłożone.

@@ -128,6 +128,13 @@ Możesz też poprosić AI (np. Claude) z otwartym plikiem: „przenieś zajęcia
 | Obraźliwa wiadomość / niewłaściwy plik | Czat → stuknij wiadomość → **Usuń wiadomość (zasady)** / **Usuń plik** |
 | Ktoś odchodzi z grupy | Admin → **Usuń** przy osobie (można przywrócić) |
 | Miejsce na pliki | Admin → pasek „Pliki całej grupy” i limity osób (40 MB na osobę) |
+| Zmiana hasła (konto z hasłem) | Avatar → Ustawienia → **Profil** → Zmień hasło |
+| Lektura do czytania z lektorem | Archiwum → pozycja → **Czytaj** (wgrywa okno AI z paczki w `prywatne/`) |
+| Praca domowa z PDF / lekturą | Prace → przy pracy **Czytaj z lektorem** / **Oryginał (PDF)** (przypina okno AI) |
+
+**Dwa stopnie admina.** Właściciel grupy może wszystko, łącznie z „Usuń całą grupę”. Admin 2. stopnia prowadzi
+grupę (prace, materiały, terminy, program, wpuszczanie i blokowanie, czat), ale nie kasuje osób, zajęć
+(tylko odwołuje) ani archiwum, nie zmienia nazwy, opisu i harmonogramu grupy i nie rusza konta właściciela.
 
 ## Gdy coś nie działa
 
