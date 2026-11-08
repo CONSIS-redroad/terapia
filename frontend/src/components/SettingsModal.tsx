@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, Database, Smartphone, Eye, EyeOff, Image as ImageIcon, LayoutGrid, Lock, Monitor, Moon, RotateCcw, Settings, Sun, Trash2, User, X } from 'lucide-react';
 import { ProfilePanel } from './ProfilePanel';
+import { ChangePassword } from './ChangePassword';
 import type { LayoutMode } from '../hooks/useLayout';
 import { NotificationSettings } from './NotificationSettings';
 import type { Profile } from '../services/profile';
@@ -95,6 +96,7 @@ export const SettingsModal: React.FC<Props> = (p) => {
 
         <div className="overflow-y-auto px-1 pb-4">
           {tab === 'profile' && <ProfilePanel profile={p.profile} saving={p.profileSaving} onChange={p.onProfile} onClear={p.onClearProfile} isDemo={p.isDemo} />}
+          {tab === 'profile' && !p.isDemo && <ChangePassword />}
 
           {tab === 'look' && (
             <div className="px-4 space-y-4">
