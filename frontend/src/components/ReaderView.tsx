@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Headphones, List, Newspaper, Pause, Play, Search, Square, Type, X } from 'lucide-react';
 import type { ArchiveBlock, ArchiveItem } from '../services/archive';
 import { sectionBlocks } from '../services/archive';
+import { pullReading, pushReading } from '../services/readingSync';
 import './reader.css';
 
 type Layout = 'gazeta' | 'czytanie';
@@ -36,6 +37,7 @@ function savePos(id: string, p: number) {
   const keys = Object.keys(all);
   if (keys.length > POS_MAX) keys.sort((a, b) => (all[a]?.at ?? 0) - (all[b]?.at ?? 0)).slice(0, keys.length - POS_MAX).forEach(k => delete all[k]);
   write(K_POS, JSON.stringify(all));
+  pushReading(id, p);   // to samo miejsce na koncie — telefon i komputer (0015)
 }
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -88,6 +90,16 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
   const moved = useRef(false); // zapisujemy miejsce dopiero, gdy czytelnik naprawdę przewinął (samo otwarcie/zamknięcie nie kasuje)
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // miejsce z konta: nowsze niż na tym urządzeniu → „Czytaj dalej” od niego (dopóki czytelnik sam nie przewinął)
+  useEffect(() => {
+    let live = true;
+    void pullReading(item.id).then(r => {
+      if (!live || !r || moved.current || r.at <= (Number(loadPos()[item.id]?.at) || 0)) return;
+      const all = loadPos(); all[item.id] = { p: r.p, at: r.at }; write(K_POS, JSON.stringify(all));
+      setResume(r.p > 0.02 && r.p < 0.97 ? r.p : 0);
+    });
+    return () => { live = false; };
+  }, [item.id]);
   const opener = useRef<HTMLElement | null>(typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null);
 
   // arkusze: nowy arkusz, gdy sekcja zaczyna nową stronę oryginału; bez numerów stron — w Gazecie arkusz na rozdział
