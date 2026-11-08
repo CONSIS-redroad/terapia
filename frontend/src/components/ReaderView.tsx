@@ -351,7 +351,7 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
         </div>
       </div>
 
-      <div className="rd-scroll" ref={scrollRef} onPointerDown={() => setPanel('')}>
+      <div className="rd-scroll" ref={scrollRef} onPointerDown={() => setPanel(p => (p === 'szukaj' ? p : ''))}>
         {resume > 0 && (
           <div className="rd-resume" role="status">
             <span>Ostatnio przeczytane: {Math.round(resume * 100)}%.</span>

@@ -24,7 +24,14 @@ export const ChangePassword: React.FC = () => {
     setBusy(true);
     const { error } = await supabase!.auth.updateUser({ password: pass });
     setBusy(false);
-    if (error) return setMsg({ ok: false, text: /different from the old/i.test(error.message) ? 'Nowe hasło musi być inne niż obecne.' : error.message });
+    if (error) {
+      const m = error.message;
+      const text = /different from the old/i.test(m) ? 'Nowe hasło musi być inne niż obecne.'
+        : /weak|at least|characters/i.test(m) ? 'Hasło jest za słabe — dodaj cyfrę albo wydłuż je.'
+        : /reauthenticat|recent/i.test(m) ? 'Ze względów bezpieczeństwa wyloguj się, zaloguj ponownie i od razu zmień hasło.'
+        : /network|fetch/i.test(m) ? 'Brak połączenia — spróbuj za chwilę.' : 'Nie udało się zmienić hasła. Spróbuj ponownie.';
+      return setMsg({ ok: false, text });
+    }
     setPass(''); setPass2('');
     setMsg({ ok: true, text: 'Hasło zmienione. Przy następnym logowaniu użyj nowego.' });
   };
