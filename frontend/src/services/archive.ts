@@ -277,6 +277,11 @@ const DEMO: ArchiveItem[] = [{
 
 /** Wpisy archiwum: Supabase grupy (podpisane adresy plików, ważne ~1 h) albo zmyślona lektura w demo. */
 export async function loadArchive(): Promise<ArchiveItem[]> {
-  if (DATA_MODE === 'demo' || !supabase) return DEMO;
-  return loadFromSupabase();
+  const items = DATA_MODE === 'demo' || !supabase ? DEMO : await loadFromSupabase();
+  return newestFirst(items);
+}
+
+/** Lista od najnowszej daty (Bartek 08.11); bez daty na końcu, równe daty w kolejności z bazy. */
+function newestFirst(items: ArchiveItem[]): ArchiveItem[] {
+  return [...items].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 }
