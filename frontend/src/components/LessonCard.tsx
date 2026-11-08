@@ -90,14 +90,16 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
   const hwItem = (h: Homework, mode: 'due' | 'given') => {
     const target = meetingOf(mode === 'due' ? h.givenAt : h.dueAt);
     return (
-      <li key={h.id} className={`${card} p-3 flex gap-3`}>
-        <button onClick={() => onToggleDone(h.id)} aria-pressed={!!done[h.id]} aria-label={done[h.id] ? 'Oznaczone jako zrobione' : 'Oznacz jako zrobione'}
-          className={`tap shrink-0 w-7 h-7 mt-0.5 rounded-lg border-2 flex items-center justify-center cursor-pointer ${done[h.id] ? 'bg-emerald-500/80 border-emerald-500 text-white' : 'border-line'}`}>
-          {done[h.id] && '✓'}
-        </button>
-        <span className="flex-1 min-w-0">
-          <span className={`block text-base lg:text-sm font-semibold ${done[h.id] ? 'line-through text-mut' : 'text-fg'}`}>{h.title}</span>
-          <span className="block text-sm lg:text-xs text-fg2 mt-0.5">{h.description}</span>
+      <li key={h.id} className={`${card} p-2.5 sm:p-3`}>
+        <span className="flex items-start gap-2">
+          <button onClick={() => onToggleDone(h.id)} aria-pressed={!!done[h.id]} aria-label={done[h.id] ? 'Oznaczone jako zrobione' : 'Oznacz jako zrobione'}
+            className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center cursor-pointer before:content-[''] relative before:absolute before:-inset-2 ${done[h.id] ? 'bg-emerald-500/80 border-emerald-500 text-white' : 'border-line'}`}>
+            {done[h.id] && '✓'}
+          </button>
+          <span className={`flex-1 min-w-0 pt-0.5 text-base lg:text-sm font-semibold ${done[h.id] ? 'line-through text-mut' : 'text-fg'}`}>{h.title}</span>
+        </span>
+        <span className="block min-w-0">
+          <span className="block text-sm lg:text-xs text-fg2 mt-1 whitespace-pre-line">{h.description}</span>
           {target && (
             <button onClick={() => onOpenMeeting(target.id)} className="mt-1.5 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-acc border border-sky-400/25 cursor-pointer">
               <CalendarDays className="w-3 h-3" />
@@ -123,7 +125,7 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
   };
 
   return (
-    <div className={`${card} min-w-0 p-4 order-first md:order-none ${isNext && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
+    <div className={`${card} min-w-0 p-3 sm:p-4 order-first md:order-none ${isNext && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
       <div className="flex items-center gap-2">
         <span className="text-xs uppercase tracking-widest text-acc font-semibold">Zajęcia {index + 1} z {total}{isNext && !past ? ' · najbliższe' : past ? ' · odbyte' : ''}</span>
         <span className="ml-auto flex gap-1">
