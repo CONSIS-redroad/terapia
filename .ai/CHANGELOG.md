@@ -54,3 +54,4 @@
 - 2026-11-08: 0.13.0 — załączniki pracy domowej: „Czytaj z lektorem” + „Oryginał (PDF)”, mniejsze marginesy kart prac; migracja 0013 (D038).
 - 2026-11-08: 0.13.1 — granice admina 2. stopnia (migracja 0014, testy w transakcji 15/15), dolny pasek od ekranu startowego (D039), poprawki adwersarza (szukaj w czytniku nie zamyka się przy przewijaniu, błędy hasła po polsku, 0012 bezpieczna przy ponownym uruchomieniu). PR #16.
 - 2026-11-08: 0.13.2 — napisy przy przyciskach czytnika tylko na komputerze z myszą (telefon w trybie szerokim się nie mieścił). PR #17.
+- 2026-11-08: 0.14.0 — miejsce czytania zapisuje się na koncie (telefon ⟷ komputer), migracja 0015 (D040); testy uprawnień w transakcji: cudzego miejsca nie widać ani nie zmienia, kaskada działa.

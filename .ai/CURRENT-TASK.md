@@ -1,14 +1,14 @@
 # Current Task — stan na 08.11.2026
 
-> Najpierw przeczytaj ten plik, potem `.ai/DECISIONS.md` (D001–D039) i koniec `.ai/CHANGELOG.md`.
+> Najpierw przeczytaj ten plik, potem `.ai/DECISIONS.md` (D001–D040) i koniec `.ai/CHANGELOG.md`.
 > Treści grupy (imiona, notatki, zdjęcia tablicy, skany, PDF z zajęć) NIGDY w repo — leżą w Supabase grupy;
 > pliki robocze od prowadzącego trzymaj w `prywatne/` (w `.gitignore`).
 
 ## Co działa na żywo
 
-- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.13.2**
+- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.14.0**
   (sprawdzenie: `…/terapia/grupa/version.json`). Demo bez bazy: `…/terapia/`.
-- **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0014`.
+- **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0015`.
 - **Logowanie (D025, D033):** Google albo e-mail + hasło bez potwierdzania maila. Admin = e-mail z tabeli `admins`
   (prowadzący). Zaproszenie (`invites`: e-mail + imię) wpuszcza od razu **tylko przy logowaniu Google**;
   konto z hasłem zawsze trafia do kolejki „czeka na akceptację”.
