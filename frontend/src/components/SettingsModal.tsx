@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, Database, Smartphone, Eye, EyeOff, Image as ImageIcon, LayoutGrid, Lock, Monitor, Moon, RotateCcw, Settings, Sun, Trash2, User, X } from 'lucide-react';
 import { ProfilePanel } from './ProfilePanel';
+import { ChangePassword } from './ChangePassword';
 import type { LayoutMode } from '../hooks/useLayout';
 import { NotificationSettings } from './NotificationSettings';
 import type { Profile } from '../services/profile';
@@ -10,6 +11,7 @@ import type { WallpaperSettings } from '../hooks/useWallpaper';
 import type { ThemeMode } from '../hooks/useTheme';
 import type { PanelConfig, PanelId } from '../types/panelLayout';
 import { APP_VERSION } from '../services/appUpdate';
+import { supabase } from '../services/supabaseClient';
 
 type Tab = 'profile' | 'look' | 'notif' | 'panels' | 'data';
 
@@ -32,7 +34,11 @@ const WipeGroup: React.FC<{ groupName: string; onWipe: (n: string) => Promise<vo
   const [txt, setTxt] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [owner, setOwner] = useState(false);
+  // admin 2. stopnia (0012, Bartek 08.11) nie usuwa grupy — przycisk tylko u właściciela
+  useEffect(() => { void supabase?.rpc('is_owner').then(({ data }) => setOwner(data === true)); }, []);
   const ok = txt.trim() === groupName.trim() && groupName.trim() !== '';
+  if (!owner) return null;
   return (
     <div className="p-3 rounded-xl border border-rose-400/30 bg-rose-500/5 space-y-2">
       <span className="flex items-center gap-1.5 font-semibold text-bad text-sm"><Trash2 className="w-4 h-4" />Usuń całą grupę</span>
@@ -95,6 +101,7 @@ export const SettingsModal: React.FC<Props> = (p) => {
 
         <div className="overflow-y-auto px-1 pb-4">
           {tab === 'profile' && <ProfilePanel profile={p.profile} saving={p.profileSaving} onChange={p.onProfile} onClear={p.onClearProfile} isDemo={p.isDemo} />}
+          {tab === 'profile' && !p.isDemo && <ChangePassword />}
 
           {tab === 'look' && (
             <div className="px-4 space-y-4">
