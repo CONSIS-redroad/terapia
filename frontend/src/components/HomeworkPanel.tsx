@@ -4,19 +4,20 @@
 import React, { useState } from 'react';
 import { CalendarDays, ClipboardCheck, Pencil, Plus, Trash2 } from 'lucide-react';
 import { HomeworkEditor } from './HomeworkEditor';
-import type { Homework, Meeting } from '../types/group';
+import { HomeworkLinks } from './HomeworkLinks';
+import type { Homework, Material, Meeting } from '../types/group';
 import { fmtShort, isPast } from '../services/format';
 import { dueLabel } from './LessonCard';
 
 export const HomeworkPanel: React.FC<{
-  homework: Homework[]; meetings: Meeting[]; done: Record<string, boolean>;
+  homework: Homework[]; meetings: Meeting[]; done: Record<string, boolean>; materials?: Material[];
   onToggleDone: (id: string) => void; onOpenMeeting: (id: string) => void;
   /** Admin: dodawanie / edycja / usuwanie prac. */
   isAdmin?: boolean;
   onAdd?: (h: Omit<Homework, 'id'>) => Promise<void> | void;
   onUpdate?: (id: string, h: Partial<Homework>) => Promise<void> | void;
   onDelete?: (id: string) => Promise<void> | void;
-}> = ({ homework, meetings, done, onToggleDone, onOpenMeeting, isAdmin, onAdd, onUpdate, onDelete }) => {
+}> = ({ homework, meetings, done, materials = [], onToggleDone, onOpenMeeting, isAdmin, onAdd, onUpdate, onDelete }) => {
   const [editing, setEditing] = useState<string | null>(null); // id pracy albo 'new'
   const m = (id: string) => meetings.find(x => x.id === id);
   const no = (id: string) => meetings.findIndex(x => x.id === id) + 1;
@@ -39,7 +40,8 @@ export const HomeworkPanel: React.FC<{
           <span className={`text-base lg:text-sm font-semibold ${done[h.id] ? 'line-through text-mut' : 'text-fg'}`}>{h.title}</span>
           <span className={`text-sm lg:text-xs font-semibold ${done[h.id] ? 'text-mut' : 'text-warn'}`}>{dueLabel(due!.date)}</span>
         </span>
-        <span className="block text-sm lg:text-xs text-fg2 mt-0.5">{h.description}</span>
+        <span className="block text-sm lg:text-xs text-fg2 mt-0.5 whitespace-pre-line">{h.description}</span>
+        <HomeworkLinks h={h} materials={materials} />
         <span className="mt-1.5 flex flex-wrap gap-1.5">
           <button onClick={() => onOpenMeeting(due!.id)} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-acc border border-sky-400/25 cursor-pointer">
             <CalendarDays className="w-3 h-3" />termin: zajęcia {no(due!.id)} · {fmtShort(due!.date)}
