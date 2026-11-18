@@ -48,6 +48,9 @@ type Sheet = { page?: string; secs: number[] };
 // Android: głos Google polski, iPhone/iPad: Zosia, Windows: Paulina (Edge: Marek/Zofia online). Czytamy AKAPIT po akapicie —
 // długie wypowiedzi Chrome potrafi uciąć po ~15 s, a po akapitach da się podświetlać i przewijać tekst.
 const tts = typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
+// tytuły (h1/h2) i wyróżnienia: wolniej i z pauzą — granica rozdziału ma być słyszalna (Bartek 18.11)
+const HEAD_PAUSE_BEFORE = 700, HEAD_PAUSE_AFTER = 1100;
+const isHead = (el?: Element | null) => !!el && (el.tagName === 'H1' || el.tagName === 'H2' || el.classList.contains('rd-callout'));
 function plVoices(): SpeechSynthesisVoice[] {
   if (!tts) return [];
   const v = tts.getVoices().filter(x => /^pl(-|_|$)/i.test(x.lang));
@@ -161,13 +164,23 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
       const r = el.getBoundingClientRect(), c = sc.getBoundingClientRect();
       if (r.top < c.top + 40 || r.bottom > c.bottom - 40) sc.scrollTop += r.top - c.top - sc.clientHeight / 3;
     }
-    const u = new SpeechSynthesisUtterance(el.innerText.replace(/\s+/g, ' ').trim());
+    // textContent, NIE innerText: innerText oddaje tekst po CSS (h2/callout mają text-transform: uppercase),
+    // a WIELKIE LITERY głosy TTS czytają jak skróty albo pomijają — tak ginęły tytuły rozdziałów (Bartek 18.11).
+    const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const isH = isHead(el), nextHead = isHead(list[i + 1]);
+    const u = new SpeechSynthesisUtterance(isH && el.tagName === 'H2' ? `Rozdział: ${text.replace(/[.:]$/, '')}.` : text);
     u.lang = 'pl-PL';
     const vs = voicesRef.current, pr = prefRef.current;   // refy: wywołania z onend/setTimeout widzą bieżące ustawienia
     const v = vs.find(x => x.name === pr.voice) ?? vs[0];
     if (v) u.voice = v;
-    u.rate = pr.rate ?? 1;
-    u.onend = () => { if (gen === sayGen.current) speakFrom(i + 1, gen); };
+    u.rate = (pr.rate ?? 1) * (isH ? 0.85 : 1);   // tytuł wolniej, żeby było słychać, że zaczyna się rozdział
+    // pauza po tytule i przed nim — słuchacz ma usłyszeć granicę rozdziału
+    const gap = isH ? HEAD_PAUSE_AFTER : nextHead ? HEAD_PAUSE_BEFORE : 0;
+    u.onend = () => {
+      if (gen !== sayGen.current) return;
+      if (gap) window.setTimeout(() => { if (gen === sayGen.current) speakFrom(i + 1, gen); }, gap);
+      else speakFrom(i + 1, gen);
+    };
     u.onerror = e => { if (gen === sayGen.current && e.error !== 'interrupted' && e.error !== 'canceled') { setSpeaking(''); mark(-1); } };
     try { tts.speak(u); } catch { if (gen === sayGen.current) { setSpeaking(''); mark(-1); } }
   };
@@ -273,7 +286,7 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
     switch (b.t) {
       case 'p': return <p key={key} data-say className={first ? 'rd-first rd-dropcap' : undefined}>{hl(b.text)}</p>;
       case 'quote': return <blockquote key={key} data-say className="rd-quote">{hl(b.text)}</blockquote>;
-      case 'callout': return <aside key={key} className="rd-callout">{hl(b.text)}</aside>;
+      case 'callout': return <aside key={key} data-say className="rd-callout">{hl(b.text)}</aside>;
       case 'ul': return <ul key={key}>{b.items.map((x, j) => <li key={j} data-say>{hl(x)}</li>)}</ul>;
       case 'img': return (
         <figure key={key} className="rd-fig">
