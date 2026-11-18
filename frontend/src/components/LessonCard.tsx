@@ -208,32 +208,16 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
             <p className="mt-1.5 text-base lg:text-sm text-fg2 leading-relaxed">
               {m.summary ?? (past ? 'Prowadząca jeszcze nie dodała streszczenia.' : 'Streszczenie pojawi się po zajęciach.')}
             </p>
-            {(m.details || (m.photos && m.photos.length > 0) || isAdmin) && (
+            {(m.details || isAdmin) && (
               <button onClick={() => setMore(v => !v)} aria-expanded={more}
                 className="tap mt-2 flex items-center gap-1 text-sm font-semibold text-acc cursor-pointer">
-                {more ? 'Mniej' : 'Więcej'}{m.photos?.length ? ` · zdjęcia: ${m.photos.length}` : ''}
+                {more ? 'Mniej' : 'Więcej'}
                 <ChevronDown className={`w-4 h-4 transition-transform ${more ? 'rotate-180' : ''}`} />
               </button>
             )}
             {more && (
               <div className="mt-2 space-y-3">
                 {m.details && <p className="text-base lg:text-sm text-fg2 leading-relaxed whitespace-pre-line">{m.details}</p>}
-                {m.photos && m.photos.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {m.photos.map((ph, i) => (
-                      <figure key={i} className="relative">
-                        <button onClick={() => setZoom(ph.url)} className="block w-full cursor-zoom-in" aria-label={`Powiększ: ${ph.caption}`}>
-                          <img src={ph.url} alt={ph.caption} className="w-full aspect-[8/5] object-cover rounded-lg border border-line" loading="lazy" />
-                        </button>
-                        <figcaption className="mt-1 text-xs text-mut truncate">{ph.caption}</figcaption>
-                        {isAdmin && (
-                          <button onClick={() => onUpdate(m.id, { photos: (m.photos ?? []).filter((_, j) => j !== i) })}
-                            className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full bg-black/60 text-white cursor-pointer" aria-label="Usuń zdjęcie"><X className="w-4 h-4" /></button>
-                        )}
-                      </figure>
-                    ))}
-                  </div>
-                )}
                 {isAdmin && (
                   <>
                     <button onClick={() => fileRef.current?.click()} className="tap flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-line text-fg2 text-sm hover:bg-surf2 cursor-pointer">
@@ -256,10 +240,27 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
 
       {/* MATERIAŁY */}
       <section className="mt-4">
-        <h5 className="text-sm font-bold text-fg">Materiały do tych zajęć ({mats.length})</h5>
-        {mats.length === 0
+        <h5 className="text-sm font-bold text-fg">Materiały do tych zajęć ({mats.length + (m.photos?.length ?? 0)})</h5>
+        {/* zdjęcia z sali (np. tablice) jako miniatury NA WIERZCHU — przypominają, co było tego dnia (Bartek 19.11) */}
+        {m.photos && m.photos.length > 0 && (
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {m.photos.map((ph, i) => (
+              <figure key={i} className="relative min-w-0">
+                <button onClick={() => setZoom(ph.url)} className="block w-full cursor-zoom-in" aria-label={`Powiększ: ${ph.caption}`}>
+                  <img src={ph.url} alt={ph.caption} className="w-full aspect-[4/3] object-cover rounded-lg border border-line" loading="lazy" />
+                </button>
+                <figcaption className="mt-1 text-xs text-mut line-clamp-2">{ph.caption}</figcaption>
+                {isAdmin && (
+                  <button onClick={() => onUpdate(m.id, { photos: (m.photos ?? []).filter((_, j) => j !== i) })}
+                    className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full bg-black/60 text-white cursor-pointer" aria-label="Usuń zdjęcie"><X className="w-4 h-4" /></button>
+                )}
+              </figure>
+            ))}
+          </div>
+        )}
+        {mats.length === 0 && !m.photos?.length
           ? <p className="mt-1.5 text-sm text-mut2">Brak materiałów.</p>
-          : <div className="mt-2 space-y-2">{mats.map(x => <MaterialRow key={x.id} m={x} />)}</div>}
+          : mats.length > 0 && <div className="mt-2 space-y-2">{mats.map(x => <MaterialRow key={x.id} m={x} />)}</div>}
       </section>
 
       {zoom && (
