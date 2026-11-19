@@ -128,7 +128,7 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
   };
 
   return (
-    <div className={`${card} min-w-0 p-3 sm:p-4 order-first md:order-none ${isNext && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
+    <div id="karta-zajec" className={`${card} min-w-0 p-3 sm:p-4 scroll-mt-24 ${isNext && !past ? 'bg-gradient-to-br from-sky-500/[0.08] to-transparent' : ''}`}>
       <div className="flex items-center gap-2">
         <span className="text-xs uppercase tracking-widest text-acc font-semibold">Zajęcia {index + 1} z {total}{isNext && !past ? ' · najbliższe' : past ? ' · odbyte' : ''}</span>
         <span className="ml-auto flex gap-1">
