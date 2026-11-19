@@ -6,7 +6,7 @@
 
 ## Co działa na żywo
 
-- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.14.4**
+- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.15.0**
   (sprawdzenie: `…/terapia/grupa/version.json`). Demo bez bazy: `…/terapia/`.
 - **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0015`.
 - **Logowanie (D025, D033):** Google albo e-mail + hasło bez potwierdzania maila. Admin = e-mail z tabeli `admins`
@@ -46,9 +46,13 @@ Pytaj tylko, gdy materiały sobie przeczą (np. temat 27.10 — zostawiony pusty
    **Treść pod lektora:** tytuły i akapity zwykłą pisownią, NIE WERSALIKAMI (lektor czyta wersaliki jak skróty —
    zamieniaj w skrypcie); każdy rozdział = osobna sekcja z `title` (czytnik czyta „Rozdział: …” wolniej i z pauzą);
    wyróżnienia jako `callout`; tabelę rozkładaj na listy per kolumna; zdjęcie tablicy może być też blokiem `img` w lekturze.
-4. PDF + praca domowa: wzór `prywatne/przypnij_material.py` / `przypnij_porozumiewanie.py` (przed INSERT sprawdza,
+4. Źródło do czytnika (przycisk „Źródło”): konfiguracja `prywatne/zrodla/<slug>.json` (wzory: trzy pliki tam) →
+   `python tools/import/zrodla_lektury.py prywatne/zrodla/<slug>.json` (próba: wypisuje mapę rozdział → strona PLIKU),
+   obejrzeć obrazy w `prywatne/zrodla_tmp/` (skany bokiem → `"obroc"`), potem `--wgraj`. Strona pliku ≠ numer z druku.
+   Po ponownym wgraniu lektury przez `wgraj_archiwum.py` uruchomić jeszcze raz.
+5. PDF + praca domowa: wzór `prywatne/przypnij_material.py` / `przypnij_porozumiewanie.py` (przed INSERT sprawdza,
    czy taki tytuł już jest — bez duplikatów). Zdjęcia z sali + tematy zajęć: wzór `prywatne/zajecia_tematy_zdjecia_1811.py`.
-5. Sprawdzenie: SQL (wiersze są; rozmiar pliku w Storage = rozmiar źródła), `prywatne/sprawdz_lekture.py`;
+6. Sprawdzenie: SQL (wiersze są; rozmiar pliku w Storage = rozmiar źródła), `prywatne/sprawdz_lekture.py`;
    przy zmianie kodu — Playwright na demo (390 i 1280 px, 0 px przewijania w bok, brak błędów strony).
 
 **Nie wolno:** treści grupy (imiona, zdjęcia, skany, PDF, transkrypcje) do repo — tylko `prywatne/` i Supabase;
