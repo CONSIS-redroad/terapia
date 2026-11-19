@@ -6,7 +6,7 @@
 
 ## Co działa na żywo
 
-- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.14.2**
+- **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.14.3**
   (sprawdzenie: `…/terapia/grupa/version.json`). Demo bez bazy: `…/terapia/`.
 - **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0015`.
 - **Logowanie (D025, D033):** Google albo e-mail + hasło bez potwierdzania maila. Admin = e-mail z tabeli `admins`
