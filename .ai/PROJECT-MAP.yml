@@ -1,8 +1,9 @@
 project:
   id: terapia-platform
-  status: prototype
+  status: live   # grupa: https://consis-redroad.github.io/terapia/grupa/ (wersja: .ai/CURRENT-TASK.md)
 repositories:
   diary: CONSIS-redroad/dzienniczek
+# modules: szkielet z 07.10 (plan sprzed kodu) — kod żyje w frontend/src, mapa docs/STRUKTURA.md
 modules:
   - identity
   - authorization

@@ -1,7 +1,7 @@
 # Struktura kodu — `frontend/src`
 
 Mapa dla programisty: co gdzie leży, którędy płyną dane, gdzie wprowadzić typową zmianę.
-Stan: wersja 0.9, faza 0 (demo bez logowania, dane zmyślone). Plan faz: [`PLAN-SKLADANIA.md`](PLAN-SKLADANIA.md).
+Stan: wersja 0.9, faza 0 (demo bez logowania, dane zmyślone); nowsze pliki — tabela na końcu (stan 0.15.0). Plan faz: [`PLAN-SKLADANIA.md`](PLAN-SKLADANIA.md).
 
 ## 1. Drzewo katalogów
 
@@ -127,3 +127,30 @@ Cel (D016): użytkownik nic nie klika i nie ma starej wersji.
 5. Offline → brak sprawdzenia, aplikacja działa na tym, co ma.
 
 Wersję widać w Ustawieniach (`APP_VERSION`). Wersję `package.json` podbijaj przy zmianach widocznych dla użytkownika.
+
+## Pliki dodane po wersji 0.9 (dopisane 19.11.2026 z nagłówków plików)
+
+Opis wyżej dotyczy wersji 0.9; te pliki doszły później (logowanie, archiwum, czytnik z lektorem, prace domowe admina).
+Szczegóły — nagłówek każdego pliku i `.ai/DECISIONS.md`.
+
+| Plik | Co robi |
+|---|---|
+| `components/ArchivePanel.tsx` | Zakładka „Powrót do przeszłości” (ETAP I, Bartek 08.10): archiwum starej TERAPII — lektury, materiały z zajęć, |
+| `components/AudioPlayer.tsx` | Odtwarzacz nagrania lektora (ETAP I): graj/pauza, przewijanie, ±15 s, tempo 0,75–1,5, |
+| `components/AuthGate.tsx` | FAZA 2: wejście do grupy. Kolejność: logowanie (link na e-mail / Google) → imię + zgoda na zasady (wersjonowana) |
+| `components/ChangePassword.tsx` | Zmiana hasła w Ustawieniach → Profil (Bartek 08.11: konto zakłada admin z hasłem tymczasowym, osoba zmienia je sama) |
+| `components/HomeworkEditor.tsx` | Admin: dodawanie i edycja prac domowych (Bartek 09.10: „brakuje edycji, dodawania zadań”) |
+| `components/HomeworkLinks.tsx` | Przyciski przy pracy domowej (Bartek 08.11): materiał wyjściowy (PDF z zajęć) i nasza wersja w czytniku z lektorem |
+| `components/MyNoteSection.tsx` | „Moje notatki” do zajęć (Bartek 12.10): „oficjalne nazwy tematów to jedno, ale każdy może swoje notować — |
+| `components/NotificationSettings.tsx` | Ustawienia powiadomień (Ustawienia → powiadomienia) |
+| `components/ProgramSection.tsx` | „Program cyklu” (Bartek 12.10): oficjalna lista tematów do wglądu — rozwijana pod kalendarzem |
+| `components/ReaderView.tsx` | Czytnik materiałów z archiwum (0.11, Bartek 07.11.2026): pełny ekran, papier w kolorze piasku, dwa układy — |
+| `components/ReadingView.tsx` | Ekran czytania wpisu archiwum (ETAP I): okładka, nagranie lektora, tekst (sekcje, wypunktowania, cytaty), |
+| `components/ScheduleEditor.tsx` | Admin → Harmonogram (Bartek 08.10): seria dat (np. 24 wtorki 16:30–19:15), wykluczenie dnia (odwołaj — treści zostają), |
+| `hooks/useLayout.ts` | UKŁAD: telefon / komputer (Bartek 11.10: „telefon nie może pozwalać na tryb komputerowy — w ustawieniach naszej apki |
+| `hooks/useUiSync.ts` | WYGLĄD PRZY PROFILU (Bartek 11.10): tryb jasny/ciemny i WYBRANE pola tapety leżą w bazie (members.ui), więc są te same |
+| `services/archive.ts` | Archiwum „Powrót do przeszłości” (ETAP I): treści starej TERAPII — lektury do czytania, PDF-y z zajęć, nagranie lektora |
+| `services/notifications.ts` | Powiadomienia — faza 0 (demo bez serwera): ustawienia w localStorage + lokalne powiadomienia |
+| `services/readingSync.ts` | Miejsce czytania przy koncie (migracja 0015, Bartek 08.11): ten sam procent na telefonie i komputerze |
+| `services/supabaseClient.ts` | Połączenie z Supabase GRUPY (D018: jedna kopia aplikacji = jedna grupa = własne Supabase) |
+| `services/supabaseSource.ts` | FAZA 2: implementacja GroupDataSource na Supabase grupy. Ekrany się nie zmieniają — ten sam interfejs co demo |
