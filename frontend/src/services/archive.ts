@@ -23,6 +23,18 @@ export interface ArchiveSection {
   /** numer strony oryginału, od której zaczyna się sekcja (układ gazetowy dzieli na arkusze) */
   page?: string;
   blocks?: ArchiveBlock[];
+  /** gdzie ten fragment jest w ŹRÓDLE: id źródła + numer strony PDF-a (1 = pierwsza strona pliku) — to NIE jest `page` z druku (Bartek 19.11) */
+  zrodlo?: { z: string; s: number };
+}
+
+/** Źródło lektury (skan PDF albo zdjęcie): obrazy kolejnych stron (podpisane adresy) + ewentualnie cały PDF. */
+export interface ArchiveSource {
+  id: string;
+  name: string;
+  /** podpisany adres całego PDF-a ('' gdy źródłem jest samo zdjęcie) */
+  pdf: string;
+  /** podpisane adresy obrazów stron 1..N */
+  strony: string[];
 }
 
 /** Dane „okładki” materiału do czytania (wszystko opcjonalne). */
@@ -60,6 +72,8 @@ export interface ArchiveItem {
   audio?: string;
   gallery: ArchiveImage[];
   files: ArchiveFile[];
+  /** źródła do podglądu w czytniku („Źródło”) — skan/PDF, z którego przepisano tekst */
+  zrodla: ArchiveSource[];
   /** data z dawnej TERAPII (RRRR-MM-DD) */
   date?: string;
   meetingId?: string;
@@ -103,6 +117,21 @@ function blockImagePaths(body: unknown): string[] {
   return objs(b.sections).flatMap(s => objs(s.blocks)).filter(x => x.t === 'img' && str(x.path)).map(x => str(x.path));
 }
 
+/** Ścieżki źródeł (PDF + obrazy stron) do podpisania. */
+function sourcePaths(body: unknown): string[] {
+  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  return objs(b.zrodla).flatMap(z => [str(z.path), ...strs(z.strony)]).filter(Boolean);
+}
+
+function sources(body: unknown, sign: Sign): ArchiveSource[] {
+  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  return objs(b.zrodla).map(z => ({
+    id: str(z.id), name: str(z.name) || 'Źródło',
+    pdf: str(z.path) ? sign(z.path) : '',
+    strony: strs(z.strony).map(p => sign(p)),
+  })).filter(z => z.id && z.strony.length && z.strony.every(Boolean));
+}
+
 function blocks(v: unknown, sign: Sign): ArchiveBlock[] | undefined {
   if (!Array.isArray(v)) return undefined;
   const out: ArchiveBlock[] = [];
@@ -120,6 +149,13 @@ function blocks(v: unknown, sign: Sign): ArchiveBlock[] | undefined {
   return out.length ? out : undefined;   // pusta lista = jak brak (stare pola sekcji zostają widoczne)
 }
 
+function zrodloOf(v: unknown): ArchiveSection['zrodlo'] {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>;
+  const n = typeof o.s === 'number' ? o.s : Number(o.s);
+  return str(o.z) && Number.isInteger(n) && n >= 1 ? { z: str(o.z), s: n } : undefined;
+}
+
 function sections(body: unknown, sign: Sign = noSign): ArchiveSection[] {
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   return objs(b.sections).map(s => ({
@@ -130,6 +166,7 @@ function sections(body: unknown, sign: Sign = noSign): ArchiveSection[] {
     quotes: strs(s.quotes),
     page: str(s.page) || (typeof s.page === 'number' ? String(s.page) : undefined),
     blocks: blocks(s.blocks, sign),
+    zrodlo: zrodloOf(s.zrodlo),
   }));
 }
 
@@ -190,6 +227,7 @@ async function loadFromSupabase(): Promise<ArchiveItem[]> {
     paths.push(...strs(r.gallery));
     for (const f of arr<Record<string, unknown>>(r.files)) if (str(f.path)) paths.push(str(f.path));
     paths.push(...blockImagePaths(r.body));
+    paths.push(...sourcePaths(r.body));
   }
   const urls = await signAll(paths);
   const signed = (p: unknown) => (str(p) ? urls[str(p)] ?? '' : '');
@@ -212,6 +250,7 @@ async function loadFromSupabase(): Promise<ArchiveItem[]> {
       const name = str(f.name) || str(f.path).split('/').pop() || 'plik';
       return { name, url: signed(f.path), size: typeof f.size === 'number' ? f.size : 0, ext: extOf(name) || extOf(str(f.path)) };
     }),
+    zrodla: sources(r.body, signed),
     date: str(r.source_date) || undefined,
     meetingId: str(r.meeting_id) || undefined,
   }));
@@ -235,7 +274,7 @@ const DEMO: ArchiveItem[] = [{
   },
   sections: [
     {
-      title: 'Światło dla innych', page: '1',
+      title: 'Światło dla innych', page: '1', zrodlo: { z: 'demo', s: 2 },
       blocks: [
         { t: 'p', text: 'Przez wiele lat latarnik wierzył, że jeśli przestanie choć na jedną noc, wszystkie statki rozbiją się o skały. Nie spał, nie jadł o stałych porach, nie odwiedzał brzegu. Kiedy ktoś pytał, jak się czuje, odpowiadał, że to nieważne — ważne, żeby światło świeciło.' },
         { t: 'p', text: 'Znał każdą skałę i każdy prąd. Znał też na pamięć głosy rybaków, którzy wołali do niego z łodzi. Swojego głosu prawie nie słyszał, bo prawie nic o sobie nie mówił.' },
@@ -244,7 +283,7 @@ const DEMO: ArchiveItem[] = [{
       ],
     },
     {
-      title: 'Noc, w której nie zapalił', page: '1',
+      title: 'Noc, w której nie zapalił', page: '1', zrodlo: { z: 'demo', s: 2 },
       blocks: [
         { t: 'p', text: 'Pewnej zimy zachorował. Leżał i słuchał wiatru, pewien, że rano zobaczy wraki. Po raz pierwszy od lat nie wszedł na górę. Wstyd i lęk ściskały go mocniej niż gorączka.' },
         { t: 'quote', text: 'Myślałem, że jeśli mnie nie będzie, wszystko się zawali. A rano morze było spokojne.' },
@@ -252,7 +291,7 @@ const DEMO: ArchiveItem[] = [{
       ],
     },
     {
-      title: 'Co zauważył', page: '2',
+      title: 'Co zauważył', page: '2', zrodlo: { z: 'demo', s: 3 },
       blocks: [
         { t: 'img', url: `${import.meta.env.BASE_URL}themes/ksiezyc.webp`, caption: 'Noc nad wyspą (ilustracja przykładowa).' },
         { t: 'p', text: 'Kiedy wyzdrowiał, zapisał na kartce kilka zdań i przypiął je nad schodami:' },
@@ -261,7 +300,7 @@ const DEMO: ArchiveItem[] = [{
       ],
     },
     {
-      title: 'Nowe zasady latarni', page: '2',
+      title: 'Nowe zasady latarni', page: '2', zrodlo: { z: 'demo', s: 3 },
       blocks: [
         { t: 'p', text: 'Odtąd zapalał światło o zmierzchu i gasił o świcie — tak, jak każe regulamin latarni. W dzień spał, a w niedziele płynął łodzią na ląd, do ludzi. Zaczął mówić o sobie, najpierw niewiele, potem trochę więcej.' },
         { t: 'callout', text: 'Troska o siebie nie jest zdradą tych, o których się troszczymy' },
@@ -272,6 +311,8 @@ const DEMO: ArchiveItem[] = [{
   links: [],
   gallery: [],
   files: [],
+  // skan pokazowy: strona 1 pliku = okładka, więc „s. 1” druku to 2. strona pliku (jak w prawdziwych skanach)
+  zrodla: [{ id: 'demo', name: 'Skan przykładowy (demo)', pdf: '', strony: [1, 2, 3].map(n => `${import.meta.env.BASE_URL}demo/zrodlo-${n}.svg`) }],
   date: '2026-02-15',
 }];
 

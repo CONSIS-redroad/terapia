@@ -5,7 +5,7 @@
 // Ustawienia i miejsce czytania leżą na urządzeniu (localStorage, try/catch) — opis kluczy: docs/DANE.md.
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Headphones, List, Newspaper, Pause, Play, Search, Square, Type, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, FileText, Headphones, List, Newspaper, Pause, Play, Search, Square, Type, X } from 'lucide-react';
 import type { ArchiveBlock, ArchiveItem } from '../services/archive';
 import { sectionBlocks } from '../services/archive';
 import { pullReading, pushReading } from '../services/readingSync';
@@ -88,6 +88,9 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
   const [chapter, setChapter] = useState(-1);
   const [resume, setResume] = useState<number>(() => { const p = readingProgress(item.id); return p > 0.02 && p < 0.97 ? p : 0; });
   const [zoom, setZoom] = useState<{ url: string; caption?: string } | null>(null);
+  // podgląd ŹRÓDŁA (skan/PDF) — strona pliku, na której jest czytany fragment (Bartek 19.11: „s. 6” w druku ≠ 6. strona PDF-a)
+  const [src, setSrc] = useState<{ z: string; s: number } | null>(null);
+  const [srcBig, setSrcBig] = useState(false);   // stuknięcie w skan = powiększ (rozkładówki na telefonie)
   const keepP = useRef<number | null>(null);
   const lastP = useRef(0);   // ostatnia pozycja — przy zamykaniu ref do przewijania jest już odpięty
   const moved = useRef(false); // zapisujemy miejsce dopiero, gdy czytelnik naprawdę przewinął (samo otwarcie/zamknięcie nie kasuje)
@@ -245,12 +248,12 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { if (zoom) setZoom(null); else if (panel) setPanel(''); else onClose(); }
+      if (e.key === 'Escape') { if (zoom) setZoom(null); else if (src) setSrc(null); else if (panel) setPanel(''); else onClose(); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); setPanel('szukaj'); }
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [panel, zoom, onClose]);
+  }, [panel, zoom, src, onClose]);
 
   // fokus: przy otwarciu na pasek, Tab krąży w czytniku, po zamknięciu wraca tam, skąd otwarto (aria-modal)
   useEffect(() => {
@@ -299,6 +302,34 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
     }
   };
 
+  // „Źródło”: sekcja przy górnej krawędzi ekranu → najbliższa wcześniejsza sekcja ze wskazaną stroną pliku
+  const srcOf = (z: string) => item.zrodla?.find(x => x.id === z);
+  const openSource = () => {
+    setPanel('');
+    const el = scrollRef.current;
+    let cur = 0;
+    if (el) {
+      const top0 = el.getBoundingClientRect().top;
+      // na samym dole tekstu nie da się podjechać tytułem pod pasek — wtedy liczy się górna połowa ekranu
+      const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+      const lim = atEnd ? Math.max(120, el.clientHeight / 2) : 120;
+      // pozycja PIERWSZEGO widocznego elementu sekcji (tytuł/akapit), nie znacznika — w szpaltach Gazety znacznik potrafi
+      // zostać na dole poprzedniej szpalty, a tytuł przejść na górę następnej
+      el.querySelectorAll<HTMLElement>('[data-secm]').forEach(m => {
+        const box = (m.nextElementSibling as HTMLElement | null) ?? m;
+        if (box.getBoundingClientRect().top - top0 <= lim) cur = Math.max(cur, Number(m.dataset.secm));
+      });
+    }
+    let at: { z: string; s: number } | undefined;
+    for (let i = cur; i >= 0 && !at; i--) at = item.sections[i]?.zrodlo;
+    if (!at) at = item.sections.find(x => x.zrodlo)?.zrodlo;
+    const first = item.zrodla?.[0];
+    if (at && srcOf(at.z)) setSrc({ z: at.z, s: Math.min(at.s, srcOf(at.z)!.strony.length) });
+    else if (first) setSrc({ z: first.id, s: 1 });
+  };
+  const curSrc = src ? srcOf(src.z) : undefined;
+  const hasSrc = !!item.zrodla?.length;
+
   const meta = item.read;
   const head = (page?: string) => (
     <div className="rd-sheet-head" aria-hidden="true">
@@ -318,6 +349,7 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
           <button type="button" className="rd-btn" aria-expanded={panel === 'szukaj'} onClick={() => setPanel(p => (p === 'szukaj' ? '' : 'szukaj'))} aria-label="Szukaj w tekście"><Search /><span className="rd-btn-label">Szukaj</span></button>
           {chapters.length > 0 && <button type="button" className="rd-btn" aria-expanded={panel === 'rozdzialy'} onClick={() => setPanel(p => (p === 'rozdzialy' ? '' : 'rozdzialy'))} aria-label="Rozdziały"><List /><span className="rd-btn-label">Rozdziały</span></button>}
           {tts && <button type="button" className="rd-btn" aria-expanded={panel === 'lektor'} aria-pressed={speaking === 'play'} onClick={() => setPanel(p => (p === 'lektor' ? '' : 'lektor'))} aria-label="Lektor — czytaj na głos"><Headphones /><span className="rd-btn-label">Lektor</span></button>}
+          {hasSrc && <button type="button" className="rd-btn" onClick={openSource} aria-label="Źródło — skan oryginału w miejscu, które czytasz"><FileText /><span className="rd-btn-label">Źródło</span></button>}
           <button type="button" className="rd-btn" aria-expanded={panel === 'aa'} onClick={() => setPanel(p => (p === 'aa' ? '' : 'aa'))} aria-label="Wielkość tekstu"><Type /><span className="rd-btn-label">Tekst</span></button>
           <button type="button" className="rd-btn" onClick={() => setL(layout === 'gazeta' ? 'czytanie' : 'gazeta')}
             aria-label={layout === 'gazeta' ? 'Przełącz na układ do czytania' : 'Przełącz na układ gazetowy'}>
@@ -404,6 +436,7 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
                   const s = item.sections[i];
                   return (
                     <React.Fragment key={i}>
+                      <span data-secm={i} className="rd-secm" aria-hidden="true" />
                       {s.title && <h2 data-sec={i} data-say>{hl(s.title)}</h2>}
                       {sectionBlocks(s).map((b, j) => {
                         const first = firstPara && b.t === 'p';
@@ -422,6 +455,22 @@ export const ReaderView: React.FC<{ item: ArchiveItem; onClose: () => void }> = 
           <p className="rd-fin">— koniec —</p>
         </div>
       </div>
+
+      {src && curSrc && (
+        <div className="rd-src" role="dialog" aria-modal="true" aria-label={`Źródło: ${curSrc.name}`}>
+          <div className="rd-src-bar">
+            <button type="button" className="rd-btn" onClick={() => setSrc(null)} aria-label="Wróć do tekstu"><ArrowLeft /><span className="rd-btn-label">Tekst</span></button>
+            <div className="rd-src-title"><span>{curSrc.name}</span><small>strona pliku {src.s} z {curSrc.strony.length}</small></div>
+            <button type="button" className="rd-btn" disabled={src.s <= 1} onClick={() => setSrc({ ...src, s: src.s - 1 })} aria-label="Poprzednia strona źródła"><ChevronLeft /></button>
+            <button type="button" className="rd-btn" disabled={src.s >= curSrc.strony.length} onClick={() => setSrc({ ...src, s: src.s + 1 })} aria-label="Następna strona źródła"><ChevronRight /></button>
+            {curSrc.pdf && <a className="rd-btn" href={`${curSrc.pdf}#page=${src.s}`} target="_blank" rel="noopener noreferrer" aria-label="Otwórz cały PDF w nowej karcie"><ExternalLink /><span className="rd-btn-label">Cały PDF</span></a>}
+          </div>
+          <div className={`rd-src-page${srcBig ? ' rd-src-big' : ''}`}>
+            <img key={`${src.z}-${src.s}`} src={curSrc.strony[src.s - 1]} alt={`${curSrc.name} — strona ${src.s}`}
+              onClick={() => setSrcBig(b => !b)} title={srcBig ? 'Stuknij, aby zmniejszyć' : 'Stuknij, aby powiększyć'} />
+          </div>
+        </div>
+      )}
 
       {zoom && (
         <div role="dialog" aria-modal="true" aria-label="Powiększony obraz" onClick={() => setZoom(null)}

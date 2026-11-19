@@ -154,3 +154,18 @@
   .rd, :root[data-theme="dark"] .rd { --rd-desk: #fff; --rd-paper: #fff; --rd-ink: #111; --rd-ink2: #333; --rd-rule: rgba(0,0,0,.25); --rd-accent: #6d1a1a; --rd-quote: #f4f0e8; color: #111; }
   body:has(.rd) > *:not(.rd) { display: none !important; }
 }
+
+/* znacznik początku sekcji (do „Źródła”) — niewidoczny, bez wpływu na układ */
+.rd-secm { display: block; height: 0; overflow: hidden; }
+/* podgląd źródła: skan strony na cały ekran, pasek u góry (Bartek 19.11) */
+.rd-src { position: fixed; inset: 0; z-index: 65; display: flex; flex-direction: column; background: var(--t-bg); }
+.rd-src-bar { display: flex; align-items: center; gap: 4px; padding: max(6px, env(safe-area-inset-top)) 8px 6px; border-bottom: 1px solid var(--t-line);
+  background: var(--t-panel); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.rd-src-bar a.rd-btn { text-decoration: none; color: inherit; }
+.rd-src-title { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.rd-src-title span { font-weight: 700; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rd-src-title small { color: var(--t-mut); font-size: .8rem; }
+.rd-src-page { flex: 1 1 auto; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px 8px max(16px, env(safe-area-inset-bottom)); }
+.rd-src-page img { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; border-radius: 6px; box-shadow: 0 2px 14px rgba(0,0,0,.18); background: #fff; }
+.rd-src-page img { cursor: zoom-in; }
+.rd-src-big img { width: 220%; max-width: none; cursor: zoom-out; }
