@@ -27,6 +27,7 @@ Twarde zasady niżej pochodzą od prowadzącego (cytaty w MEMO RedRoad: `domains
 10. Tekst pod lektora: bez WERSALIKÓW (czyta je jak skróty), rozdział = sekcja z tytułem (lektor mówi „Rozdział: …” wolniej, z pauzą),
     wyróżnienia jako `callout`. Lektor czyta `textContent`, nie `innerText`.
 11. Źródło w czytniku: strona PLIKU ≠ numer z druku („s. 6” to nie 6. strona PDF-a, D041) — `tools/import/zrodla_lektury.py`.
+    Każdy skan PDF materiału NAJPIERW przez OCR9 (`tools/import/ocr9_zrodla.py … --podmien`): obraca strony i daje warstwę tekstu — nie obracaj ręcznie (Bartek 19.11).
 12. Nie pisz, że „nic nie wychodzi z urządzenia” — głosy „(online)” wysyłają tekst do dostawcy.
 
 ## 4. Wygląd i zachowanie (telefon najpierw)

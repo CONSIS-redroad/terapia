@@ -47,8 +47,10 @@ Pytaj tylko, gdy materiały sobie przeczą (np. temat 27.10 — zostawiony pusty
    zamieniaj w skrypcie); każdy rozdział = osobna sekcja z `title` (czytnik czyta „Rozdział: …” wolniej i z pauzą);
    wyróżnienia jako `callout`; tabelę rozkładaj na listy per kolumna; zdjęcie tablicy może być też blokiem `img` w lekturze.
 4. Źródło do czytnika (przycisk „Źródło”): konfiguracja `prywatne/zrodla/<slug>.json` (wzory: trzy pliki tam) →
-   `python tools/import/zrodla_lektury.py prywatne/zrodla/<slug>.json` (próba: wypisuje mapę rozdział → strona PLIKU),
-   obejrzeć obrazy w `prywatne/zrodla_tmp/` (skany bokiem → `"obroc"`), potem `--wgraj`. Strona pliku ≠ numer z druku.
+   **najpierw OCR9:** `python tools/import/ocr9_zrodla.py prywatne/zrodla/<slug>.json --podmien` (każdy skan PDF materiału —
+   OCR9 sam obraca strony bokiem i daje warstwę tekstu; podmienia PDF w Storage, oryginał zostaje w `prywatne/zrodla_ocr9/`;
+   Bartek 19.11) → `python tools/import/zrodla_lektury.py prywatne/zrodla/<slug>.json` (próba: wypisuje mapę rozdział →
+   strona PLIKU; PDF bez tekstu odrzuci), obejrzeć obrazy w `prywatne/zrodla_tmp/`, potem `--wgraj`. Strona pliku ≠ numer z druku.
    Po ponownym wgraniu lektury przez `wgraj_archiwum.py` uruchomić jeszcze raz.
 5. PDF + praca domowa: wzór `prywatne/przypnij_material.py` / `przypnij_porozumiewanie.py` (przed INSERT sprawdza,
    czy taki tytuł już jest — bez duplikatów). Zdjęcia z sali + tematy zajęć: wzór `prywatne/zajecia_tematy_zdjecia_1811.py`.

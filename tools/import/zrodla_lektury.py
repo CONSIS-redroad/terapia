@@ -8,7 +8,7 @@ KONFIGURACJA (treść grupy → trzymaj w `prywatne/zrodla/<slug>.json`, NIE w r
   "zrodla": [
     {"id": "p", "name": "15. Porozumiewanie się… (skan)", "pdf": "admin/materials/<uuid>.pdf",
      "transkrypcja": "C:/…/transkrypcja.json",             # opcjonalnie: do trybu „auto”
-     "obroc": {"5": 90}},                                    # opcjonalnie: strona 5 pliku obrócona o 90° w lewo (skan bokiem)
+     "obroc": {"5": 90}},                                    # obrót strony PRZED OCR9 (stosuje ocr9_zrodla.py; tu tylko z --bez-ocr9)
     {"id": "t", "name": "Tablica z zajęć", "obraz": "admin/meetings/<id>/<uuid>.jpg"}   # zdjęcie = jedna strona
   ],
   "sekcje": ["p:1", "p:1", "p:auto", "p:druk-3", null, …]   # jedna pozycja na sekcję body.sections (w kolejności)
@@ -74,8 +74,13 @@ def strony_pdf(pdf: bytes, obroc: dict | None = None) -> list[bytes]:
     from PIL import Image
     out = []
     with fitz.open(stream=pdf, filetype='pdf') as d:
+        puste = [i for i, p in enumerate(d, 1) if len(p.get_text().strip()) < 20]
+        if puste and '--bez-ocr9' not in sys.argv:
+            sys.exit(f'PDF bez warstwy tekstu (strony {puste}) — najpierw OCR9: tools/import/ocr9_zrodla.py <konfiguracja> --podmien '
+                     '(obraca strony i daje tekst; Bartek 19.11). Świadomie bez OCR9: --bez-ocr9')
         for i, p in enumerate(d, 1):
-            kat = int((obroc or {}).get(str(i), 0))
+            kat = int((obroc or {}).get(str(i), 0)) if '--bez-ocr9' in sys.argv else 0   # po OCR9 obrót siedzi w PDF-ie
+            kat = (360 - kat) % 360                                         # konfiguracja: zgodnie z zegarem (jak /Rotate)
             bok = p.rect.height if kat in (90, 270) else p.rect.width     # po obrocie szerokością staje się wysokość
             zoom = min(3.0, MAX_W / bok)
             pm = p.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
