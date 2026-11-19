@@ -70,13 +70,6 @@ export const MeetingsPanel: React.FC<{
     setMonth(new Date(d.getFullYear(), d.getMonth(), 1));
   };
 
-  // telefon: kalendarz jest NAD kartą zajęć (Bartek 19.11) — po stuknięciu w dzień przewiń do karty
-  const pickDay = (m: Meeting) => {
-    select(m);
-    if (window.matchMedia('(max-width: 767px)').matches)
-      window.setTimeout(() => document.getElementById('karta-zajec')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
-  };
-
   return (
     <div className="p-3 sm:p-4 grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
       {/* kalendarz miesiąca */}
@@ -97,7 +90,7 @@ export const MeetingsPanel: React.FC<{
             const hwDue = m ? homework.some(h => h.dueAt === m.id) : false;
             return (
               <button
-                key={d.getDate()} disabled={!m} onClick={() => m && pickDay(m)}
+                key={d.getDate()} disabled={!m} onClick={() => m && select(m)}
                 aria-label={m ? `${d.getDate()} — zajęcia: ${m.topic}` : `${d.getDate()}`}
                 className={`relative aspect-square min-h-10 rounded-lg text-sm flex flex-col items-center justify-center transition-colors
                   ${m ? 'cursor-pointer hover:bg-surf2 text-fg font-semibold' : 'text-mut2 cursor-default'}
