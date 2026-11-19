@@ -142,6 +142,7 @@ Szczegóły — nagłówek każdego pliku i `.ai/DECISIONS.md`.
 | `components/HomeworkEditor.tsx` | Admin: dodawanie i edycja prac domowych (Bartek 09.10: „brakuje edycji, dodawania zadań”) |
 | `components/HomeworkLinks.tsx` | Przyciski przy pracy domowej (Bartek 08.11): materiał wyjściowy (PDF z zajęć) i nasza wersja w czytniku z lektorem |
 | `components/MyNoteSection.tsx` | „Moje notatki” do zajęć (Bartek 12.10): „oficjalne nazwy tematów to jedno, ale każdy może swoje notować — |
+| `components/NoteLock.tsx` | PIN do notatek (D042): ustaw / odblokuj / zmień PIN / „Nie pamiętam PIN-u”; pasek „Zablokuj notatki” |
 | `components/NotificationSettings.tsx` | Ustawienia powiadomień (Ustawienia → powiadomienia) |
 | `components/ProgramSection.tsx` | „Program cyklu” (Bartek 12.10): oficjalna lista tematów do wglądu — rozwijana pod kalendarzem |
 | `components/ReaderView.tsx` | Czytnik materiałów z archiwum (0.11, Bartek 07.11.2026): pełny ekran, papier w kolorze piasku, dwa układy — |
@@ -150,6 +151,8 @@ Szczegóły — nagłówek każdego pliku i `.ai/DECISIONS.md`.
 | `hooks/useLayout.ts` | UKŁAD: telefon / komputer (Bartek 11.10: „telefon nie może pozwalać na tryb komputerowy — w ustawieniach naszej apki |
 | `hooks/useUiSync.ts` | WYGLĄD PRZY PROFILU (Bartek 11.10): tryb jasny/ciemny i WYBRANE pola tapety leżą w bazie (members.ui), więc są te same |
 | `services/archive.ts` | Archiwum „Powrót do przeszłości” (ETAP I): treści starej TERAPII — lektury do czytania, PDF-y z zajęć, nagranie lektora |
+| `services/noteCrypto.ts` | Szyfrowanie notatek w przeglądarce (D042): AES-256-GCM, klucz owinięty PIN-em (PBKDF2 600k), format `rr1:`; bez importów — testy `npm test` |
+| `services/noteVault.ts` | Sejf klucza notatek (D042): stan PIN-u, klucz tylko w pamięci, blokada po bezczynności, seal/open dla `useGroup` |
 | `services/notifications.ts` | Powiadomienia — faza 0 (demo bez serwera): ustawienia w localStorage + lokalne powiadomienia |
 | `services/readingSync.ts` | Miejsce czytania przy koncie (migracja 0015, Bartek 08.11): ten sam procent na telefonie i komputerze |
 | `services/supabaseClient.ts` | Połączenie z Supabase GRUPY (D018: jedna kopia aplikacji = jedna grupa = własne Supabase) |

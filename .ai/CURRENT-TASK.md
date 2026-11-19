@@ -1,6 +1,6 @@
-# Current Task — stan na 19.11.2026
+# Current Task — stan na 20.11.2026
 
-> Najpierw przeczytaj ten plik, potem `.ai/DECISIONS.md` (D001–D040) i koniec `.ai/CHANGELOG.md`.
+> Najpierw przeczytaj ten plik, potem `.ai/DECISIONS.md` (D001–D042) i koniec `.ai/CHANGELOG.md`.
 > Treści grupy (imiona, notatki, zdjęcia tablicy, skany, PDF z zajęć) NIGDY w repo — leżą w Supabase grupy;
 > pliki robocze od prowadzącego trzymaj w `prywatne/` (w `.gitignore`).
 
@@ -8,7 +8,7 @@
 
 - **Wersja grupy:** https://consis-redroad.github.io/terapia/grupa/ — wersja **0.15.0**
   (sprawdzenie: `…/terapia/grupa/version.json`). Demo bez bazy: `…/terapia/`.
-- **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0015`.
+- **Supabase grupy:** projekt `saxrwnubdylaicnliwyc` (UE). Migracje `supabase/migrations/0001–0015` na żywo; **0016 (szyfrowanie notatek, D042) czeka** na próbę w transakcji i wgranie razem z wydaniem 0.16.0.
 - **Logowanie (D025, D033):** Google albo e-mail + hasło bez potwierdzania maila. Admin = e-mail z tabeli `admins`
   (prowadzący). Zaproszenie (`invites`: e-mail + imię) wpuszcza od razu **tylko przy logowaniu Google**;
   konto z hasłem zawsze trafia do kolejki „czeka na akceptację”.
@@ -99,6 +99,8 @@ zaproszeniem z hasłem = 0, konta z hasłem na zaproszony adres = 0).
 - Każda zmiana na żywo dopiero po adwersarzu (wyjątek: prowadzący mówi wprost „wrzucaj”).
 
 ## Otwarte
+
+0. **0.16.0 szyfrowanie notatek (D042), gałąź `szyfrowanie-notatek`** — przed scaleniem: adwersarz, próba `0016` w transakcji (rollback), potem `0016` na żywo PRZED wydaniem frontu (front bez 0016 działa jawnie jak dotąd, ale nie zapisze szyfrogramu — limit 200 zn. tytułu). Do decyzji prowadzącego: kod odzyskiwania PIN-u (dziś brak — zapomniany PIN = notatki przepadają), minimalna siła PIN-u.
 
 1. Karta 00b345f1 — audyt bezpieczeństwa TERAPII i Dzienniczka (wspólny origin `consis-redroad.github.io`,
    SSO, RLS/Storage/RPC, CSP). Raport → `_audit_drift/plany` w workspace RedRoad.

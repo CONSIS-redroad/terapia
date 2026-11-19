@@ -1,6 +1,7 @@
 // PATH: src/hooks/useGroup.ts | REQ-ID: TERAPIA-HOOK-01
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { groupData } from '../services/groupData';
+import { isPlainNote, vaultGeneration, vaultInit, vaultOpen, vaultSeal, vaultState, vaultSubscribe } from '../services/noteVault';
 import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 
 export interface GroupState {
@@ -17,8 +18,9 @@ export interface GroupState {
   usage: Record<string, number> | null;
   /** Moje prywatne notatki do zajęć (klucz = id zajęć). */
   myNotes: Record<string, MeetingNote>;
-  /** Odczyt notatek: ok · unavailable (baza bez 0009 — sekcja ukryta) · error (odczyt padł — edycja ZABLOKOWANA, żeby nie nadpisać starej). */
-  notesStatus: 'ok' | 'unavailable' | 'error';
+  /** Odczyt notatek: ok · unavailable (baza bez 0009 — sekcja ukryta) · error (odczyt padł — edycja ZABLOKOWANA, żeby nie nadpisać starej)
+   *  · locked (D042: notatki zaszyfrowane, PIN nieustawiony / nieodblokowany / jeszcze odszyfrowuję — sekcja pokazuje PIN). */
+  notesStatus: 'ok' | 'unavailable' | 'error' | 'locked';
   /** Oficjalny program cyklu. */
   program: ProgramTopic[];
   /** Odczyt programu padł — admin nie może go edytować (zapis z pustej listy skasowałby tematy). */
@@ -32,8 +34,31 @@ const EMPTY: GroupState = {
   loading: true, group: null, members: [], meetings: [], materials: [], announcements: [], messages: [], homework: [], hwDone: {}, usage: null, myNotes: {}, notesStatus: 'ok', program: [], programError: false,
 };
 
+/** Hook stanu sejfu notatek (ekrany: NoteLock). */
+export function useNoteVault() {
+  return useSyncExternalStore(vaultSubscribe, vaultState, vaultState);
+}
+
 export function useGroup() {
   const [state, setState] = useState<GroupState>(EMPTY);
+  // D042: notatki z bazy w postaci ZAPISANEJ (szyfrogram albo stara jawna); do ekranu idą odszyfrowane tylko przy odblokowanym sejfie
+  const rawNotes = useRef<Record<string, MeetingNote> | null | 'error'>({});
+  const migratedGen = useRef(-1);
+  const vault = useNoteVault();
+  /** Surowe notatki → to, co widzi ekran (wg stanu sejfu). Odczyt padł → error; sejf niegotowy → locked (nic jawnego). */
+  const viewNotes = useCallback(async (raw: Record<string, MeetingNote> | null | 'error'): Promise<NotesLoad> => {
+    rawNotes.current = raw;
+    if (raw === 'error') return { myNotes: {}, notesStatus: 'error' };
+    if (raw === null) return { myNotes: {}, notesStatus: 'unavailable' };
+    const v = vaultState().status;
+    if (v === 'error') return { myNotes: {}, notesStatus: 'error' };
+    if (v === 'unlocked' || v === 'unavailable') {
+      // świeżo odblokowane, a migracja jeszcze nie przeszła — nie pokazuj edytora (żeby nie pisać na wersji sprzed migracji)
+      if (v === 'unlocked' && migratedGen.current !== vaultGeneration()) return { myNotes: {}, notesStatus: 'locked' };
+      return { myNotes: await vaultOpen(raw), notesStatus: 'ok' };
+    }
+    return { myNotes: {}, notesStatus: 'locked' };
+  }, []);
   // Lista członków niesie miniatury zdjęć (do 40 KB/osobę, 0011) — przy zdarzeniach czatu (każda wiadomość, reakcja)
   // NIE pobieramy jej od nowa, tylko gdy minęła minuta; pełne wczytanie (start, zmiany admina) zawsze odświeża.
   const membersCache = useRef<{ list: Member[]; at: number } | null>(null);
@@ -52,17 +77,46 @@ export function useGroup() {
       groupData.homework(), groupData.homeworkDone(),
       groupData.storageUsage ? groupData.storageUsage() : Promise.resolve(null),
       // błąd odczytu notatek ≠ „brak notatek”: osobny stan, ekran blokuje edycję
-      groupData.myNotes().then(
-        (r): NotesLoad => ({ myNotes: r ?? {}, notesStatus: r === null ? 'unavailable' : 'ok' }),
-        (): NotesLoad => ({ myNotes: {}, notesStatus: 'error' })),
+      groupData.myNotes().then(r => viewNotes(r), () => viewNotes('error')),
       groupData.program().then(
         (r): ProgramLoad => ({ program: r, programError: false }),
         (): ProgramLoad => ({ program: [], programError: true })),
     ]);
     setState({ loading: false, group, members, meetings, materials, announcements, messages, homework, hwDone, usage, ...notes, ...prog });
-  }, [loadMembers]);
+  }, [loadMembers, viewNotes]);
 
   useEffect(() => { void load(); }, [load]);
+  // sejf notatek: rekord klucza zalogowanej osoby (w Supabase uid jest ustawiony, zanim ekrany się pokażą)
+  useEffect(() => { void vaultInit(); }, []);
+  // Zmiana stanu sejfu → przelicz widok notatek. Po odblokowaniu: ENCRYPT-ON-UNLOCK — stare jawne notatki szyfrujemy
+  // i zapisujemy (kontrola odszyfrowania przed zapisem; błąd jednej nie zatrzymuje reszty i niczego nie kasuje).
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      if (vault.status === 'unlocked' && migratedGen.current !== vaultGeneration()) {
+        const gen = vaultGeneration();
+        let raw: Record<string, MeetingNote> | null = null;
+        try { raw = await groupData.myNotes(); } catch { /* odczyt padł — niżej stan error */ }
+        if (raw) {
+          for (const n of Object.values(raw).filter(isPlainNote)) {
+            try {
+              const plain = (await vaultOpen({ [n.meetingId]: n }))[n.meetingId];
+              if (!plain || plain.unreadable) continue;
+              const sealed = await vaultSeal(n.meetingId, plain.title, plain.note);
+              raw[n.meetingId] = await groupData.saveMyNote(n.meetingId, sealed.title, sealed.note);
+            } catch { /* zostaje jawna — spróbujemy przy następnym odblokowaniu */ }
+          }
+        }
+        if (vaultGeneration() === gen) migratedGen.current = gen;
+        const view = await viewNotes(raw ?? 'error');
+        if (alive) setState(s => ({ ...s, ...view }));
+        return;
+      }
+      const view = await viewNotes(rawNotes.current);
+      if (alive) setState(s => (s.loading ? s : { ...s, ...view }));
+    })();
+    return () => { alive = false; };
+  }, [vault.status, viewNotes]);
   // Supabase: czat na żywo (nowe wiadomości, reakcje, pliki innych osób)
   useEffect(() => groupData.subscribe?.(() => { void load(true); }), [load]);
 
@@ -106,12 +160,19 @@ export function useGroup() {
 
   /** Moja notatka: zapis BEZ przeładowania całej grupy (pole tekstowe nie miga). Błąd leci do ekranu (stan zapisu). */
   const saveMyNote = async (meetingId: string, title: string, note: string) => {
-    const saved = await groupData.saveMyNote(meetingId, title, note);
-    setState(s => ({ ...s, myNotes: { ...s.myNotes, [meetingId]: saved } }));
+    // limity i „pusta = błąd” liczone na JAWNYM tekście (szyfrogram jest dłuższy i nigdy pusty)
+    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
+    if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
+    const sealed = await vaultSeal(meetingId, t, n);   // zablokowane → błąd; NIGDY nie wyślemy jawnie do zaszyfrowanej bazy
+    const saved = await groupData.saveMyNote(meetingId, sealed.title, sealed.note);
+    if (rawNotes.current && rawNotes.current !== 'error') rawNotes.current = { ...rawNotes.current, [meetingId]: saved };
+    const open = vaultState().status === 'unlocked' || vaultState().status === 'unavailable';
+    if (open) setState(s => ({ ...s, myNotes: { ...s.myNotes, [meetingId]: { ...saved, title: t, note: n } } }));
   };
   /** Świadome usunięcie mojej notatki (przycisk z potwierdzeniem w karcie) — autozapis nigdy nie kasuje. */
   const deleteMyNote = async (meetingId: string) => {
     await groupData.deleteMyNote(meetingId);
+    if (rawNotes.current && rawNotes.current !== 'error') { const raw = { ...rawNotes.current }; delete raw[meetingId]; rawNotes.current = raw; }
     setState(s => { const myNotes = { ...s.myNotes }; delete myNotes[meetingId]; return { ...s, myNotes }; });
   };
   const saveProgram = (name: string, list: { id?: string; title: string; note?: string }[]) => guard(() => groupData.saveProgram(name, list));

@@ -27,7 +27,7 @@ export const MeetingsPanel: React.FC<{
   onToggleDone: (id: string) => void; isAdmin: boolean; onUpdateMeeting: (id: string, patch: Partial<Meeting>) => void;
   selectedId?: string; onSelect?: (id: string) => void;
   myNotes: Record<string, MeetingNote>; onSaveNote: (meetingId: string, title: string, note: string) => Promise<void>;
-  onDeleteNote: (meetingId: string) => Promise<void>; notesStatus: 'ok' | 'unavailable' | 'error';
+  onDeleteNote: (meetingId: string) => Promise<void>; notesStatus: 'ok' | 'unavailable' | 'error' | 'locked';
   program: ProgramTopic[]; programName?: string; programError?: boolean;
   onSaveProgram: (name: string, list: { id?: string; title: string; note?: string }[]) => Promise<void>;
   onAddHomework?: (h: Omit<Homework, 'id'>) => Promise<void> | void;

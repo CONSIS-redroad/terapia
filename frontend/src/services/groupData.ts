@@ -9,6 +9,7 @@ import {
   DEMO_MEETINGS, DEMO_MEMBERS, DEMO_MESSAGES, DEMO_PROGRAM, DEMO_PROGRAM_NAME,
 } from '../demo/demoData';
 import { DATA_MODE } from './supabaseClient';
+import { isEncrypted, type NoteKeyRecord } from './noteCrypto';
 import { SupabaseSource } from './supabaseSource';
 
 export interface GroupDataSource {
@@ -53,6 +54,16 @@ export interface GroupDataSource {
   saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote>;
   /** Świadome usunięcie mojej notatki (przycisk „Usuń moją notatkę” z potwierdzeniem). */
   deleteMyNote(meetingId: string): Promise<void>;
+  // ── Szyfrowanie notatek (D042, migracja 0016). Pola notatek mogą przychodzić/wychodzić jako szyfrogram „rr1:…” —
+  //    źródło NIE przycina ich i nie zagląda w treść; szyfruje/odszyfrowuje wyłącznie przeglądarka (noteVault).
+  /** Mój owinięty klucz notatek; null = PIN nieustawiony; 'unavailable' = baza bez 0016 (notatki jawne jak dotąd). */
+  noteKey(): Promise<NoteKeyRecord | null | 'unavailable'>;
+  /** Pierwsze ustawienie PIN-u. Już jest (inne urządzenie) → Error('KEY_EXISTS'). */
+  createNoteKey(rec: NoteKeyRecord): Promise<void>;
+  /** Zmiana PIN-u — tylko gdy w bazie wciąż jest `oldWrapped`; inaczej Error('KEY_CHANGED'). */
+  replaceNoteKey(oldWrapped: string, rec: NoteKeyRecord): Promise<void>;
+  /** „Nie pamiętam PIN-u”: usuń WSZYSTKIE moje notatki i mój klucz (najpierw notatki, potem klucz). */
+  resetMyNotes(): Promise<void>;
   /** Oficjalny program cyklu (kolejność wg `position`). */
   program(): Promise<ProgramTopic[]>;
   /** Admin: zapisz cały program (nazwa + lista w tej kolejności; brak tematu na liście = usunięty). */
@@ -81,6 +92,8 @@ interface LocalState {
   hwPatch?: Record<string, Partial<Homework>>;
   deletedHomework?: string[];
   myNotes?: Record<string, MeetingNote>;
+  /** Demo: owinięty klucz notatek (jak wiersz note_keys) — notatki w demo też są szyfrowane. */
+  noteKey?: NoteKeyRecord;
   program?: ProgramTopic[];
   programName?: string;
 }
@@ -232,7 +245,7 @@ class DemoSource implements GroupDataSource {
     // test: sztuczne opóźnienie zapisu (wyścig autozapisu) — localStorage 'terapia_test_save_delay' = ms
     const delay = Number(testFlag('terapia_test_save_delay')) || 0;
     if (delay > 0) await new Promise(r => setTimeout(r, delay));
-    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
+    const t = clipTitle(title); const n = clipNote(note);
     if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
     const s = readLocal();
     const saved: MeetingNote = { meetingId, title: t, note: n, updatedAt: new Date().toISOString() };
@@ -244,6 +257,21 @@ class DemoSource implements GroupDataSource {
     const notes = { ...(s.myNotes ?? {}) };
     delete notes[meetingId];
     s.myNotes = notes; writeLocal(s);
+  }
+  async noteKey() { return readLocal().noteKey ?? null; }
+  async createNoteKey(rec: NoteKeyRecord) {
+    const s = readLocal();
+    if (s.noteKey) throw new Error('KEY_EXISTS');
+    s.noteKey = rec; writeLocal(s);
+  }
+  async replaceNoteKey(oldWrapped: string, rec: NoteKeyRecord) {
+    const s = readLocal();
+    if (s.noteKey?.wrappedDek !== oldWrapped) throw new Error('KEY_CHANGED');
+    s.noteKey = rec; writeLocal(s);
+  }
+  async resetMyNotes() {
+    const s = readLocal();
+    delete s.myNotes; delete s.noteKey; writeLocal(s);
   }
   async program() { return [...(readLocal().program ?? DEMO_PROGRAM)].sort((a, b) => a.position - b.position); }
   async saveProgram(name: string, list: { id?: string; title: string; note?: string }[]) {
@@ -257,6 +285,11 @@ class DemoSource implements GroupDataSource {
     try { localStorage.removeItem(LOCAL_KEY); } catch { /* ignoruj */ }
   }
 }
+
+/** Przycięcie jawnego pola notatki (limity jak w bazie 0009). Szyfrogram „rr1:…” przechodzi BEZ zmian —
+ *  przycięcie albo trim zniszczyłyby go (limit dla szyfrogramu pilnuje baza, 0016). */
+export const clipTitle = (t: string) => (isEncrypted(t) ? t : t.trim().slice(0, 200));
+export const clipNote = (n: string) => (isEncrypted(n) ? n : n.slice(0, 20000));
 
 /** Jedno źródło danych całej aplikacji — demo albo Supabase grupy (decyduje build). */
 export const groupData: GroupDataSource = DATA_MODE === 'supabase' ? new SupabaseSource() : new DemoSource();

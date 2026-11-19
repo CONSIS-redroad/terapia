@@ -12,7 +12,9 @@ Sprawdza:
      po przeładowaniu ma być PEŁNY tekst (stary kod gubił końcówkę);
   8. puste pola NIE kasują (po przeładowaniu notatka jest), „Usuń moją notatkę” → „Tak, usuń” kasuje;
   9. błąd odczytu notatek ('terapia_test_notes_fail') → komunikat, edycja zablokowana;
- 10. przyciski „zajęcia dd.mm” w programie ≥ 44 px, nagłówek „(21 tematów)”.
+ 10. przyciski „zajęcia dd.mm” w programie ≥ 44 px, nagłówek „(21 tematów)”;
+ 11. SZYFROWANIE (D042, 0.16): PIN do notatek (ustawienie / odblokowanie po przeładowaniu), w localStorage tylko „rr1:…”
+     (zero jawnego tekstu), zły PIN, migracja starych JAWNYCH notatek przy ustawieniu PIN-u, zmiana PIN-u, „Zablokuj”.
 
 Użycie: python tests/flow_notatki.py --url http://127.0.0.1:8156/dist/ --out <katalog> [--only-race]
 Kod wyjścia: 0 = OK, 1 = błędy (lista w raporcie).
@@ -46,11 +48,137 @@ def _ctx(br, extra_js: str = ''):
     return ctx, pg, errs
 
 
+PIN = 'zielony kubek'
+NOTES_READY = """() => { const s = document.querySelector('section[aria-label="Moje notatki"]');
+    return !!s && !s.querySelector('input[name^="note-pin"]') && !/Odszyfrowuję|Sprawdzam/.test(s.textContent); }"""
+
+
+def _unlock(pg, pin: str = PIN):
+    """D042: ustaw PIN (pierwszy raz) albo odblokuj notatki; nic nie rób, gdy edytor już jest / odczyt padł."""
+    sec = pg.locator('section[aria-label="Moje notatki"]').first
+    pg.wait_for_function("""() => !/Sprawdzam/.test(document.querySelector('section[aria-label="Moje notatki"]')?.textContent || '')""", timeout=10000)
+    setup = sec.get_by_role('button', name='Ustaw PIN i zaszyfruj notatki', exact=True)
+    unlock = sec.get_by_role('button', name='Odblokuj notatki', exact=True)
+    if setup.count():
+        sec.locator('input[name="note-pin-new"]').fill(pin)
+        sec.locator('input[name="note-pin-new2"]').fill(pin)
+        sec.locator('input[type="checkbox"]').first.check()
+        _tap(setup)
+    elif unlock.count():
+        sec.locator('input[name="note-pin"]').fill(pin)
+        _tap(unlock)
+    else:
+        return sec
+    pg.wait_for_function(NOTES_READY, timeout=15000)
+    return sec
+
+
 def _open(pg):
     pg.wait_for_timeout(1500)
     pg.evaluate("document.getElementById('tresc')?.scrollIntoView()")
     pg.wait_for_timeout(400)
+    _unlock(pg)
     return pg.locator('section[aria-label="Moje notatki"]').first
+
+
+def _local(pg):
+    return pg.evaluate("localStorage.getItem('terapia_demo_local_v1') || ''")
+
+
+def _goto_notes(pg):
+    pg.wait_for_timeout(1500)
+    pg.evaluate("document.getElementById('tresc')?.scrollIntoView()")
+    pg.wait_for_timeout(400)
+    return pg.locator('section[aria-label="Moje notatki"]').first
+
+
+def crypto_flow(br, a, fails):
+    """D042: migracja starych jawnych notatek, brak jawnego tekstu w pamięci, zły PIN, zmiana PIN-u, blokada."""
+    r: dict = {}
+    old_t, old_n = 'Stary tytuł jawny', 'Stara notatka sprzed szyfrowania — ma przetrwać.'
+    ctx, pg, errs = _ctx(br)
+    pg.goto(a.url, wait_until='load')
+    pg.wait_for_timeout(1000)
+    # stara wersja (0.15) zostawiła JAWNE notatki (do każdych zajęć demo, żeby karta na pewno jakąś pokazała)
+    pg.evaluate("""([t, n]) => { const s = JSON.parse(localStorage.getItem('terapia_demo_local_v1') || '{"extraMessages":[],"memberStatus":{}}');
+        s.myNotes = {}; for (let i = 1; i <= 30; i++) { const id = 'sp-' + i; s.myNotes[id] = { meetingId: id, title: t, note: n, updatedAt: new Date().toISOString() }; }
+        delete s.noteKey; localStorage.setItem('terapia_demo_local_v1', JSON.stringify(s)); }""", [old_t, old_n])
+    pg.reload(wait_until='load')
+    sec = _goto_notes(pg)
+    pg.wait_for_function("""() => !/Sprawdzam/.test(document.querySelector('section[aria-label="Moje notatki"]')?.textContent || '')""", timeout=10000)
+    r['przed_pinem_formularz'] = sec.get_by_role('button', name='Ustaw PIN i zaszyfruj notatki', exact=True).count() == 1
+    if not r['przed_pinem_formularz']:
+        fails.append('szyfrowanie: brak formularza „Ustaw PIN”')
+    # krótki PIN odrzucony
+    sec.locator('input[name="note-pin-new"]').fill('12345')
+    sec.locator('input[name="note-pin-new2"]').fill('12345')
+    sec.locator('input[type="checkbox"]').first.check()
+    _tap(sec.get_by_role('button', name='Ustaw PIN i zaszyfruj notatki', exact=True))
+    pg.wait_for_timeout(500)
+    r['krotki_pin_komunikat'] = sec.get_by_role('alert').inner_text() if sec.get_by_role('alert').count() else ''
+    if 'co najmniej 6' not in r['krotki_pin_komunikat']:
+        fails.append(f"szyfrowanie: krótki PIN bez komunikatu ({r['krotki_pin_komunikat']!r})")
+    sec.scroll_into_view_if_needed()
+    pg.screenshot(path=os.path.join(a.out, 'light_8_ustaw_pin.png'))
+    _unlock(pg)
+    t, n = _vals(sec)
+    r['po_migracji_w_edytorze'] = {'tytul': t, 'notatka': n}
+    if (t, n) != (old_t, old_n):
+        fails.append(f'szyfrowanie: migracja zgubiła treść ({t!r}, {n!r})')
+    pg.wait_for_timeout(500)
+    raw = _local(pg)
+    r['localStorage_bez_jawnego'] = old_n not in raw and old_t not in raw
+    r['localStorage_rr1_liczba'] = raw.count('rr1:')
+    if not r['localStorage_bez_jawnego'] or r['localStorage_rr1_liczba'] < 2:
+        fails.append(f"szyfrowanie: w localStorage dalej jawna treść albo brak szyfrogramu (rr1: x{r['localStorage_rr1_liczba']})")
+    r['napis_zaszyfrowane'] = 'zaszyfrowane' in sec.inner_text()
+    sec.scroll_into_view_if_needed()
+    pg.screenshot(path=os.path.join(a.out, 'light_9_odblokowane.png'))
+    # przeładowanie → zablokowane; zły PIN; dobry PIN
+    pg.reload(wait_until='load')
+    sec = _goto_notes(pg)
+    pg.wait_for_function("""() => !/Sprawdzam/.test(document.querySelector('section[aria-label="Moje notatki"]')?.textContent || '')""", timeout=10000)
+    r['po_przeladowaniu_zablokowane'] = sec.get_by_role('button', name='Odblokuj notatki', exact=True).count() == 1 and old_n not in sec.inner_text()
+    if not r['po_przeladowaniu_zablokowane']:
+        fails.append('szyfrowanie: po przeładowaniu notatki nie są zablokowane')
+    sec.locator('input[name="note-pin"]').fill('zly pin 000')
+    _tap(sec.get_by_role('button', name='Odblokuj notatki', exact=True))
+    sec.get_by_role('alert').filter(has_text='Zły PIN').wait_for(timeout=8000)
+    r['zly_pin_odrzucony'] = True
+    sec.scroll_into_view_if_needed()
+    pg.screenshot(path=os.path.join(a.out, 'light_10_zly_pin.png'))
+    _unlock(pg)
+    r['po_odblokowaniu'] = _vals(sec)
+    # zmiana PIN-u
+    _tap(sec.get_by_role('button', name='Zmień PIN', exact=True))
+    sec.locator('input[name="note-pin-old"]').fill(PIN)
+    sec.locator('form input[name="note-pin-new"]').fill('nowy pin 456')
+    sec.locator('form input[name="note-pin-new2"]').fill('nowy pin 456')
+    _tap(sec.locator('form').get_by_role('button', name='Zmień PIN', exact=True))
+    sec.get_by_role('status').filter(has_text='PIN zmieniony').wait_for(timeout=8000)
+    _tap(sec.get_by_role('button', name='Zablokuj notatki', exact=True))
+    pg.wait_for_timeout(300)
+    r['zablokuj_dziala'] = sec.get_by_role('button', name='Odblokuj notatki', exact=True).count() == 1
+    if not r['zablokuj_dziala']:
+        fails.append('szyfrowanie: „Zablokuj notatki” nie zablokował')
+    sec.locator('input[name="note-pin"]').fill(PIN)
+    _tap(sec.get_by_role('button', name='Odblokuj notatki', exact=True))
+    sec.get_by_role('alert').filter(has_text='Zły PIN').wait_for(timeout=8000)
+    r['stary_pin_odrzucony'] = True
+    sec.locator('input[name="note-pin"]').fill('nowy pin 456')
+    _tap(sec.get_by_role('button', name='Odblokuj notatki', exact=True))
+    pg.wait_for_function(NOTES_READY, timeout=15000)
+    r['nowym_pinem'] = list(_vals(sec))
+    if tuple(r['nowym_pinem']) != (old_t, old_n):
+        fails.append(f"szyfrowanie: po zmianie PIN-u inna treść ({r['nowym_pinem']!r})")
+    sw, cw = pg.evaluate('[document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    r['szerokosc_390'] = [sw, cw]
+    if sw != cw:
+        fails.append(f'szyfrowanie 390: {sw} != {cw}')
+    r['bledy_konsoli'] = errs[:]
+    fails += [f'szyfrowanie: {e}' for e in errs]
+    ctx.close()
+    return r
 
 
 def _tap(loc):
@@ -199,6 +327,7 @@ def main() -> int:
             return 1 if fails else 0
         rep['puste_i_usun'] = empty_and_delete(br, a, fails)
         rep['blad_odczytu'] = load_error(br, a, fails)
+        rep['szyfrowanie'] = crypto_flow(br, a, fails)
         for scheme in ('light', 'dark'):
             r: dict = {}
             rep['schemes'][scheme] = r
@@ -212,12 +341,13 @@ def main() -> int:
             pg.wait_for_timeout(1500)
             pg.evaluate("document.getElementById('tresc')?.scrollIntoView()")
             pg.wait_for_timeout(600)
+            _unlock(pg)
 
             # 1. notatka
             add = pg.get_by_role('button', name='Dodaj moją notatkę', exact=True).first
             if add.count() and add.is_visible():
                 add.click()
-            r['widzisz_tylko_ty'] = pg.get_by_text('widzisz tylko Ty', exact=True).first.is_visible()
+            r['widzisz_tylko_ty'] = pg.get_by_text('widzisz tylko Ty').first.is_visible()
             if not r['widzisz_tylko_ty']:
                 fails.append(f'{scheme}: brak napisu „widzisz tylko Ty”')
             pg.get_by_label('Mój tytuł', exact=True).first.fill(TITLE)
@@ -239,6 +369,7 @@ def main() -> int:
             pg.wait_for_timeout(1500)
             pg.evaluate("document.getElementById('tresc')?.scrollIntoView()")
             pg.wait_for_timeout(500)
+            _unlock(pg)
             # pola po selektorze w sekcji (nazwa dostępna pola z treścią zawiera jego wartość — get_by_label(exact) by nie trafił)
             sec = pg.locator('section[aria-label="Moje notatki"]').first
             t_val = sec.locator('input').first.input_value() if sec.locator('input').count() else ''
@@ -294,52 +425,55 @@ def main() -> int:
                 pg.wait_for_timeout(1500)
                 pg.evaluate("document.getElementById('tresc')?.scrollIntoView()")
                 pg.wait_for_timeout(500)
-                r['admin_przyciski_edytuj'] = pg.get_by_role('button', name='Edytuj', exact=True).count()
-                pg.locator('h4').first.locator('xpath=..').get_by_role('button', name='Edytuj', exact=True).first.click()
-                sel = pg.locator('label:has-text("Wybierz z programu cyklu") select').first
-                r['admin_select'] = sel.count() > 0
-                topic = 'Asertywność'
-                sel.select_option(topic)
-                r['admin_pole_tematu'] = pg.locator('label:has-text("Temat zajęć") input').first.input_value()
-                sel.scroll_into_view_if_needed()
-                pg.screenshot(path=os.path.join(a.out, f'{scheme}_4_admin_temat.png'))
-                pg.get_by_role('button', name='Zapisz', exact=True).first.click()
-                pg.wait_for_timeout(800)
-                h4 = pg.locator('h4').first.inner_text()
-                r['admin_temat_po_zapisie'] = h4
-                if h4.strip() != topic:
-                    fails.append(f'admin: temat po zapisie {h4!r} != {topic!r}')
-                # przyciski „zajęcia dd.mm” przy temacie programu — cel dotyku ≥ 44 px
-                progs = pg.locator('section[aria-label="Program cyklu"]').first
-                progs.locator('button[aria-expanded]').first.click()
-                pg.wait_for_timeout(300)
-                chips = progs.locator('button', has_text='zajęcia ')
-                hs = [round(chips.nth(i).bounding_box()['height'], 1) for i in range(chips.count())]
-                r['program_przyciski_zajec_wys'] = hs
-                if not hs:
-                    fails.append('admin: brak przycisku „zajęcia dd.mm” przy temacie programu')
-                elif min(hs) < 44:
-                    fails.append(f'admin: przycisk „zajęcia dd.mm” {min(hs)} px < 44')
-                fs = chips.first.evaluate('e => parseFloat(getComputedStyle(e).fontSize)') if hs else 0
-                r['program_przyciski_zajec_font'] = fs
-                progs.locator('button[aria-expanded]').first.click()  # zwiń — dalej test otwiera go sam
-                pg.wait_for_timeout(200)
-                sw, cw = pg.evaluate('[document.documentElement.scrollWidth, document.documentElement.clientWidth]')
-                r['admin_szerokosc_390'] = [sw, cw]
-                if sw != cw:
-                    fails.append(f'admin 390: {sw} != {cw}')
-                # edytor programu na 320
-                prog = pg.locator('section[aria-label="Program cyklu"]').first
-                prog.locator('button[aria-expanded]').first.click()
-                prog.get_by_role('button', name='Edytuj program', exact=True).click()
-                pg.set_viewport_size({'width': 320, 'height': 800})
-                pg.wait_for_timeout(400)
-                sw, cw = pg.evaluate('[document.documentElement.scrollWidth, document.documentElement.clientWidth]')
-                r['admin_edytor_programu_320'] = [sw, cw]
-                if sw != cw:
-                    fails.append(f'admin edytor programu 320: {sw} != {cw}')
-                prog.scroll_into_view_if_needed()
-                pg.screenshot(path=os.path.join(a.out, f'{scheme}_5_admin_edytor_programu_320.png'))
+                try:  # scenariusz admina (wybór tematu) nieaktualny od 0.14.x — pada też na main 0.15.0; nie zasłania reszty
+                    r['admin_przyciski_edytuj'] = pg.get_by_role('button', name='Edytuj', exact=True).count()
+                    pg.locator('h4').first.locator('xpath=..').get_by_role('button', name='Edytuj', exact=True).first.click()
+                    sel = pg.locator('label:has-text("Wybierz z programu cyklu") select').first
+                    r['admin_select'] = sel.count() > 0
+                    topic = 'Asertywność'
+                    sel.select_option(topic)
+                    r['admin_pole_tematu'] = pg.locator('label:has-text("Temat zajęć") input').first.input_value()
+                    sel.scroll_into_view_if_needed()
+                    pg.screenshot(path=os.path.join(a.out, f'{scheme}_4_admin_temat.png'))
+                    pg.get_by_role('button', name='Zapisz', exact=True).first.click()
+                    pg.wait_for_timeout(800)
+                    h4 = pg.locator('h4').first.inner_text()
+                    r['admin_temat_po_zapisie'] = h4
+                    if h4.strip() != topic:
+                        fails.append(f'admin: temat po zapisie {h4!r} != {topic!r}')
+                    # przyciski „zajęcia dd.mm” przy temacie programu — cel dotyku ≥ 44 px
+                    progs = pg.locator('section[aria-label="Program cyklu"]').first
+                    progs.locator('button[aria-expanded]').first.click()
+                    pg.wait_for_timeout(300)
+                    chips = progs.locator('button', has_text='zajęcia ')
+                    hs = [round(chips.nth(i).bounding_box()['height'], 1) for i in range(chips.count())]
+                    r['program_przyciski_zajec_wys'] = hs
+                    if not hs:
+                        fails.append('admin: brak przycisku „zajęcia dd.mm” przy temacie programu')
+                    elif min(hs) < 44:
+                        fails.append(f'admin: przycisk „zajęcia dd.mm” {min(hs)} px < 44')
+                    fs = chips.first.evaluate('e => parseFloat(getComputedStyle(e).fontSize)') if hs else 0
+                    r['program_przyciski_zajec_font'] = fs
+                    progs.locator('button[aria-expanded]').first.click()  # zwiń — dalej test otwiera go sam
+                    pg.wait_for_timeout(200)
+                    sw, cw = pg.evaluate('[document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+                    r['admin_szerokosc_390'] = [sw, cw]
+                    if sw != cw:
+                        fails.append(f'admin 390: {sw} != {cw}')
+                    # edytor programu na 320
+                    prog = pg.locator('section[aria-label="Program cyklu"]').first
+                    prog.locator('button[aria-expanded]').first.click()
+                    prog.get_by_role('button', name='Edytuj program', exact=True).click()
+                    pg.set_viewport_size({'width': 320, 'height': 800})
+                    pg.wait_for_timeout(400)
+                    sw, cw = pg.evaluate('[document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+                    r['admin_edytor_programu_320'] = [sw, cw]
+                    if sw != cw:
+                        fails.append(f'admin edytor programu 320: {sw} != {cw}')
+                    prog.scroll_into_view_if_needed()
+                    pg.screenshot(path=os.path.join(a.out, f'{scheme}_5_admin_edytor_programu_320.png'))
+                except Exception as e:
+                    fails.append(f'admin (wada scenariusza, także na main 0.15.0): {str(e).splitlines()[0]}')
                 r['admin_bledy_konsoli'] = aerr
                 fails += [f'admin: {e}' for e in aerr]
                 ctx.close()

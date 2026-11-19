@@ -53,7 +53,7 @@ interface Props {
   onPrev?: () => void; onNext?: () => void; onOpenMeeting: (id: string) => void;
   /** Moja prywatna notatka do tych zajęć (12.10). */
   myNote?: MeetingNote; onSaveNote: (meetingId: string, title: string, note: string) => Promise<void>;
-  onDeleteNote: (meetingId: string) => Promise<void>; notesStatus: 'ok' | 'unavailable' | 'error';
+  onDeleteNote: (meetingId: string) => Promise<void>; notesStatus: 'ok' | 'unavailable' | 'error' | 'locked';
   /** Program cyklu — podpowiedź tematu dla admina. */
   program: ProgramTopic[];
   /** Admin: praca domowa poprawiana od razu z karty zajęć (Bartek 12.10). */
@@ -235,7 +235,7 @@ export const LessonCard: React.FC<Props> = ({ meeting: m, index, total, isNext, 
 
       {/* MOJE NOTATKI — prywatne */}
       {notesStatus !== 'unavailable' && (
-        <MyNoteSection meetingId={m.id} note={myNote} onSave={onSaveNote} onDelete={onDeleteNote} loadError={notesStatus === 'error'} />
+        <MyNoteSection meetingId={m.id} note={myNote} onSave={onSaveNote} onDelete={onDeleteNote} loadError={notesStatus === 'error'} locked={notesStatus === 'locked'} />
       )}
 
       {/* MATERIAŁY */}

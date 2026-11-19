@@ -43,6 +43,8 @@ export interface MeetingNote {
   title: string;
   note: string;
   updatedAt?: string;
+  /** Zaszyfrowanej notatki nie da się odczytać tym kluczem (uszkodzona / podmieniona) — edycja zablokowana, żeby jej nie nadpisać (D042). */
+  unreadable?: boolean;
 }
 
 export interface Meeting {

@@ -3,7 +3,8 @@
 // Uprawnienia egzekwuje BAZA (RLS + funkcje w 0001_init.sql); tutaj tylko tłumaczenie wierszy na typy aplikacji.
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { makeThumb, THUMB_SUFFIX } from './files';
-import type { GroupDataSource } from './groupData';
+import { clipNote, clipTitle, type GroupDataSource } from './groupData';
+import type { NoteKeyRecord } from './noteCrypto';
 import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 import { FILES_BUCKET, supabase } from './supabaseClient';
 
@@ -328,7 +329,7 @@ export class SupabaseSource implements GroupDataSource {
   }
 
   async saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote> {
-    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
+    const t = clipTitle(title); const n = clipNote(note);
     if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
     const row = must(await sb().from('meeting_notes')
       .upsert({ meeting_id: meetingId, member_id: this.uid, title: t, note: n }, { onConflict: 'meeting_id,member_id' })
@@ -339,6 +340,33 @@ export class SupabaseSource implements GroupDataSource {
   /** Świadome usunięcie (przycisk z potwierdzeniem) — autozapis nigdy nie kasuje. */
   async deleteMyNote(meetingId: string) {
     must(await sb().from('meeting_notes').delete().eq('meeting_id', meetingId).eq('member_id', this.uid));
+  }
+
+  /** Mój owinięty klucz notatek (RLS 0016: tylko własny wiersz; admin też nie widzi cudzych). */
+  async noteKey(): Promise<NoteKeyRecord | null | 'unavailable'> {
+    const r = await sb().from('note_keys').select('wrapped_dek,salt,iter').eq('member_id', this.uid).maybeSingle();
+    if (r.error) {
+      if (isMissingTable(r.error)) return 'unavailable'; // baza bez 0016 — notatki jawne jak przed 0.16
+      throw new Error(r.error.message);
+    }
+    const d = r.data as { wrapped_dek: string; salt: string; iter: number } | null;
+    return d ? { wrappedDek: d.wrapped_dek, salt: d.salt, iter: d.iter } : null;
+  }
+
+  async createNoteKey(rec: NoteKeyRecord) {
+    const r = await sb().from('note_keys').insert({ member_id: this.uid, wrapped_dek: rec.wrappedDek, salt: rec.salt, iter: rec.iter });
+    if (r.error) throw new Error(r.error.code === '23505' ? 'KEY_EXISTS' : r.error.message); // insert, NIE upsert — nie nadpisze klucza z innego urządzenia
+  }
+
+  async replaceNoteKey(oldWrapped: string, rec: NoteKeyRecord) {
+    const rows = must(await sb().from('note_keys').update({ wrapped_dek: rec.wrappedDek, salt: rec.salt, iter: rec.iter })
+      .eq('member_id', this.uid).eq('wrapped_dek', oldWrapped).select('member_id')) as unknown[];
+    if (!rows?.length) throw new Error('KEY_CHANGED');
+  }
+
+  async resetMyNotes() {
+    must(await sb().from('meeting_notes').delete().eq('member_id', this.uid)); // najpierw notatki (bez klucza i tak nieczytelne)
+    must(await sb().from('note_keys').delete().eq('member_id', this.uid));
   }
 
   async program(): Promise<ProgramTopic[]> {

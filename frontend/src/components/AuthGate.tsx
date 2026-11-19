@@ -7,6 +7,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Clock, LogOut, Mail, ShieldX } from 'lucide-react';
 import { DATA_MODE, GOOGLE_LOGIN, redirectUrl, supabase } from '../services/supabaseClient';
 import { supabaseSource } from '../services/groupData';
+import { hardLock } from '../services/noteVault';
 import { RULES_VERSION } from '../demo/rules';
 import { Onboarding } from './Onboarding';
 import { CrisisBox } from './RulesPanel';
@@ -239,6 +240,7 @@ const SupabaseGate: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   }, [sb, uid, loadMe]);
 
   const signOut = useCallback(async () => {
+    hardLock(); // D042: klucz notatek znika z pamięci razem z sesją
     await sb.auth.signOut();
     setMember(undefined); setAcceptedAt(undefined); setIsAdmin(false);
   }, [sb]);

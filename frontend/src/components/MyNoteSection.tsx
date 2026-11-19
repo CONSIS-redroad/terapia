@@ -8,9 +8,13 @@
 //  • zapis: chwilę po pisaniu, przy wyjściu z pola, przyciskiem, przy zmianie zajęć (odmontowanie), przy pagehide i ukryciu karty;
 //  • autozapis NIGDY nie kasuje — puste pola nie są wysyłane; usunięcie tylko przyciskiem „Usuń moją notatkę” z potwierdzeniem;
 //  • gdy odczyt notatek się nie udał (loadError) — edycja zablokowana, żeby nie nadpisać istniejącej notatki pustą.
+// Szyfrowanie (D042, 0.16): przy zablokowanych notatkach zamiast edytora jest NoteLock (PIN). Edytor montuje się dopiero
+// na ODSZYFROWANEJ treści (stan „Zapisano” liczony na jawnym tekście); szyfruje useGroup.saveMyNote, nie ten ekran.
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Lock, NotebookPen, Save, Trash2, X } from 'lucide-react';
 import type { MeetingNote } from '../types/group';
+import { NoteLock, NoteLockBar } from './NoteLock';
+import { useNoteVault } from '../hooks/useGroup';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'empty' | 'deleted';
 type Snap = { title: string; text: string };
@@ -22,13 +26,37 @@ interface Props {
   onDelete: (meetingId: string) => Promise<void>;
   /** Odczyt notatek padł (sieć / uprawnienia) — nie wiemy, co jest w bazie, więc nie pozwalamy pisać. */
   loadError?: boolean;
+  /** D042: notatki zaszyfrowane i jeszcze nieodblokowane (albo PIN nieustawiony) — pokaż PIN zamiast edytora. */
+  locked?: boolean;
 }
+
+const Header: React.FC<{ encrypted: boolean }> = ({ encrypted }) => (
+  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <h5 className="flex items-center gap-1.5 text-sm font-bold text-fg"><NotebookPen className="w-4 h-4 text-acc" />Moje notatki</h5>
+    <span className="inline-flex items-center gap-1 text-sm px-2 py-0.5 rounded-full bg-emerald-500/10 text-ok border border-emerald-400/25">
+      <Lock className="w-3.5 h-3.5" />{encrypted ? 'zaszyfrowane · widzisz tylko Ty' : 'widzisz tylko Ty'}
+    </span>
+  </div>
+);
+
+/** Sekcja notatek: PIN (zablokowane) albo edytor (odszyfrowane). Edytor dostaje `key`, więc startuje od świeżej treści. */
+export const MyNoteSection: React.FC<Props> = (p) => {
+  const v = useNoteVault();
+  if (p.locked) return (
+    <section className="mt-4" aria-label="Moje notatki">
+      <Header encrypted />
+      <NoteLock />
+    </section>
+  );
+  return <NoteEditor key={p.meetingId} {...p} encrypted={v.status === 'unlocked'} />;
+};
 
 const AUTOSAVE_MS = 1200;
 const same = (a: Snap, b: Snap) => a.title === b.title && a.text === b.text;
 const isEmpty = (s: Snap) => !s.title.trim() && !s.text.trim();
 
-export const MyNoteSection: React.FC<Props> = ({ meetingId, note, onSave, onDelete, loadError }) => {
+const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note, onSave, onDelete, loadError: readError, encrypted }) => {
+  const loadError = readError || !!note?.unreadable;
   const initial: Snap = { title: note?.title ?? '', text: note?.note ?? '' };
   const [open, setOpen] = useState(!!note);
   const [title, setTitle] = useState(initial.title);
@@ -122,15 +150,12 @@ export const MyNoteSection: React.FC<Props> = ({ meetingId, note, onSave, onDele
 
   return (
     <section className="mt-4" aria-label="Moje notatki">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <h5 className="flex items-center gap-1.5 text-sm font-bold text-fg"><NotebookPen className="w-4 h-4 text-acc" />Moje notatki</h5>
-        <span className="inline-flex items-center gap-1 text-sm px-2 py-0.5 rounded-full bg-emerald-500/10 text-ok border border-emerald-400/25">
-          <Lock className="w-3.5 h-3.5" />widzisz tylko Ty
-        </span>
-      </div>
+      <Header encrypted={encrypted} />
       {loadError ? (
         <p role="alert" className="mt-2 flex items-start gap-1.5 text-sm text-bad">
-          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />Nie udało się wczytać notatek — spróbuj później. (Edycja wyłączona, żeby nie nadpisać zapisanej notatki).
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />{note?.unreadable && !readError
+            ? 'Tej notatki nie da się odszyfrować (uszkodzona albo zapisana innym kluczem). Edycja wyłączona, żeby jej nie nadpisać.'
+            : 'Nie udało się wczytać notatek — spróbuj później. (Edycja wyłączona, żeby nie nadpisać zapisanej notatki).'}
         </p>
       ) : !open ? (
         <button onClick={() => setOpen(true)} className="tap mt-2 flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-line text-fg2 text-sm hover:bg-surf2 cursor-pointer">
@@ -157,7 +182,10 @@ export const MyNoteSection: React.FC<Props> = ({ meetingId, note, onSave, onDele
               {state === 'saved' && <Check className="inline w-4 h-4 mr-0.5 -mt-0.5" />}{status}
             </span>
           </div>
-          <p className="text-sm text-mut">Zapisuje się samo chwilę po pisaniu. Widzisz tylko Ty — w aplikacji nie widzą ich inni uczestnicy ani prowadząca.</p>
+          <p className="text-sm text-mut">{encrypted
+            ? 'Zapisuje się samo chwilę po pisaniu. Szyfrowane Twoim PIN-em, zanim trafią do bazy — nie odczyta ich nikt inny, także prowadząca ani administrator.'
+            : 'Zapisuje się samo chwilę po pisaniu. Widzisz tylko Ty — w aplikacji nie widzą ich inni uczestnicy ani prowadząca.'}</p>
+          {encrypted && <NoteLockBar />}
           {hasSaved && (askDelete ? (
             <div role="group" aria-label="Potwierdź usunięcie notatki" className="rounded-lg border border-rose-400/30 bg-rose-500/5 p-3 space-y-2">
               <p className="text-sm text-fg">Usunąć tę notatkę na stałe? Tego nie da się cofnąć.</p>
