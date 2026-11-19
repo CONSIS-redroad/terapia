@@ -56,5 +56,6 @@
 - 2026-11-08: 0.13.2 — napisy przy przyciskach czytnika tylko na komputerze z myszą (telefon w trybie szerokim się nie mieścił). PR #17.
 - 2026-11-19: 0.14.2 — zdjęcia z sali (tablice) jako miniatury na wierzchu „Materiałów do tych zajęć” zamiast pod „Więcej” — przypominają, co było danego dnia (Bartek 19.11).
 - 2026-11-19: 0.14.3 — Kalendarz zajęć: na telefonie najpierw siatka kalendarza, karta zajęć (praca domowa, materiały) pod nią; stuknięcie w dzień przewija do karty (Bartek 19.11).
+- 2026-11-19: 0.14.4 — cofnięte samoczynne przewijanie do karty po stuknięciu w dzień (Bartek: „zepsułeś przewijanie”); kalendarz zostaje nad kartą, strona nie rusza się sama.
 - 2026-11-18: 0.14.1 — lektor czyta tytuły rozdziałów (zapowiedź „Rozdział: …”, wolniej, pauza ok. 0,7 s przed i 1,1 s po) i wyróżnienia; tekst z textContent zamiast innerText — CSS uppercase dawał głosom WERSALIKI, które czytały je jak skróty albo pomijały (Bartek 18.11).
 - 2026-11-08: 0.14.0 — miejsce czytania zapisuje się na koncie (telefon ⟷ komputer), migracja 0015 (D040); testy uprawnień w transakcji: cudzego miejsca nie widać ani nie zmienia, kaskada działa.
