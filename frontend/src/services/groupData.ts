@@ -9,7 +9,7 @@ import {
   DEMO_MEETINGS, DEMO_MEMBERS, DEMO_MESSAGES, DEMO_PROGRAM, DEMO_PROGRAM_NAME,
 } from '../demo/demoData';
 import { DATA_MODE } from './supabaseClient';
-import { isEncrypted, type NoteKeyRecord } from './noteCrypto';
+import { clipUnits, isEncrypted, type NoteKeyRecord } from './noteCrypto';
 import { SupabaseSource } from './supabaseSource';
 
 export interface GroupDataSource {
@@ -50,8 +50,12 @@ export interface GroupDataSource {
   /** PRYWATNE notatki zalogowanego do zajęć (klucz = id zajęć). Admin też widzi tylko swoje.
    *  `null` = funkcji nie ma (baza bez migracji 0009). Inny błąd odczytu RZUCA — ekran blokuje edycję (nie nadpisze starej notatki). */
   myNotes(): Promise<Record<string, MeetingNote> | null>;
-  /** Zapisz moją notatkę. NIGDY nie kasuje — pusty tytuł i pusta treść = błąd (usuwanie tylko przez deleteMyNote). */
-  saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote>;
+  /** Zapisz moją notatkę. NIGDY nie kasuje — pusty tytuł i pusta treść = błąd (usuwanie tylko przez deleteMyNote).
+   *  `dekId` = id klucza, którym zaszyfrowano (D042); baza odrzuca szyfrogram nieaktualnym kluczem → Error('KEY_STALE…'). */
+  saveMyNote(meetingId: string, title: string, note: string, dekId?: string | null): Promise<MeetingNote>;
+  /** Migracja starej JAWNEJ notatki: zapis WARUNKOWY — tylko gdy w bazie wciąż jest dokładnie `expected` (O1 adwersarza:
+   *  inne urządzenie mogło ją już zmigrować i zmienić). `null` = notatka się zmieniła, nic nie nadpisano. */
+  migrateMyNote(meetingId: string, expected: { title: string; note: string }, sealed: { title: string; note: string }, dekId: string): Promise<MeetingNote | null>;
   /** Świadome usunięcie mojej notatki (przycisk „Usuń moją notatkę” z potwierdzeniem). */
   deleteMyNote(meetingId: string): Promise<void>;
   // ── Szyfrowanie notatek (D042, migracja 0016). Pola notatek mogą przychodzić/wychodzić jako szyfrogram „rr1:…” —
@@ -62,7 +66,7 @@ export interface GroupDataSource {
   createNoteKey(rec: NoteKeyRecord): Promise<void>;
   /** Zmiana PIN-u — tylko gdy w bazie wciąż jest `oldWrapped`; inaczej Error('KEY_CHANGED'). */
   replaceNoteKey(oldWrapped: string, rec: NoteKeyRecord): Promise<void>;
-  /** „Nie pamiętam PIN-u”: usuń WSZYSTKIE moje notatki i mój klucz (najpierw notatki, potem klucz). */
+  /** „Nie pamiętam PIN-u”: usuń WSZYSTKIE moje notatki i mój klucz — jedną transakcją (funkcja note_keys_reset, 0016). */
   resetMyNotes(): Promise<void>;
   /** Oficjalny program cyklu (kolejność wg `position`). */
   program(): Promise<ProgramTopic[]>;
@@ -241,14 +245,28 @@ class DemoSource implements GroupDataSource {
     if (fail) throw new Error(fail); // test: błąd odczytu (sieć / brak uprawnień) — ekran ma zablokować edycję
     return readLocal().myNotes ?? {};
   }
-  async saveMyNote(meetingId: string, title: string, note: string) {
+  async saveMyNote(meetingId: string, title: string, note: string, dekId?: string | null) {
     // test: sztuczne opóźnienie zapisu (wyścig autozapisu) — localStorage 'terapia_test_save_delay' = ms
     const delay = Number(testFlag('terapia_test_save_delay')) || 0;
     if (delay > 0) await new Promise(r => setTimeout(r, delay));
+    const failSave = testFlag('terapia_test_save_fail'); // test: zapis pada (sieć) — blokada ma pokazać trwały komunikat (O4)
+    if (failSave) throw new Error(failSave);
     const t = clipTitle(title); const n = clipNote(note);
     if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
     const s = readLocal();
+    demoNoteGuard(s, t, n, dekId);
     const saved: MeetingNote = { meetingId, title: t, note: n, updatedAt: new Date().toISOString() };
+    s.myNotes = { ...(s.myNotes ?? {}), [meetingId]: saved }; writeLocal(s);
+    return saved;
+  }
+  async migrateMyNote(meetingId: string, expected: { title: string; note: string }, sealed: { title: string; note: string }, dekId: string) {
+    const delay = Number(testFlag('terapia_test_save_delay')) || 0;
+    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+    const s = readLocal();
+    const cur = s.myNotes?.[meetingId];
+    if (!cur || cur.title !== expected.title || cur.note !== expected.note) return null; // zmieniona w międzyczasie — nie nadpisuj
+    demoNoteGuard(s, sealed.title, sealed.note, dekId);
+    const saved: MeetingNote = { meetingId, title: sealed.title, note: sealed.note, updatedAt: new Date().toISOString() };
     s.myNotes = { ...(s.myNotes ?? {}), [meetingId]: saved }; writeLocal(s);
     return saved;
   }
@@ -271,7 +289,7 @@ class DemoSource implements GroupDataSource {
   }
   async resetMyNotes() {
     const s = readLocal();
-    delete s.myNotes; delete s.noteKey; writeLocal(s);
+    delete s.myNotes; delete s.noteKey; writeLocal(s); // jeden zapis = „jedna transakcja” jak note_keys_reset
   }
   async program() { return [...(readLocal().program ?? DEMO_PROGRAM)].sort((a, b) => a.position - b.position); }
   async saveProgram(name: string, list: { id?: string; title: string; note?: string }[]) {
@@ -288,8 +306,18 @@ class DemoSource implements GroupDataSource {
 
 /** Przycięcie jawnego pola notatki (limity jak w bazie 0009). Szyfrogram „rr1:…” przechodzi BEZ zmian —
  *  przycięcie albo trim zniszczyłyby go (limit dla szyfrogramu pilnuje baza, 0016). */
-export const clipTitle = (t: string) => (isEncrypted(t) ? t : t.trim().slice(0, 200));
-export const clipNote = (n: string) => (isEncrypted(n) ? n : n.slice(0, 20000));
+export const clipTitle = (t: string) => (isEncrypted(t) ? t : clipUnits(t.trim(), 200));
+export const clipNote = (n: string) => (isEncrypted(n) ? n : clipUnits(n, 20000));
+
+/** Demo udaje wyzwalacz bazy meeting_notes_require_enc (0016) — te same odmowy co na żywo. */
+function demoNoteGuard(s: LocalState, title: string, note: string, dekId?: string | null) {
+  const key = s.noteKey;
+  const fields = [title, note].filter(x => x !== '');
+  if (fields.some(x => isEncrypted(x)) && (!key || dekId !== key.dekId))
+    throw new Error('KEY_STALE: Klucz notatek zmienił się na innym urządzeniu — odblokuj notatki ponownie.');
+  if (key && fields.some(x => !isEncrypted(x)))
+    throw new Error('Notatki są szyfrowane — odśwież aplikację (stara wersja próbowała zapisać jawnie).');
+}
 
 /** Jedno źródło danych całej aplikacji — demo albo Supabase grupy (decyduje build). */
 export const groupData: GroupDataSource = DATA_MODE === 'supabase' ? new SupabaseSource() : new DemoSource();

@@ -14,7 +14,14 @@ Sprawdza:
   9. błąd odczytu notatek ('terapia_test_notes_fail') → komunikat, edycja zablokowana;
  10. przyciski „zajęcia dd.mm” w programie ≥ 44 px, nagłówek „(21 tematów)”;
  11. SZYFROWANIE (D042, 0.16): PIN do notatek (ustawienie / odblokowanie po przeładowaniu), w localStorage tylko „rr1:…”
-     (zero jawnego tekstu), zły PIN, migracja starych JAWNYCH notatek przy ustawieniu PIN-u, zmiana PIN-u, „Zablokuj”.
+     (zero jawnego tekstu), zły PIN, migracja starych JAWNYCH notatek przy ustawieniu PIN-u, zmiana PIN-u, „Zablokuj”;
+ 12. ODTWORZENIA ADWERSARZA 20.11 (każde z parą kontrolną; dwa „urządzenia” = dwie karty jednego kontekstu demo,
+     wspólny localStorage = wspólna „baza”):
+     O1 migracja z migawki NIE nadpisuje nowszej treści z drugiego urządzenia (zapis warunkowy);
+     O2 po „Nie pamiętam PIN-u” na A: B nie otwiera się starym PIN-em, B z kluczem w pamięci nie zapisze (KEY_STALE,
+        tekst zostaje), nieczytelna notatka ma „Usuń tę notatkę”;
+     O3 po zmianie PIN-u na A: B (otwarte wcześniej) przyjmuje NOWY PIN;
+     O4 „Zablokuj” w trakcie wolnego zapisu z dopiskiem — dopisek zapisany; zapis, który padł → trwały komunikat.
 
 Użycie: python tests/flow_notatki.py --url http://127.0.0.1:8156/dist/ --out <katalog> [--only-race]
 Kod wyjścia: 0 = OK, 1 = błędy (lista w raporcie).
@@ -307,6 +314,237 @@ def load_error(br, a, fails):
     return r
 
 
+WAIT_GONE = """() => !/Sprawdzam/.test(document.querySelector('section[aria-label="Moje notatki"]')?.textContent || '')"""
+RESET_JS = """() => { const s = JSON.parse(localStorage.getItem('terapia_demo_local_v1') || '{"extraMessages":[],"memberStatus":{}}');
+    delete s.noteKey; s.myNotes = {}; localStorage.setItem('terapia_demo_local_v1', JSON.stringify(s));
+    localStorage.removeItem('terapia_test_save_delay'); localStorage.removeItem('terapia_test_save_fail'); }"""
+
+
+def _page(ctx, url):
+    """Nowa karta = drugie „urządzenie” (wspólny localStorage demo)."""
+    pg = ctx.new_page()
+    pg.goto(url, wait_until='load')
+    sec = _goto_notes(pg)
+    pg.wait_for_function(WAIT_GONE, timeout=10000)
+    return pg, sec
+
+
+def _try_unlock(pg, sec, pin):
+    """'OTWARTE' albo 'ALERT: <komunikat>'."""
+    sec.locator('input[name="note-pin"]').fill(pin)
+    _tap(sec.get_by_role('button', name='Odblokuj notatki', exact=True))
+    try:
+        pg.wait_for_function(NOTES_READY, timeout=8000)
+        return 'OTWARTE'
+    except Exception:
+        al = sec.get_by_role('alert')
+        return 'ALERT: ' + (al.last.inner_text() if al.count() else '?')
+
+
+def _setup_pin(pg, sec, pin):
+    sec.locator('input[name="note-pin-new"]').fill(pin)
+    sec.locator('input[name="note-pin-new2"]').fill(pin)
+    sec.locator('input[type="checkbox"]').first.check()
+    _tap(sec.get_by_role('button', name='Ustaw PIN i zaszyfruj notatki', exact=True))
+
+
+def _write(pg, sec, title, note):
+    if sec.get_by_role('button', name='Dodaj moją notatkę', exact=True).count():
+        _tap(sec.get_by_role('button', name='Dodaj moją notatkę', exact=True))
+    sec.locator('input').first.fill(title)
+    sec.locator('textarea').first.fill(note)
+    _tap(sec.get_by_role('button', name='Zapisz', exact=True))
+
+
+def _forget_all(pg, sec, new_pin):
+    _tap(sec.get_by_role('button', name='Zablokuj notatki', exact=True))
+    sec.get_by_role('button', name='Nie pamiętam PIN-u', exact=True).wait_for(timeout=8000)
+    _tap(sec.get_by_role('button', name='Nie pamiętam PIN-u', exact=True))
+    sec.get_by_role('group', name='Nie pamiętam PIN-u').locator('input[type="checkbox"]').check()
+    _tap(sec.get_by_role('button', name='Usuń notatki i ustaw nowy PIN', exact=True))
+    sec.locator('input[name="note-pin-new"]').wait_for(timeout=8000)
+    _setup_pin(pg, sec, new_pin)
+    pg.wait_for_function(NOTES_READY, timeout=15000)
+
+
+def o1_migracja_wyscig(br, a, fails, delay=2000, shown='sp-7'):
+    """O1: B ustawia PIN i migruje; A (otwarte wcześniej, wolne łącze) migruje z WŁASNEJ migawki; B w międzyczasie zmienia
+    notatkę, którą A zmigruje jako ostatnią. Ma zostać treść B. Kontrola: pozostałe notatki zmigrowane (0 jawnych w bazie)."""
+    r: dict = {}
+    pin = 'wspolny pin 1'
+    ctx, pgA, errs = _ctx(br)
+    pgA.goto(a.url, wait_until='load'); pgA.wait_for_timeout(800)
+    pgA.evaluate("""([shown, d]) => { const s = JSON.parse(localStorage.getItem('terapia_demo_local_v1') || '{"extraMessages":[],"memberStatus":{}}');
+        delete s.noteKey; s.myNotes = {};
+        for (const i of [1,2,3,4,5,6,8,9,10]) { const id = 'sp-' + i; if (id !== shown) s.myNotes[id] = { meetingId: id, title: 'stary ' + id, note: 'STARA treść ' + id, updatedAt: new Date().toISOString() }; }
+        s.myNotes[shown] = { meetingId: shown, title: 'stary ' + shown, note: 'STARA treść ' + shown, updatedAt: new Date().toISOString() };
+        localStorage.setItem('terapia_demo_local_v1', JSON.stringify(s)); localStorage.setItem('terapia_test_save_delay', String(d)); }""", [shown, delay])
+    pgA.reload(wait_until='load')
+    secA = _goto_notes(pgA); pgA.wait_for_function(WAIT_GONE, timeout=10000)
+    pgB, secB = _page(ctx, a.url)
+    _setup_pin(pgB, secB, pin)                                   # B: PIN + migracja
+    pgB.wait_for_timeout(3000)
+    _setup_pin(pgA, secA, pin)                                   # A (nieświeże nokey) → KEY_EXISTS → odblokuj → migracja z migawki
+    secA.locator('input[name="note-pin"]').wait_for(timeout=10000)
+    sec_a_alert = secA.get_by_role('alert')
+    r['A_komunikat'] = sec_a_alert.first.inner_text() if sec_a_alert.count() else ''
+    secA.locator('input[name="note-pin"]').fill(pin)
+    _tap(secA.get_by_role('button', name='Odblokuj notatki', exact=True))
+    pgB.wait_for_function(NOTES_READY, timeout=120000)
+    r['B_przed_edycja'] = list(_vals(secB))
+    if r['B_przed_edycja'] != [f'stary {shown}', f'STARA treść {shown}']:
+        fails.append(f"O1: karta pokazuje inne zajęcia niż {shown} ({r['B_przed_edycja']!r}) — scenariusz nie trafia w wyścig")
+    secB.locator('textarea').first.fill('NOWA treść wpisana na B po migracji')
+    _tap(secB.get_by_role('button', name='Zapisz', exact=True))
+    secB.get_by_role('status').filter(has_text='Zapisano').wait_for(timeout=60000)
+    pgA.wait_for_function(NOTES_READY, timeout=120000)          # A skończyło migrację
+    pgB.wait_for_timeout(delay + 1000)
+    pgA.evaluate("localStorage.removeItem('terapia_test_save_delay')")
+    pgC, secC = _page(ctx, a.url)
+    r['C_odblokowanie'] = _try_unlock(pgC, secC, pin)
+    r['C_swieza_karta_widzi'] = list(_vals(secC))
+    if r['C_swieza_karta_widzi'] != [f'stary {shown}', 'NOWA treść wpisana na B po migracji']:
+        fails.append(f"O1: migracja z migawki nadpisała nowszą treść: {r['C_swieza_karta_widzi']!r}")
+    raw = _local(pgC)
+    r['kontrola_jawnych_w_bazie'] = raw.count('STARA treść')
+    r['kontrola_rr1'] = raw.count('rr1:')
+    if r['kontrola_jawnych_w_bazie'] or r['kontrola_rr1'] < 20:
+        fails.append(f"O1 kontrola: migracja niepełna (jawnych {r['kontrola_jawnych_w_bazie']}, rr1 {r['kontrola_rr1']})")
+    r['bledy_konsoli'] = errs[:]
+    fails += [f'O1: {e}' for e in errs]
+    ctx.close()
+    return r
+
+
+def o23_dwa_urzadzenia(br, a, fails):
+    """O3: zmiana PIN-u na A → B (otwarte wcześniej) przyjmuje NOWY PIN (kontrola: świeża karta odrzuca stary).
+    O2: „Nie pamiętam PIN-u” na A → B nie otwiera się starym PIN-em (kontrola: nowym tak); B z kluczem w pamięci po
+    kolejnym resecie nie zapisze (KEY_STALE, tekst zostaje; kontrola: w bazie nie ma tekstu B); nieczytelna notatka →
+    „Usuń tę notatkę” (kontrola: po usunięciu edytor wraca)."""
+    r: dict = {}
+    P1, P2, P3, P4 = 'pierwszy pin 1', 'drugi pin 22', 'trzeci pin 333', 'czwarty pin 4444'
+    ctx, pgA, errs = _ctx(br)
+    pgA.goto(a.url, wait_until='load'); pgA.wait_for_timeout(800)
+    pgA.evaluate(RESET_JS)
+    pgA.reload(wait_until='load')
+    secA = _goto_notes(pgA); pgA.wait_for_function(WAIT_GONE, timeout=10000)
+    _setup_pin(pgA, secA, P1); pgA.wait_for_function(NOTES_READY, timeout=15000)
+    _write(pgA, secA, 'Notatka A', 'Treść A ważna')
+    secA.get_by_role('status').filter(has_text='Zapisano').wait_for(timeout=8000)
+    pgB, secB = _page(ctx, a.url)                                # B: zablokowane, rekord klucza (P1) w pamięci
+    # O3
+    _tap(secA.get_by_role('button', name='Zmień PIN', exact=True))
+    secA.locator('input[name="note-pin-old"]').fill(P1)
+    secA.locator('form input[name="note-pin-new"]').fill(P2); secA.locator('form input[name="note-pin-new2"]').fill(P2)
+    _tap(secA.locator('form').get_by_role('button', name='Zmień PIN', exact=True))
+    secA.get_by_role('status').filter(has_text='PIN zmieniony').wait_for(timeout=8000)
+    pgC, secC = _page(ctx, a.url)
+    r['O3_kontrola_swieza_karta_stary_P1'] = _try_unlock(pgC, secC, P1)
+    pgC.close()
+    r['O3_B_nowy_P2'] = _try_unlock(pgB, secB, P2)
+    if r['O3_B_nowy_P2'] != 'OTWARTE':
+        fails.append(f"O3: B nie przyjmuje nowego PIN-u ({r['O3_B_nowy_P2']})")
+    if 'Zły PIN' not in r['O3_kontrola_swieza_karta_stary_P1']:
+        fails.append(f"O3 kontrola: stary PIN otwiera ({r['O3_kontrola_swieza_karta_stary_P1']})")
+    r['O3_B_widzi'] = list(_vals(secB))
+    # O2: B zablokowane (rekord P2 w pamięci), A: „Nie pamiętam PIN-u” → P3, nowa notatka
+    _tap(secB.get_by_role('button', name='Zablokuj notatki', exact=True)); pgB.wait_for_timeout(500)
+    _forget_all(pgA, secA, P3)
+    _write(pgA, secA, 'Po resecie A', 'Nowa treść A')
+    secA.get_by_role('status').filter(has_text='Zapisano').wait_for(timeout=8000)
+    r['O2_B_stary_P2_po_resecie'] = _try_unlock(pgB, secB, P2)
+    if r['O2_B_stary_P2_po_resecie'] == 'OTWARTE':
+        fails.append('O2: B otworzyło się starym PIN-em po „Nie pamiętam PIN-u” na A')
+    r['O2_kontrola_B_nowy_P3'] = _try_unlock(pgB, secB, P3)
+    r['O2_kontrola_B_widzi'] = list(_vals(secB))
+    if r['O2_kontrola_B_nowy_P3'] != 'OTWARTE' or r['O2_kontrola_B_widzi'] != ['Po resecie A', 'Nowa treść A']:
+        fails.append(f"O2 kontrola: B z nowym PIN-em ({r['O2_kontrola_B_nowy_P3']}, {r['O2_kontrola_B_widzi']!r})")
+    # O2-bis: B ODBLOKOWANE (klucz P3 w pamięci), A drugi raz „Nie pamiętam PIN-u” → P4; B zapisuje starym kluczem
+    _forget_all(pgA, secA, P4)
+    secB.locator('textarea').first.fill('Tekst B po cudzym resecie')
+    _tap(secB.get_by_role('button', name='Zapisz', exact=True))
+    st = secB.get_by_role('status').filter(has_text='Nie zapisano')
+    try:
+        st.first.wait_for(timeout=8000)
+        r['O2bis_B_status'] = st.first.inner_text()
+    except Exception:
+        r['O2bis_B_status'] = secB.get_by_role('status').first.inner_text() if secB.get_by_role('status').count() else '?'
+    r['O2bis_B_tekst_zostal'] = secB.locator('textarea').first.input_value() == 'Tekst B po cudzym resecie' if secB.locator('textarea').count() else False
+    r['O2bis_kontrola_brak_tekstu_B_w_bazie'] = 'Tekst B po cudzym resecie' not in _local(pgB)
+    if 'innym urządzeniu' not in r['O2bis_B_status'] or not r['O2bis_B_tekst_zostal']:
+        fails.append(f"O2bis: zapis starym kluczem nie odrzucony czytelnie ({r['O2bis_B_status']!r}, tekst został: {r['O2bis_B_tekst_zostal']})")
+    pgD, secD = _page(ctx, a.url)
+    r['O2bis_kontrola_D_P4'] = _try_unlock(pgD, secD, P4)
+    r['O2bis_kontrola_D_nieczytelne'] = 'nie da się odszyfrować' in secD.inner_text()
+    if r['O2bis_kontrola_D_P4'] != 'OTWARTE' or r['O2bis_kontrola_D_nieczytelne']:
+        fails.append(f"O2bis kontrola: aktualne urządzenie ({r['O2bis_kontrola_D_P4']}, nieczytelne: {r['O2bis_kontrola_D_nieczytelne']})")
+    # O2: nieczytelna notatka (szyfrogram poprawnego formatu, ale nie tym kluczem) → „Usuń tę notatkę”
+    pgD.evaluate("""() => { const s = JSON.parse(localStorage.getItem('terapia_demo_local_v1'));
+        s.myNotes = {}; for (let i = 1; i <= 30; i++) { const id = 'sp-' + i; s.myNotes[id] = { meetingId: id, title: 'rr1:' + 'A'.repeat(44), note: '', updatedAt: new Date().toISOString() }; }
+        localStorage.setItem('terapia_demo_local_v1', JSON.stringify(s)); }""")
+    pgD.reload(wait_until='load')
+    secD = _goto_notes(pgD); pgD.wait_for_function(WAIT_GONE, timeout=10000)
+    _try_unlock(pgD, secD, P4)
+    r['O2_nieczytelna_przycisk_usun'] = secD.get_by_role('button', name='Usuń tę notatkę', exact=True).count()
+    if r['O2_nieczytelna_przycisk_usun'] != 1:
+        fails.append('O2: nieczytelna notatka bez przycisku „Usuń tę notatkę”')
+    else:
+        secD.scroll_into_view_if_needed()
+        pgD.screenshot(path=os.path.join(a.out, 'light_11_nieczytelna_usun.png'))
+        _tap(secD.get_by_role('button', name='Usuń tę notatkę', exact=True))
+        _tap(secD.get_by_role('button', name='Tak, usuń', exact=True))
+        pgD.wait_for_timeout(800)
+        r['O2_kontrola_po_usunieciu_edytor'] = secD.locator('textarea, button:has-text("Dodaj moją notatkę")').count() > 0 and 'nie da się odszyfrować' not in secD.inner_text()
+        if not r['O2_kontrola_po_usunieciu_edytor']:
+            fails.append('O2 kontrola: po usunięciu nieczytelnej notatki edytor nie wrócił')
+    r['bledy_konsoli'] = errs[:]
+    fails += [f'O2/O3: {e}' for e in errs]
+    ctx.close()
+    return r
+
+
+def o4_blokada_w_locie(br, a, fails, delay=4000):
+    """O4: „Zablokuj” w trakcie wolnego zapisu, w międzyczasie dopisek → po odblokowaniu PEŁNY tekst.
+    Kontrola: zapis pada (terapia_test_save_fail) + „Zablokuj” → trwały komunikat „NIE została zapisana”."""
+    r: dict = {}
+    pin = 'blokada pin 1'
+    ctx, pg, errs = _ctx(br)
+    pg.goto(a.url, wait_until='load'); pg.wait_for_timeout(800)
+    pg.evaluate(RESET_JS)
+    pg.reload(wait_until='load')
+    sec = _goto_notes(pg); pg.wait_for_function(WAIT_GONE, timeout=10000)
+    _setup_pin(pg, sec, pin); pg.wait_for_function(NOTES_READY, timeout=15000)
+    pg.evaluate(f"localStorage.setItem('terapia_test_save_delay', '{delay}')")
+    if sec.get_by_role('button', name='Dodaj moją notatkę', exact=True).count():
+        _tap(sec.get_by_role('button', name='Dodaj moją notatkę', exact=True))
+    sec.locator('input').first.fill('Tytuł')
+    sec.locator('textarea').first.fill('Część 1.')
+    sec.get_by_text('Zapisuję').first.wait_for(timeout=6000)
+    sec.locator('textarea').first.fill('Część 1. DOPISEK w trakcie zapisu.')
+    _tap(sec.get_by_role('button', name='Zablokuj notatki', exact=True))
+    sec.locator('input[name="note-pin"]').wait_for(timeout=delay * 4 + 5000)
+    pg.evaluate("localStorage.removeItem('terapia_test_save_delay')")
+    r['O4_odblokowanie'] = _try_unlock(pg, sec, pin)
+    r['O4_po_odblokowaniu'] = list(_vals(sec))
+    if r['O4_po_odblokowaniu'] != ['Tytuł', 'Część 1. DOPISEK w trakcie zapisu.']:
+        fails.append(f"O4: dopisek zgubiony przy blokadzie ({r['O4_po_odblokowaniu']!r})")
+    # kontrola: zapis pada → komunikat trwały (nie w edytorze, który znika)
+    pg.evaluate("localStorage.setItem('terapia_test_save_fail', 'brak sieci (test)')")
+    sec.locator('textarea').first.fill('Zmiana, której nie da się zapisać')
+    _tap(sec.get_by_role('button', name='Zablokuj notatki', exact=True))
+    sec.locator('input[name="note-pin"]').wait_for(timeout=15000)
+    notice = pg.get_by_role('alert').filter(has_text='NIE została zapisana')
+    r['O4_kontrola_komunikat'] = notice.first.inner_text() if notice.count() else ''
+    if 'przed zablokowaniem' not in r['O4_kontrola_komunikat']:
+        fails.append(f"O4 kontrola: nieudany zapis przy blokadzie bez trwałego komunikatu ({r['O4_kontrola_komunikat']!r})")
+    pg.screenshot(path=os.path.join(a.out, 'light_12_komunikat_niezapisane.png'))
+    pg.evaluate("localStorage.removeItem('terapia_test_save_fail')")
+    r['bledy_konsoli'] = errs[:]
+    fails += [f'O4: {e}' for e in errs]
+    ctx.close()
+    return r
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--url', required=True)
@@ -328,6 +566,9 @@ def main() -> int:
         rep['puste_i_usun'] = empty_and_delete(br, a, fails)
         rep['blad_odczytu'] = load_error(br, a, fails)
         rep['szyfrowanie'] = crypto_flow(br, a, fails)
+        rep['O1_migracja_wyscig'] = o1_migracja_wyscig(br, a, fails)
+        rep['O2_O3_dwa_urzadzenia'] = o23_dwa_urzadzenia(br, a, fails)
+        rep['O4_blokada_w_locie'] = o4_blokada_w_locie(br, a, fails)
         for scheme in ('light', 'dark'):
             r: dict = {}
             rep['schemes'][scheme] = r

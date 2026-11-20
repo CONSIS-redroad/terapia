@@ -6,6 +6,12 @@
 //   locked      = PIN ustawiony, trzeba odblokować (raz na sesję);
 //   unlocked    = DEK w pamięci; blokada sama po 20 min bezczynności, po powrocie do karty po > 5 min i po przywróceniu
 //                 strony z pamięci wstecz (jak u Aliny — EncryptionGate).
+// Poprawki po adwersarzu (20.11):
+//   O2/O3 — rekord klucza (note_keys) pobierany ŚWIEŻO przed każdym odblokowaniem i zmianą PIN-u (inne urządzenie mogło zmienić
+//           PIN albo zrobić „Nie pamiętam PIN-u”); każdy zapis niesie `dekId`, baza odrzuca nieaktualny klucz (KEY_STALE);
+//           nieczytelne notatki → najpierw sprawdzenie, czy klucz w pamięci jest aktualny (vaultCheckFresh).
+//   O4    — blokada NAJPIERW dokańcza kolejkę zapisów edytorów (z kluczem), dopiero potem czyści klucz; nieudany zapis =
+//           trwały komunikat (`notice`, pokazuje NoteNotice w App), nie w edytorze, który i tak znika.
 // Ekrany nie dotykają kluczy — tylko seal()/open() (useGroup) i formularze PIN-u (NoteLock).
 import { groupData } from './groupData';
 import {
@@ -14,29 +20,78 @@ import {
 import type { MeetingNote } from '../types/group';
 
 export type VaultStatus = 'loading' | 'unavailable' | 'error' | 'nokey' | 'locked' | 'unlocked';
-export interface VaultState { status: VaultStatus; error?: string }
+export interface VaultState {
+  status: VaultStatus;
+  /** Komunikat przy formularzu PIN-u (np. „klucz zmieniono na innym urządzeniu”). */
+  error?: string;
+  /** Trwały komunikat globalny: zmiana notatki NIE została zapisana (blokada / wylogowanie / zapis z odmontowanego edytora). */
+  notice?: string;
+}
 
 const IDLE_MS = 20 * 60 * 1000;
 const SUSPEND_MS = 5 * 60 * 1000;
-/** Po zablokowaniu klucz jeszcze chwilę wolno użyć do ZAPISU (autozapis z odmontowywanego edytora) — nigdy do odczytu. */
-const SAVE_GRACE_MS = 3000;
+/** Ile najdłużej blokada czeka na dokończenie zapisów (wolne łącze). Potem i tak blokuje, z komunikatem. */
+const DRAIN_MAX_MS = 30_000;
 
 let state: VaultState = { status: 'loading' };
 let record: NoteKeyRecord | null = null;
 let dek: CryptoKey | null = null;
-let graceDek: CryptoKey | null = null;
-let graceTimer: ReturnType<typeof setTimeout> | undefined;
 let uid = '';
 let unlockGen = 0;
+let locking: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
-const emit = (s: VaultState) => { state = s; listeners.forEach(f => f()); };
+const emit = (s: VaultState) => { state = { ...s, notice: s.notice ?? state.notice }; listeners.forEach(f => f()); };
 export const vaultState = () => state;
 export const vaultSubscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 /** Numer odblokowania — rośnie przy każdym „unlocked” (useGroup migruje stare jawne notatki raz na odblokowanie). */
 export const vaultGeneration = () => unlockGen;
+/** Id klucza w pamięci (do zapisu) — null, gdy zablokowane. */
+export const vaultDekId = () => (dek && record ? record.dekId : null);
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+export const STALE_MSG = 'Klucz notatek zmieniono na innym urządzeniu (nowy PIN albo „Nie pamiętam PIN-u”) — odblokuj notatki aktualnym PIN-em.';
+
+// ── trwały komunikat ─────────────────────────────────────────────────────────
+export function vaultNotice(text: string) { state = { ...state, notice: text }; listeners.forEach(f => f()); }
+export function vaultDismissNotice() { state = { ...state, notice: undefined }; listeners.forEach(f => f()); }
+
+// ── kolejka zapisów edytorów (O4) ────────────────────────────────────────────
+const pending = new Set<Promise<boolean>>();
+const flushers = new Set<() => void>();
+/** Edytor zgłasza swoją pętlę zapisów (true = zapisane, false = błąd). Blokada czeka, aż wszystkie się skończą. */
+export function vaultTrack(p: Promise<boolean>): Promise<boolean> {
+  pending.add(p);
+  void p.finally(() => pending.delete(p));
+  return p;
+}
+/** Edytor rejestruje „zapisz teraz” (niezapisane zmiany czekające na autozapis) — woła je blokada przed czyszczeniem klucza. */
+export function vaultRegisterFlusher(f: () => void): () => void { flushers.add(f); return () => { flushers.delete(f); }; }
+
+async function drain(): Promise<boolean> {
+  const until = Date.now() + DRAIN_MAX_MS;
+  let ok = true;
+  for (let round = 0; round < 20; round++) {
+    flushers.forEach(f => { try { f(); } catch { /* edytor sam pokaże błąd */ } });
+    await Promise.resolve();
+    if (!pending.size) break;
+    const left = until - Date.now();
+    if (left <= 0) return false;
+    const res = await Promise.race([
+      Promise.all([...pending]),
+      new Promise<'timeout'>(r => setTimeout(() => r('timeout'), left)),
+    ]);
+    if (res === 'timeout') return false;
+    if (res.some(x => !x)) ok = false;
+  }
+  return ok;
+}
+
+// ── rekord klucza ────────────────────────────────────────────────────────────
+/** Świeży rekord z bazy. undefined = nie udało się (sieć) — wołający decyduje, czy użyć zapamiętanego. */
+async function fetchRecord(): Promise<NoteKeyRecord | null | 'unavailable' | undefined> {
+  try { return await groupData.noteKey(); } catch { return undefined; }
+}
 
 /** Wczytaj (albo odśwież po zalogowaniu) rekord klucza zalogowanej osoby. */
 export async function vaultInit(): Promise<void> {
@@ -47,15 +102,14 @@ export async function vaultInit(): Promise<void> {
     const r = await groupData.noteKey();
     if (r === 'unavailable') { record = null; emit({ status: 'unavailable' }); return; }
     record = r;
-    emit({ status: r ? 'locked' : 'nokey' });
+    emit({ status: r ? 'locked' : 'nokey', error: state.error });
   } catch (e) {
     emit({ status: 'error', error: msg(e) });
   }
 }
 
-function startUnlocked(key: CryptoKey) {
-  clearTimeout(graceTimer); graceDek = null;
-  dek = key; unlockGen++;
+function startUnlocked(rec: NoteKeyRecord, key: CryptoKey) {
+  record = rec; dek = key; unlockGen++;
   armIdle();
   emit({ status: 'unlocked' });
 }
@@ -70,32 +124,52 @@ export async function vaultSetup(pin: string, pin2: string): Promise<void> {
     await groupData.createNoteKey(rec);
   } catch (e) {
     if (msg(e) === 'KEY_EXISTS') { await vaultInit(); throw new Error('PIN ustawiono w międzyczasie na innym urządzeniu — odblokuj nim notatki.'); }
+    if (msg(e) === 'NO_ACCOUNT') throw new Error('Twoje konto nie ma jeszcze profilu w grupie, więc notatek nie da się zaszyfrować. Napisz do prowadzącej.');
     throw e;
   }
-  record = rec;
-  startUnlocked(key);
+  startUnlocked(rec, key);
 }
 
 let badTries = 0;
-/** Odblokowanie PIN-em. Zły PIN → „Zły PIN.” (po kolejnych pomyłkach z krótką przerwą). */
+/** Odblokowanie PIN-em — zawsze na ŚWIEŻYM rekordzie klucza z bazy (O2/O3). Zły PIN → „Zły PIN.”. */
 export async function vaultUnlock(pin: string): Promise<void> {
-  if (!record) throw new Error('Brak PIN-u do odblokowania.');
   if (badTries >= 3) await new Promise(r => setTimeout(r, Math.min(30, 2 ** (badTries - 2)) * 1000));
+  const fresh = await fetchRecord();
+  if (fresh === 'unavailable') { record = null; emit({ status: 'unavailable' }); return; }
+  if (fresh === null) {
+    record = null; emit({ status: 'nokey', error: undefined });
+    throw new Error('PIN do notatek usunięto na innym urządzeniu („Nie pamiętam PIN-u”) — ustaw nowy PIN.');
+  }
+  if (fresh) record = fresh;
+  if (!record) throw new Error('Nie udało się sprawdzić PIN-u (brak połączenia) — spróbuj za chwilę.');
+  const rec = record;
   try {
-    const key = await openKeyRecord(record, pin, uid);
+    const key = await openKeyRecord(rec, pin, uid);
     badTries = 0;
-    startUnlocked(key);
+    startUnlocked(rec, key);
   } catch (e) {
-    if (msg(e) === 'BAD_PIN') { badTries++; throw new Error('Zły PIN.'); }
-    throw e;
+    if (msg(e) !== 'BAD_PIN') throw e;
+    // rekord mógł być z pamięci (sieć padła) albo zmienić się w tej sekundzie — jeszcze jedna próba na świeżym
+    const again = await fetchRecord();
+    if (again && again !== 'unavailable' && again.wrappedDek !== rec.wrappedDek) {
+      record = again;
+      try { const key = await openKeyRecord(again, pin, uid); badTries = 0; startUnlocked(again, key); return; } catch { /* zły też tutaj */ }
+    }
+    badTries++;
+    throw new Error('Zły PIN.');
   }
 }
 
-/** Zmiana PIN-u: ten sam klucz notatek, nowe owinięcie. Notatek nie trzeba przepisywać. */
+/** Zmiana PIN-u: ten sam klucz notatek, nowe owinięcie (na świeżym rekordzie). Notatek nie trzeba przepisywać. */
 export async function vaultChangePin(oldPin: string, newPin: string, newPin2: string): Promise<void> {
-  if (!record) throw new Error('PIN nie jest ustawiony.');
   const p = pinProblem(newPin); if (p) throw new Error(p);
   if (newPin !== newPin2) throw new Error('Nowe PIN-y się różnią.');
+  const fresh = await fetchRecord();
+  if (fresh && fresh !== 'unavailable') {
+    if (record && fresh.dekId !== record.dekId) { await staleLock(fresh); throw new Error(STALE_MSG); }
+    record = fresh;
+  }
+  if (!record) throw new Error('PIN nie jest ustawiony.');
   let rec: NoteKeyRecord;
   try { rec = await rewrapKeyRecord(record, oldPin, newPin, uid); }
   catch (e) { throw new Error(msg(e) === 'BAD_PIN' ? 'Obecny PIN jest zły.' : msg(e)); }
@@ -108,44 +182,67 @@ export async function vaultChangePin(oldPin: string, newPin: string, newPin2: st
   record = rec;
 }
 
-/** „Nie pamiętam PIN-u”: kasuje MOJE zaszyfrowane notatki i klucz (świadomie, po potwierdzeniu) → można ustawić nowy PIN. */
+/** „Nie pamiętam PIN-u”: kasuje MOJE notatki i klucz jedną transakcją (świadomie, po potwierdzeniu) → można ustawić nowy PIN. */
 export async function vaultForgetAll(): Promise<void> {
   await groupData.resetMyNotes();
   hardLock(); record = null;
-  emit({ status: 'nokey' });
+  emit({ status: 'nokey', error: undefined });
 }
 
-/** Ręczna blokada / bezczynność. Klucz do ODCZYTU znika od razu; do dokończenia autozapisu — po 3 s. */
-export function vaultLock() {
-  if (state.status !== 'unlocked') return;
-  graceDek = dek; dek = null;
-  clearTimeout(graceTimer);
-  graceTimer = setTimeout(() => { graceDek = null; }, SAVE_GRACE_MS);
-  disarmIdle();
-  emit({ status: record ? 'locked' : 'nokey' });
+/** Czy klucz w pamięci jest wciąż kluczem z bazy. Nie → blokada z komunikatem (STALE_MSG). Sieć padła → true (nie wiemy). */
+export async function vaultCheckFresh(): Promise<boolean> {
+  if (state.status !== 'unlocked' || !record) return true;
+  const fresh = await fetchRecord();
+  if (fresh === undefined || fresh === 'unavailable') return true;
+  if (fresh && fresh.dekId === record.dekId) { record = fresh; return true; }
+  await staleLock(fresh);
+  return false;
+}
+async function staleLock(fresh: NoteKeyRecord | null) {
+  hardLock();
+  record = fresh;
+  emit({ status: fresh ? 'locked' : 'nokey', error: STALE_MSG });
 }
 
-/** Wylogowanie / zmiana osoby: wszystko z pamięci od razu. */
+/** Ręczna blokada / bezczynność (O4): najpierw dokończ kolejkę zapisów (z kluczem), potem wyczyść klucz. */
+export function vaultLock(): Promise<void> {
+  if (state.status !== 'unlocked') return Promise.resolve();
+  if (locking) return locking;
+  locking = (async () => {
+    const ok = await drain();
+    if (!ok) vaultNotice('Ostatnia zmiana w notatce NIE została zapisana przed zablokowaniem (brak połączenia albo błąd zapisu). Odblokuj notatki i sprawdź treść.');
+    if (state.status === 'unlocked') {
+      dek = null;
+      disarmIdle();
+      emit({ status: record ? 'locked' : 'nokey', error: undefined });
+    }
+  })().finally(() => { locking = null; });
+  return locking;
+}
+
+/** Natychmiast, bez zapisów (sesja już nie istnieje: wylogowanie w innej karcie, zmiana osoby). */
 export function hardLock() {
-  dek = null; graceDek = null; clearTimeout(graceTimer); disarmIdle(); badTries = 0;
+  dek = null; disarmIdle(); badTries = 0;
   if (state.status === 'unlocked') emit({ status: record ? 'locked' : 'nokey' });
 }
 
 // ── szyfrowanie notatek (dla useGroup) ───────────────────────────────────────
-/** Zaszyfruj notatkę do zapisu. Bez 0016 (unavailable) — jawnie, jak przed 0.16. Zablokowane → błąd (nic nie idzie jawnie). */
-export async function vaultSeal(meetingId: string, title: string, note: string): Promise<{ title: string; note: string }> {
+/** Zaszyfruj notatkę do zapisu. Bez 0016 (unavailable) — jawnie, jak przed 0.16 (dekId undefined = bez kolumny).
+ *  Zablokowane → błąd (nic nie idzie jawnie). */
+export async function vaultSeal(meetingId: string, title: string, note: string): Promise<{ title: string; note: string; dekId?: string }> {
   if (state.status === 'unavailable') return { title, note };
-  const key = dek ?? graceDek;
-  if (!key) throw new Error('Notatki są zablokowane — odblokuj je PIN-em.');
+  const key = dek;
+  const rec = record;
+  if (!key || !rec) throw new Error('Notatki są zablokowane — odblokuj je PIN-em.');
   const t = await encryptField(title, key, uid, meetingId, 'title');
   const n = await encryptField(note, key, uid, meetingId, 'note');
   // kontrola: to, co wysyłamy, na pewno się odszyfruje (nie zapiszemy czegoś, czego potem nie da się przeczytać)
   if (await decryptField(t, key, uid, meetingId, 'title') !== title || await decryptField(n, key, uid, meetingId, 'note') !== note)
     throw new Error('Kontrola szyfrowania nie przeszła — nic nie zapisano.');
-  return { title: t, note: n };
+  return { title: t, note: n, dekId: rec.dekId };
 }
 
-/** Odszyfruj notatki z bazy. Niedająca się odczytać → `unreadable` (edycja tej jednej zablokowana, nie nadpiszemy). */
+/** Odszyfruj notatki z bazy. Niedająca się odczytać → `unreadable` (edycja tej jednej zablokowana, można ją usunąć). */
 export async function vaultOpen(raw: Record<string, MeetingNote>): Promise<Record<string, MeetingNote>> {
   if (state.status === 'unavailable') return raw;
   const key = dek;
@@ -171,23 +268,23 @@ const ACT = ['pointerdown', 'keydown', 'touchstart', 'scroll'] as const;
 const markActive = () => {
   lastActive = Date.now();
   clearTimeout(idleTimer);
-  idleTimer = setTimeout(vaultLock, IDLE_MS);
+  idleTimer = setTimeout(() => { void vaultLock(); }, IDLE_MS);
 };
 const onVisible = () => {
-  if (document.visibilityState === 'visible' && Date.now() - lastActive > SUSPEND_MS) vaultLock();
+  if (document.visibilityState === 'visible' && Date.now() - lastActive > SUSPEND_MS) void vaultLock();
   else if (document.visibilityState === 'hidden') lastActive = Date.now();
 };
-const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) vaultLock(); };
+const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) void vaultLock(); };
 let armed = false;
 function armIdle() {
-  if (typeof window === 'undefined' || armed) { markActiveSafe(); return; }
+  if (typeof window === 'undefined') return;
+  if (armed) { markActive(); return; }
   armed = true;
   ACT.forEach(ev => window.addEventListener(ev, markActive, { passive: true }));
   document.addEventListener('visibilitychange', onVisible);
   window.addEventListener('pageshow', onPageShow);
   markActive();
 }
-function markActiveSafe() { if (typeof window !== 'undefined') markActive(); }
 function disarmIdle() {
   clearTimeout(idleTimer);
   if (typeof window === 'undefined' || !armed) return;

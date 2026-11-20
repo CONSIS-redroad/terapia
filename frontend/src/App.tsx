@@ -31,6 +31,7 @@ import type { Member } from './types/group';
 import { clearProfile, DEFAULT_PROFILE, loadProfile, Profile, publicView, saveProfile } from './services/profile';
 import { useAuth, type MemberRow } from './components/AuthGate';
 import { supabaseSource } from './services/groupData';
+import { NoteNotice } from './components/NoteLock';
 
 /** Faza 2: profil z bazy (wiersz members) w kształcie profilu aplikacji. */
 function profileFromMember(m: MemberRow): Profile {
@@ -302,6 +303,7 @@ export default function App() {
         />
       )}
       <UpdateGuard />
+      <NoteNotice />
       {needOnboarding && !g.loading && <Onboarding initialName={profile.pseudonym} onDone={finishOnboarding} />}
     </div>
   );

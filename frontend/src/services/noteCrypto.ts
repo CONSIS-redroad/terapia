@@ -16,7 +16,13 @@
 
 export const ENC_PREFIX = 'rr1:';
 export const PBKDF2_ITER = 600_000;
-export const PIN_MIN = 6;
+/** JEDNO miejsce wymagań PIN-u (O5, decyzja Bartka w toku): zmiana tutaj = zmiana w formularzach, komunikatach i testach. */
+export const PIN_RULES = {
+  minLength: 6,
+  /** true = PIN musi zawierać literę (same cyfry odrzucone). Dziś false — tylko podpowiedź „dłuższy / kilka słów”. */
+  requireLetter: false,
+} as const;
+export const PIN_MIN = PIN_RULES.minLength;
 const KEY_AAD = 'terapia/note_keys/v1/';
 const FIELD_AAD = 'terapia/meeting_notes/v1/';
 
@@ -43,7 +49,8 @@ const join = (a: Uint8Array, b: ArrayBuffer): string => {
 };
 
 const B64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
-/** Czy pole jest naszym szyfrogramem (prefiks + poprawny Base64 o długości ≥ IV + znacznik). Stara jawna notatka → false. */
+/** Czy pole jest naszym szyfrogramem (prefiks + poprawny Base64 o długości ≥ IV + znacznik). Stara jawna notatka → false.
+ *  TA SAMA reguła co w bazie (0016: meeting_notes_*_len i wyzwalacz) — jawny tekst zaczynający się od „rr1:” jest jawny. */
 export function isEncrypted(s: string | null | undefined): boolean {
   if (!s || !s.startsWith(ENC_PREFIX)) return false;
   const body = s.slice(ENC_PREFIX.length);
@@ -110,6 +117,9 @@ export interface NoteKeyRecord {
   wrappedDek: string;
   salt: string;      // Base64, 16 B
   iter: number;
+  /** Identyfikator KLUCZA NOTATEK (DEK): stały przy zmianie PIN-u, nowy po „Nie pamiętam PIN-u”. Każdy zapis szyfrogramu
+   *  niesie go do bazy, a baza odrzuca zapis kluczem, którego już nie ma (O2 adwersarza: drugie urządzenie z nieaktualnym kluczem). */
+  dekId: string;
 }
 
 /** Ustawienie PIN-u: nowy DEK owinięty KEK-iem z PIN-u. Zwraca rekord do bazy i DEK do pamięci (już nieeksportowalny). */
@@ -117,7 +127,7 @@ export async function createKeyRecord(pin: string, memberId: string, iter = PBKD
   const salt = randomSalt();
   const dekX = await generateDEK();
   const wrappedDek = await wrapDEK(dekX, await deriveKEK(pin, salt, iter), memberId);
-  const record = { wrappedDek, salt: toB64(salt), iter };
+  const record = { wrappedDek, salt: toB64(salt), iter, dekId: globalThis.crypto.randomUUID() };
   // do pamięci trafia kopia nieeksportowalna (sprawdza też od razu, że PIN odwija to, co zapisujemy)
   return { record, dek: await openKeyRecord(record, pin, memberId) };
 }
@@ -131,14 +141,22 @@ export async function openKeyRecord(rec: NoteKeyRecord, pin: string, memberId: s
 export async function rewrapKeyRecord(rec: NoteKeyRecord, oldPin: string, newPin: string, memberId: string, iter = PBKDF2_ITER): Promise<NoteKeyRecord> {
   const dekX = await openKeyRecord(rec, oldPin, memberId, true);
   const salt = randomSalt();
-  return { wrappedDek: await wrapDEK(dekX, await deriveKEK(newPin, salt, iter), memberId), salt: toB64(salt), iter };
+  return { wrappedDek: await wrapDEK(dekX, await deriveKEK(newPin, salt, iter), memberId), salt: toB64(salt), iter, dekId: rec.dekId };
 }
 
 /** Prosta ocena PIN-u dla ludzi (bez żargonu). '' = OK. */
 export function pinProblem(pin: string): string {
-  if (pin.length < PIN_MIN) return `PIN musi mieć co najmniej ${PIN_MIN} znaków.`;
+  if (pin.length < PIN_RULES.minLength) return `PIN musi mieć co najmniej ${PIN_RULES.minLength} znaków.`;
   if (pin.length > 128) return 'PIN jest za długi (do 128 znaków).';
+  if (PIN_RULES.requireLetter && !/\p{L}/u.test(pin)) return 'PIN musi zawierać co najmniej jedną literę.';
   return '';
+}
+
+/** Przytnij do `n` jednostek UTF-16, ale nie w połowie znaku (emoji = para surogatów; samotna połówka psuje zapis). */
+export function clipUnits(s: string, n: number): string {
+  if (s.length <= n) return s;
+  const c = s.charCodeAt(n - 1);
+  return s.slice(0, c >= 0xd800 && c <= 0xdbff ? n - 1 : n);
 }
 
 /** Ostrzeżenie (nie blokada): krótki PIN z samych cyfr łatwiej odgadnąć komuś, kto wyniesie bazę. */

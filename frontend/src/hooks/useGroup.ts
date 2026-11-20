@@ -1,7 +1,8 @@
 // PATH: src/hooks/useGroup.ts | REQ-ID: TERAPIA-HOOK-01
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { groupData } from '../services/groupData';
-import { isPlainNote, vaultGeneration, vaultInit, vaultOpen, vaultSeal, vaultState, vaultSubscribe } from '../services/noteVault';
+import { STALE_MSG, isPlainNote, vaultCheckFresh, vaultGeneration, vaultInit, vaultOpen, vaultSeal, vaultState, vaultSubscribe } from '../services/noteVault';
+import { clipUnits } from '../services/noteCrypto';
 import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 
 export interface GroupState {
@@ -55,7 +56,12 @@ export function useGroup() {
     if (v === 'unlocked' || v === 'unavailable') {
       // świeżo odblokowane, a migracja jeszcze nie przeszła — nie pokazuj edytora (żeby nie pisać na wersji sprzed migracji)
       if (v === 'unlocked' && migratedGen.current !== vaultGeneration()) return { myNotes: {}, notesStatus: 'locked' };
-      return { myNotes: await vaultOpen(raw), notesStatus: 'ok' };
+      const open = await vaultOpen(raw);
+      // nieczytelna notatka przy odblokowanym sejfie: najpierw sprawdź, czy NASZ klucz jest aktualny (O2 — inne urządzenie
+      // zrobiło „Nie pamiętam PIN-u”). Nieaktualny → blokada, a NIE przycisk „Usuń” przy cudzych-dla-nas, ważnych notatkach.
+      if (v === 'unlocked' && Object.values(open).some(n => n.unreadable) && !(await vaultCheckFresh()))
+        return { myNotes: {}, notesStatus: 'locked' };
+      return { myNotes: open, notesStatus: 'ok' };
     }
     return { myNotes: {}, notesStatus: 'locked' };
   }, []);
@@ -103,7 +109,11 @@ export function useGroup() {
               const plain = (await vaultOpen({ [n.meetingId]: n }))[n.meetingId];
               if (!plain || plain.unreadable) continue;
               const sealed = await vaultSeal(n.meetingId, plain.title, plain.note);
-              raw[n.meetingId] = await groupData.saveMyNote(n.meetingId, sealed.title, sealed.note);
+              // O1: zapis WARUNKOWY — tylko gdy w bazie wciąż jest ta sama jawna treść co w naszej migawce;
+              // inaczej inne urządzenie już ją zmigrowało/zmieniło → nie nadpisujemy, bierzemy stan z bazy
+              const done = await groupData.migrateMyNote(n.meetingId, { title: n.title, note: n.note }, sealed, sealed.dekId ?? '');
+              if (done) raw[n.meetingId] = done;
+              else { const fresh = await groupData.myNotes(); if (fresh) raw = fresh; }
             } catch { /* zostaje jawna — spróbujemy przy następnym odblokowaniu */ }
           }
         }
@@ -161,10 +171,17 @@ export function useGroup() {
   /** Moja notatka: zapis BEZ przeładowania całej grupy (pole tekstowe nie miga). Błąd leci do ekranu (stan zapisu). */
   const saveMyNote = async (meetingId: string, title: string, note: string) => {
     // limity i „pusta = błąd” liczone na JAWNYM tekście (szyfrogram jest dłuższy i nigdy pusty)
-    const t = title.trim().slice(0, 200); const n = note.slice(0, 20000);
+    const t = clipUnits(title.trim(), 200); const n = clipUnits(note, 20000); // po pełnych znakach (emoji)
     if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
     const sealed = await vaultSeal(meetingId, t, n);   // zablokowane → błąd; NIGDY nie wyślemy jawnie do zaszyfrowanej bazy
-    const saved = await groupData.saveMyNote(meetingId, sealed.title, sealed.note);
+    let saved: MeetingNote;
+    try {
+      saved = await groupData.saveMyNote(meetingId, sealed.title, sealed.note, sealed.dekId);
+    } catch (e) {
+      // baza odrzuciła nieaktualny klucz (O2): tekst zostaje w edytorze, komunikat mówi, co zrobić
+      if (/KEY_STALE/.test(e instanceof Error ? e.message : String(e))) throw new Error(`${STALE_MSG} Skopiuj najpierw wpisany tekst.`);
+      throw e;
+    }
     if (rawNotes.current && rawNotes.current !== 'error') rawNotes.current = { ...rawNotes.current, [meetingId]: saved };
     const open = vaultState().status === 'unlocked' || vaultState().status === 'unavailable';
     if (open) setState(s => ({ ...s, myNotes: { ...s.myNotes, [meetingId]: { ...saved, title: t, note: n } } }));

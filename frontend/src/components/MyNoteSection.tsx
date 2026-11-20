@@ -10,11 +10,14 @@
 //  • gdy odczyt notatek się nie udał (loadError) — edycja zablokowana, żeby nie nadpisać istniejącej notatki pustą.
 // Szyfrowanie (D042, 0.16): przy zablokowanych notatkach zamiast edytora jest NoteLock (PIN). Edytor montuje się dopiero
 // na ODSZYFROWANEJ treści (stan „Zapisano” liczony na jawnym tekście); szyfruje useGroup.saveMyNote, nie ten ekran.
+// O4 (adwersarz 20.11): cała pętla zapisów to JEDNA obietnica zgłaszana do sejfu (vaultTrack) — blokada czeka na nią
+// z kluczem; „zapisz teraz” zarejestrowane w sejfie (vaultRegisterFlusher). Błąd zapisu po odmontowaniu → trwały komunikat.
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Lock, NotebookPen, Save, Trash2, X } from 'lucide-react';
 import type { MeetingNote } from '../types/group';
 import { NoteLock, NoteLockBar } from './NoteLock';
 import { useNoteVault } from '../hooks/useGroup';
+import { vaultNotice, vaultRegisterFlusher, vaultState, vaultTrack } from '../services/noteVault';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'empty' | 'deleted';
 type Snap = { title: string; text: string };
@@ -69,34 +72,45 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const curRef = useRef<Snap>(initial);      // to, co jest w polach
   const savedRef = useRef<Snap>(initial);    // to, co na pewno jest w bazie
-  const inFlight = useRef(false);            // trwa zapis
+  const loopRef = useRef<Promise<boolean> | null>(null); // trwa pętla zapisów (jeden zapis naraz)
   const mounted = useRef(true);
   const set = (s: SaveState) => { if (mounted.current) setState(s); };
 
-  /** Jeden zapis naraz; po powrocie — jeśli w międzyczasie coś dopisano — kolejny. Działa też po odmontowaniu (refy). */
-  const flush = async (): Promise<void> => {
+  /** Jeden zapis naraz; po powrocie — jeśli w międzyczasie coś dopisano — kolejny. Działa też po odmontowaniu (refy).
+   *  Zwraca obietnicę CAŁEJ pętli (true = wszystko zapisane, false = błąd); nigdy nie rzuca. */
+  const flush = (): Promise<boolean> => {
     clearTimeout(timer.current);
-    if (inFlight.current) return;               // po powrocie bieżącego zapisu pętla sama sprawdzi różnicę
-    const sent = curRef.current;
-    if (same(sent, savedRef.current)) { set(isEmpty(savedRef.current) ? 'idle' : 'saved'); return; }
-    if (isEmpty(sent)) { set('empty'); return; } // autozapis NIGDY nie kasuje
-    inFlight.current = true;
-    set('saving'); if (mounted.current) setErr('');
-    try {
-      await onSave(meetingId, sent.title, sent.text);
-      savedRef.current = sent;
-      if (mounted.current) setHasSaved(true);
-    } catch (e) {
-      inFlight.current = false;
-      set('error'); if (mounted.current) setErr(e instanceof Error ? e.message : String(e));
-      return;
+    if (loopRef.current) return loopRef.current; // po powrocie bieżącego zapisu pętla sama sprawdzi różnicę
+    if (same(curRef.current, savedRef.current)) { set(isEmpty(savedRef.current) ? 'idle' : 'saved'); return Promise.resolve(true); }
+    if (isEmpty(curRef.current)) { set('empty'); return Promise.resolve(true); } // autozapis NIGDY nie kasuje
+    const vs = vaultState();
+    if (vs.status !== 'unlocked' && vs.status !== 'unavailable') {
+      // sejf już zablokowany (blokada sama dokończyła kolejkę i zgłosiła błąd) — nie zgłaszaj drugi raz innym powodem
+      if (!vs.notice) vaultNotice('Ostatnia zmiana w notatce NIE została zapisana (notatki zablokowano). Odblokuj notatki i sprawdź treść.');
+      return Promise.resolve(false);
     }
-    inFlight.current = false;
-    if (!same(curRef.current, savedRef.current)) {
-      if (isEmpty(curRef.current)) { set('empty'); return; }
-      return flushRef.current();                // dopisane w trakcie zapisu → wyślij jeszcze raz
-    }
-    set('saved');
+    const loop = (async (): Promise<boolean> => {
+      for (;;) {
+        const sent = curRef.current;
+        if (same(sent, savedRef.current)) { set(isEmpty(sent) ? 'idle' : 'saved'); return true; }
+        if (isEmpty(sent)) { set('empty'); return true; }
+        set('saving'); if (mounted.current) setErr('');
+        try {
+          await onSave(meetingId, sent.title, sent.text);
+          savedRef.current = sent;
+          if (mounted.current) setHasSaved(true);
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          set('error');
+          if (mounted.current) setErr(m);
+          else vaultNotice(`Ostatnia zmiana w notatce NIE została zapisana: ${m}`); // edytora już nie ma — komunikat globalny
+          return false;
+        }
+      }                                         // dopisane w trakcie zapisu → pętla wysyła jeszcze raz
+    })().finally(() => { loopRef.current = null; });
+    loopRef.current = loop;
+    vaultTrack(loop);
+    return loop;
   };
   const flushRef = useRef(flush);
   flushRef.current = flush;
@@ -112,7 +126,7 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
   // zapis przy zamknięciu/ukryciu karty przeglądarki i przy odmontowaniu (zmiana zajęć / ekranu)
   useEffect(() => {
     mounted.current = true;
-    const onHide = () => { void flushRef.current().catch(() => { /* stan błędu pokazany w ekranie */ }); };
+    const onHide = () => { void flushRef.current(); };
     const onVis = () => { if (document.visibilityState === 'hidden') onHide(); };
     window.addEventListener('pagehide', onHide);
     document.addEventListener('visibilitychange', onVis);
@@ -124,6 +138,8 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
       onHide(); // bieżący ≠ zapisany → zapis (także gdy inny zapis jeszcze w locie — pętla flush go dośle)
     };
   }, [meetingId]);
+  // blokada sejfu najpierw prosi edytor o zapis niezapisanych zmian (O4)
+  useEffect(() => vaultRegisterFlusher(() => { void flushRef.current(); }), []);
 
   const doDelete = async () => {
     clearTimeout(timer.current);
@@ -148,15 +164,40 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
               : state === 'error' ? `Nie zapisano: ${err}`
                 : note?.updatedAt ? `Zapisane ${new Date(note.updatedAt).toLocaleString('pl-PL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}` : '';
 
+  const deleteUi = (label: string) => (askDelete ? (
+    <div role="group" aria-label="Potwierdź usunięcie notatki" className="rounded-lg border border-rose-400/30 bg-rose-500/5 p-3 space-y-2">
+      <p className="text-sm text-fg">Usunąć tę notatkę na stałe? Tego nie da się cofnąć.</p>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => void doDelete()} disabled={state === 'saving'}
+          className="tap inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-rose-400/40 bg-rose-500/15 text-bad text-sm font-semibold cursor-pointer disabled:opacity-50">
+          <Trash2 className="w-4 h-4" />Tak, usuń
+        </button>
+        <button onClick={() => setAskDelete(false)} className="tap inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-fg2 text-sm cursor-pointer">
+          <X className="w-4 h-4" />Anuluj
+        </button>
+      </div>
+    </div>
+  ) : (
+    <button onClick={() => setAskDelete(true)} disabled={state === 'saving'}
+      className="tap inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-rose-400/25 text-bad text-sm hover:bg-rose-500/10 cursor-pointer disabled:opacity-50">
+      <Trash2 className="w-4 h-4" />{label}
+    </button>
+  ));
+  const unreadable = !!note?.unreadable && !readError;
+
   return (
     <section className="mt-4" aria-label="Moje notatki">
       <Header encrypted={encrypted} />
       {loadError ? (
-        <p role="alert" className="mt-2 flex items-start gap-1.5 text-sm text-bad">
-          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />{note?.unreadable && !readError
-            ? 'Tej notatki nie da się odszyfrować (uszkodzona albo zapisana innym kluczem). Edycja wyłączona, żeby jej nie nadpisać.'
-            : 'Nie udało się wczytać notatek — spróbuj później. (Edycja wyłączona, żeby nie nadpisać zapisanej notatki).'}
-        </p>
+        <div className="mt-2 space-y-2">
+          <p role="alert" className="flex items-start gap-1.5 text-sm text-bad">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />{unreadable
+              ? 'Tej notatki nie da się odszyfrować (uszkodzona albo zapisana kluczem, którego już nie ma). Edycja wyłączona — możesz ją usunąć i napisać od nowa.'
+              : 'Nie udało się wczytać notatek — spróbuj później. (Edycja wyłączona, żeby nie nadpisać zapisanej notatki).'}
+          </p>
+          {unreadable && deleteUi('Usuń tę notatkę')}
+          {unreadable && state === 'error' && <p role="status" className="text-sm text-bad">{err}</p>}
+        </div>
       ) : !open ? (
         <button onClick={() => setOpen(true)} className="tap mt-2 flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-line text-fg2 text-sm hover:bg-surf2 cursor-pointer">
           <NotebookPen className="w-4 h-4" />Dodaj moją notatkę
@@ -183,28 +224,10 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
             </span>
           </div>
           <p className="text-sm text-mut">{encrypted
-            ? 'Zapisuje się samo chwilę po pisaniu. Szyfrowane Twoim PIN-em, zanim trafią do bazy — nie odczyta ich nikt inny, także prowadząca ani administrator.'
+            ? 'Zapisuje się samo chwilę po pisaniu. Szyfrowane Twoim PIN-em, zanim trafią do bazy — prowadząca i administrator widzą tylko szyfrogram.'
             : 'Zapisuje się samo chwilę po pisaniu. Widzisz tylko Ty — w aplikacji nie widzą ich inni uczestnicy ani prowadząca.'}</p>
           {encrypted && <NoteLockBar />}
-          {hasSaved && (askDelete ? (
-            <div role="group" aria-label="Potwierdź usunięcie notatki" className="rounded-lg border border-rose-400/30 bg-rose-500/5 p-3 space-y-2">
-              <p className="text-sm text-fg">Usunąć tę notatkę na stałe? Tego nie da się cofnąć.</p>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => void doDelete()} disabled={state === 'saving'}
-                  className="tap inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-rose-400/40 bg-rose-500/15 text-bad text-sm font-semibold cursor-pointer disabled:opacity-50">
-                  <Trash2 className="w-4 h-4" />Tak, usuń
-                </button>
-                <button onClick={() => setAskDelete(false)} className="tap inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-line text-fg2 text-sm cursor-pointer">
-                  <X className="w-4 h-4" />Anuluj
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={() => setAskDelete(true)} disabled={state === 'saving'}
-              className="tap inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-rose-400/25 text-bad text-sm hover:bg-rose-500/10 cursor-pointer disabled:opacity-50">
-              <Trash2 className="w-4 h-4" />Usuń moją notatkę
-            </button>
-          ))}
+          {hasSaved && deleteUi('Usuń moją notatkę')}
         </div>
       )}
     </section>

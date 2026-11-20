@@ -1,0 +1,12 @@
+{
+  "name": "terapia-db-tests",
+  "private": true,
+  "type": "module",
+  "description": "Testy migracji bazy na PGlite (bez żywej bazy). Uruchom: npm install && npm test",
+  "scripts": {
+    "test": "node 0016_pglite.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.17"
+  }
+}

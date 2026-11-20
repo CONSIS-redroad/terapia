@@ -7,7 +7,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Clock, LogOut, Mail, ShieldX } from 'lucide-react';
 import { DATA_MODE, GOOGLE_LOGIN, redirectUrl, supabase } from '../services/supabaseClient';
 import { supabaseSource } from '../services/groupData';
-import { hardLock } from '../services/noteVault';
+import { hardLock, vaultLock } from '../services/noteVault';
 import { RULES_VERSION } from '../demo/rules';
 import { Onboarding } from './Onboarding';
 import { CrisisBox } from './RulesPanel';
@@ -178,8 +178,15 @@ const SupabaseGate: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    sb.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
+    let lastUid = '';
+    sb.auth.getSession().then(({ data }) => { lastUid = data.session?.user.id ?? ''; setSession(data.session); });
+    const { data } = sb.auth.onAuthStateChange((e, s) => {
+      // D042/O4: wylogowanie w INNEJ karcie albo zmiana osoby — klucz notatek znika z pamięci od razu (sesji już nie ma, nie da się zapisać)
+      const id = s?.user.id ?? '';
+      if (e === 'SIGNED_OUT' || !s || (lastUid && id !== lastUid)) hardLock();
+      lastUid = id;
+      setSession(s);
+    });
     return () => data.subscription.unsubscribe();
   }, [sb]);
 
@@ -240,7 +247,8 @@ const SupabaseGate: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   }, [sb, uid, loadMe]);
 
   const signOut = useCallback(async () => {
-    hardLock(); // D042: klucz notatek znika z pamięci razem z sesją
+    await vaultLock(); // D042/O4: najpierw dokończ zapisy notatek (z kluczem), potem czyść klucz
+    hardLock();
     await sb.auth.signOut();
     setMember(undefined); setAcceptedAt(undefined); setIsAdmin(false);
   }, [sb]);

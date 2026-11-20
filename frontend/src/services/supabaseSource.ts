@@ -328,13 +328,24 @@ export class SupabaseSource implements GroupDataSource {
       .map(x => [x.meeting_id, { meetingId: x.meeting_id, title: x.title, note: x.note, updatedAt: x.updated_at }]));
   }
 
-  async saveMyNote(meetingId: string, title: string, note: string): Promise<MeetingNote> {
+  async saveMyNote(meetingId: string, title: string, note: string, dekId?: string | null): Promise<MeetingNote> {
     const t = clipTitle(title); const n = clipNote(note);
     if (!t && !n.trim()) throw new Error('Pusta notatka — nic nie zapisano (usuwanie tylko przyciskiem).');
+    // dek_id wysyłamy tylko w trybie szyfrowanym (bez 0016 tej kolumny nie ma)
     const row = must(await sb().from('meeting_notes')
-      .upsert({ meeting_id: meetingId, member_id: this.uid, title: t, note: n }, { onConflict: 'meeting_id,member_id' })
+      .upsert({ meeting_id: meetingId, member_id: this.uid, title: t, note: n, ...(dekId !== undefined ? { dek_id: dekId } : {}) }, { onConflict: 'meeting_id,member_id' })
       .select('meeting_id,title,note,updated_at').single()) as { meeting_id: string; title: string; note: string; updated_at: string };
     return { meetingId: row.meeting_id, title: row.title, note: row.note, updatedAt: row.updated_at };
+  }
+
+  /** Migracja jawnej notatki — UPDATE tylko wiersza, który wciąż ma DOKŁADNIE starą treść (0 wierszy → null, nic nie nadpisane). */
+  async migrateMyNote(meetingId: string, expected: { title: string; note: string }, sealed: { title: string; note: string }, dekId: string): Promise<MeetingNote | null> {
+    const rows = must(await sb().from('meeting_notes')
+      .update({ title: sealed.title, note: sealed.note, dek_id: dekId })
+      .eq('meeting_id', meetingId).eq('member_id', this.uid).eq('title', expected.title).eq('note', expected.note)
+      .select('meeting_id,title,note,updated_at')) as Array<{ meeting_id: string; title: string; note: string; updated_at: string }>;
+    const row = rows?.[0];
+    return row ? { meetingId: row.meeting_id, title: row.title, note: row.note, updatedAt: row.updated_at } : null;
   }
 
   /** Świadome usunięcie (przycisk z potwierdzeniem) — autozapis nigdy nie kasuje. */
@@ -344,29 +355,29 @@ export class SupabaseSource implements GroupDataSource {
 
   /** Mój owinięty klucz notatek (RLS 0016: tylko własny wiersz; admin też nie widzi cudzych). */
   async noteKey(): Promise<NoteKeyRecord | null | 'unavailable'> {
-    const r = await sb().from('note_keys').select('wrapped_dek,salt,iter').eq('member_id', this.uid).maybeSingle();
+    const r = await sb().from('note_keys').select('wrapped_dek,salt,iter,dek_id').eq('member_id', this.uid).maybeSingle();
     if (r.error) {
       if (isMissingTable(r.error)) return 'unavailable'; // baza bez 0016 — notatki jawne jak przed 0.16
       throw new Error(r.error.message);
     }
-    const d = r.data as { wrapped_dek: string; salt: string; iter: number } | null;
-    return d ? { wrappedDek: d.wrapped_dek, salt: d.salt, iter: d.iter } : null;
+    const d = r.data as { wrapped_dek: string; salt: string; iter: number; dek_id: string } | null;
+    return d ? { wrappedDek: d.wrapped_dek, salt: d.salt, iter: d.iter, dekId: d.dek_id } : null;
   }
 
   async createNoteKey(rec: NoteKeyRecord) {
-    const r = await sb().from('note_keys').insert({ member_id: this.uid, wrapped_dek: rec.wrappedDek, salt: rec.salt, iter: rec.iter });
-    if (r.error) throw new Error(r.error.code === '23505' ? 'KEY_EXISTS' : r.error.message); // insert, NIE upsert — nie nadpisze klucza z innego urządzenia
+    const r = await sb().from('note_keys').insert({ member_id: this.uid, wrapped_dek: rec.wrappedDek, salt: rec.salt, iter: rec.iter, dek_id: rec.dekId });
+    // insert, NIE upsert — nie nadpisze klucza z innego urządzenia; 23503 = brak konta (nie powinno się zdarzyć po 0016: FK do auth.users)
+    if (r.error) throw new Error(r.error.code === '23505' ? 'KEY_EXISTS' : r.error.code === '23503' ? 'NO_ACCOUNT' : r.error.message);
   }
 
   async replaceNoteKey(oldWrapped: string, rec: NoteKeyRecord) {
-    const rows = must(await sb().from('note_keys').update({ wrapped_dek: rec.wrappedDek, salt: rec.salt, iter: rec.iter })
+    const rows = must(await sb().from('note_keys').update({ wrapped_dek: rec.wrappedDek, salt: rec.salt, iter: rec.iter }) // dek_id bez zmian
       .eq('member_id', this.uid).eq('wrapped_dek', oldWrapped).select('member_id')) as unknown[];
     if (!rows?.length) throw new Error('KEY_CHANGED');
   }
 
   async resetMyNotes() {
-    must(await sb().from('meeting_notes').delete().eq('member_id', this.uid)); // najpierw notatki (bez klucza i tak nieczytelne)
-    must(await sb().from('note_keys').delete().eq('member_id', this.uid));
+    must(await sb().rpc('note_keys_reset')); // klucz + wszystkie moje notatki w jednej transakcji (0016)
   }
 
   async program(): Promise<ProgramTopic[]> {

@@ -6,8 +6,8 @@
 import React, { useState } from 'react';
 import { AlertTriangle, KeyRound, Lock, LockOpen, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useNoteVault } from '../hooks/useGroup';
-import { vaultChangePin, vaultForgetAll, vaultInit, vaultLock, vaultSetup, vaultUnlock } from '../services/noteVault';
-import { PIN_MIN, pinIsWeak } from '../services/noteCrypto';
+import { vaultChangePin, vaultDismissNotice, vaultForgetAll, vaultInit, vaultLock, vaultSetup, vaultUnlock } from '../services/noteVault';
+import { PIN_MIN, PIN_RULES, pinIsWeak } from '../services/noteCrypto';
 
 const inputCls = 'tap mt-1 w-full bg-surf border border-line rounded-lg px-3 text-base text-fg focus:outline-none focus:border-sky-400/40';
 const btnMain = 'tap inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-sky-500/25 text-acc border border-sky-400/40 text-sm font-semibold cursor-pointer disabled:opacity-50';
@@ -48,13 +48,16 @@ export const NoteLock: React.FC = () => {
   );
 
   if (v.status === 'nokey') {
+    const stale = v.error && !err ? <p role="alert" className="text-sm text-warn">{v.error}</p> : null;
     const weak = pin.length >= PIN_MIN && pinIsWeak(pin);
     return (
       <form className="mt-2 space-y-2 min-w-0" onSubmit={e => { e.preventDefault(); if (agree) void run(() => vaultSetup(pin, pin2)); }}>
         <p className="flex items-start gap-1.5 text-sm text-fg"><ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-ok" />
-          Ustaw PIN do notatek. Notatki szyfrują się w Twoim telefonie/komputerze, zanim trafią do bazy — bez PIN-u nie przeczyta ich nikt, także prowadząca i administrator.</p>
-        <PinInput name="note-pin-new" label={`PIN do notatek (co najmniej ${PIN_MIN} znaków — mogą być litery)`} value={pin} onChange={setPin} />
+          Ustaw PIN do notatek. Notatki szyfrują się w Twoim telefonie/komputerze, zanim trafią do bazy — prowadząca i administrator widzą w bazie tylko szyfrogram.
+          Krótki PIN z samych cyfr ktoś z kopią bazy mógłby jednak odgadnąć — dłuższy PIN albo kilka słów chroni mocniej.</p>
+        <PinInput name="note-pin-new" label={`PIN do notatek (co najmniej ${PIN_MIN} znaków${PIN_RULES.requireLetter ? ', w tym litera' : ' — mogą być litery'})`} value={pin} onChange={setPin} />
         <PinInput name="note-pin-new2" label="Powtórz PIN" value={pin2} onChange={setPin2} />
+        {stale}
         {weak && <p className="text-sm text-mut">Wskazówka: dłuższy PIN albo kilka słów (np. „zielony kubek rano”) chroni lepiej niż same cyfry.</p>}
         <label className="flex items-start gap-2 text-sm text-fg cursor-pointer">
           <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-1 w-5 h-5 shrink-0" />
@@ -73,6 +76,7 @@ export const NoteLock: React.FC = () => {
     <div className="mt-2 space-y-2 min-w-0">
       <form className="space-y-2" onSubmit={e => { e.preventDefault(); void run(() => vaultUnlock(pin)); }}>
         <p className="flex items-start gap-1.5 text-sm text-fg"><Lock className="w-4 h-4 mt-0.5 shrink-0 text-acc" />Notatki są zaszyfrowane. Wpisz PIN do notatek, żeby je otworzyć.</p>
+        {v.error && !err && <p role="alert" className="text-sm text-warn">{v.error}</p>}
         <PinInput name="note-pin" label="PIN do notatek" value={pin} onChange={setPin} autoFocus={false} />
         {err && <p role="alert" className="text-sm text-bad">{err}</p>}
         <div className="flex flex-wrap gap-2">
@@ -122,7 +126,7 @@ export const NoteLockBar: React.FC = () => {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        <button className={btnGhost} onClick={() => vaultLock()}><Lock className="w-4 h-4" />Zablokuj notatki</button>
+        <button className={btnGhost} onClick={() => void vaultLock()}><Lock className="w-4 h-4" />Zablokuj notatki</button>
         {!open && <button className={btnGhost} onClick={() => { setOpen(true); setMsg(null); }}><KeyRound className="w-4 h-4" />Zmień PIN</button>}
       </div>
       {open && (
@@ -138,6 +142,21 @@ export const NoteLockBar: React.FC = () => {
         </form>
       )}
       {msg && <p role={msg.ok ? 'status' : 'alert'} className={`text-sm ${msg.ok ? 'text-ok' : 'text-bad'}`}>{msg.text}</p>}
+    </div>
+  );
+};
+
+/** Trwały komunikat globalny (O4): zmiana notatki nie została zapisana, a edytora już nie ma (blokada, wylogowanie, zmiana zajęć). */
+export const NoteNotice: React.FC = () => {
+  const v = useNoteVault();
+  if (!v.notice) return null;
+  return (
+    <div role="alert" className="fixed inset-x-0 top-20 z-[60] flex justify-center px-4 pointer-events-none">
+      <div className="pointer-events-auto max-w-md w-full rounded-xl border border-rose-400/40 bg-panel shadow-lg p-3 flex items-start gap-2">
+        <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0 text-bad" />
+        <p className="text-sm text-fg flex-1">{v.notice}</p>
+        <button onClick={vaultDismissNotice} className="tap shrink-0 inline-flex items-center justify-center min-w-11 rounded-full border border-line text-fg2 cursor-pointer" aria-label="Zamknij komunikat"><X className="w-4 h-4" /></button>
+      </div>
     </div>
   );
 };

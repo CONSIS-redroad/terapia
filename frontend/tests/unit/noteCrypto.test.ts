@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ENC_PREFIX, PBKDF2_ITER, createKeyRecord, decryptField, encryptField, isEncrypted, openKeyRecord, pinIsWeak, pinProblem,
+  ENC_PREFIX, PBKDF2_ITER, PIN_MIN, PIN_RULES, clipUnits, createKeyRecord, decryptField, encryptField, isEncrypted, openKeyRecord, pinIsWeak, pinProblem,
   rewrapKeyRecord, toB64, fromB64,
 } from '../../src/services/noteCrypto.ts';
 
@@ -58,6 +58,7 @@ test('zmiana PIN-u: stare notatki czytelne nowym PIN-em, stary PIN już nie dzia
   const enc = await encryptField('notatka sprzed zmiany PIN-u', dek, ME, MEET, 'note');
   await assert.rejects(rewrapKeyRecord(record, 'zly-pin-123', 'nowy pin 456', ME, FAST), /BAD_PIN/);
   const rec2 = await rewrapKeyRecord(record, PIN, 'nowy pin 456', ME, FAST);
+  assert.equal(rec2.dekId, record.dekId, 'zmiana PIN-u NIE zmienia id klucza notatek (inne urządzenia dalej zapisują)');
   assert.notEqual(rec2.salt, record.salt);
   assert.notEqual(rec2.wrappedDek, record.wrappedDek);
   await assert.rejects(openKeyRecord(rec2, PIN, ME), /BAD_PIN/);
@@ -89,9 +90,11 @@ test('uszkodzony szyfrogram → błąd (aplikacja oznacza notatkę jako nieczyte
   await assert.rejects(decryptField(ENC_PREFIX + toB64(raw), dek, ME, MEET, 'note'));
 });
 
-test('inny DEK (np. po „Nie pamiętam PIN-u” i nowym PIN-ie) nie czyta starych szyfrogramów', async () => {
+test('inny DEK (np. po „Nie pamiętam PIN-u” i nowym PIN-ie) nie czyta starych szyfrogramów i ma NOWE id', async () => {
   const a = await createKeyRecord(PIN, ME, FAST);
   const b = await createKeyRecord(PIN, ME, FAST);
+  assert.match(a.record.dekId, /^[0-9a-f-]{36}$/);
+  assert.notEqual(a.record.dekId, b.record.dekId, 'baza odrzuci zapis starym kluczem (KEY_STALE) po dek_id');
   const enc = await encryptField('stara', a.dek, ME, MEET, 'note');
   await assert.rejects(decryptField(enc, b.dek, ME, MEET, 'note'));
 });
@@ -105,12 +108,22 @@ test('limity bazy 0016: szyfrogram maks. tytułu i treści mieści się w limici
   assert.match(t, /^rr1:[A-Za-z0-9+/]+={0,2}$/);
 });
 
-test('PIN: minimum 6 znaków, ostrzeżenie dla krótkich samych cyfr', () => {
-  assert.notEqual(pinProblem('12345'), '');
-  assert.equal(pinProblem('123456'), '');
+test('PIN: wymagania z JEDNEJ stałej PIN_RULES, ostrzeżenie dla krótkich samych cyfr', () => {
+  assert.equal(PIN_MIN, PIN_RULES.minLength);
+  assert.notEqual(pinProblem('x'.repeat(PIN_RULES.minLength - 1)), '');
+  assert.equal(pinProblem('1'.repeat(PIN_RULES.minLength)) === '', !PIN_RULES.requireLetter);
   assert.equal(pinIsWeak('123456'), true);
   assert.equal(pinIsWeak('aaaaaaa'), true);
   assert.equal(pinIsWeak('zielony kubek'), false);
+});
+
+test('przycinanie po pełnych znakach — emoji na granicy limitu nie zostaje rozcięte', () => {
+  const t = 'a'.repeat(199) + '🙂';          // 201 jednostek UTF-16
+  const c = clipUnits(t, 200);
+  assert.equal(c, 'a'.repeat(199));
+  assert.equal(new TextDecoder().decode(new TextEncoder().encode(c)), c, 'bez samotnego surogatu (U+FFFD)');
+  assert.equal(clipUnits('ąę', 200), 'ąę');
+  assert.equal(clipUnits('ab🙂', 4), 'ab🙂');
 });
 
 test(`pełne ${PBKDF2_ITER} iteracji PBKDF2 (jak w aplikacji)`, async () => {

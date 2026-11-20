@@ -100,7 +100,7 @@ zaproszeniem z hasłem = 0, konta z hasłem na zaproszony adres = 0).
 
 ## Otwarte
 
-0. **0.16.0 szyfrowanie notatek (D042), gałąź `szyfrowanie-notatek`** — przed scaleniem: adwersarz, próba `0016` w transakcji (rollback), potem `0016` na żywo PRZED wydaniem frontu (front bez 0016 działa jawnie jak dotąd, ale nie zapisze szyfrogramu — limit 200 zn. tytułu). Do decyzji prowadzącego: kod odzyskiwania PIN-u (dziś brak — zapomniany PIN = notatki przepadają), minimalna siła PIN-u.
+0. **0.16.0 szyfrowanie notatek (D042), gałąź `szyfrowanie-notatek`** — przed scaleniem: adwersarz, próba `0016` w transakcji (rollback; test PGlite: `cd supabase/tests && npm install && npm test`), potem `0016` na żywo PRZED wydaniem frontu (front bez 0016 działa jawnie jak dotąd, ale nie zapisze szyfrogramu — limit 200 zn. tytułu). Do decyzji prowadzącego: kod odzyskiwania PIN-u (dziś brak — zapomniany PIN = notatki przepadają), minimalna siła PIN-u.
 
 1. Karta 00b345f1 — audyt bezpieczeństwa TERAPII i Dzienniczka (wspólny origin `consis-redroad.github.io`,
    SSO, RLS/Storage/RPC, CSP). Raport → `_audit_drift/plany` w workspace RedRoad.
