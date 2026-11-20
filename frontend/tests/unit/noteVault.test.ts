@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  vaultDismissNotice, vaultForgetUser, vaultInit, vaultLock, vaultSeal, vaultSetSource, vaultSetup, vaultState, vaultUnsaved,
+  vaultOwner, vaultDismissNotice, vaultForgetUser, vaultInit, vaultLock, vaultSeal, vaultSetSource, vaultSetup, vaultState, vaultUnsaved,
 } from '../../src/services/noteVault.ts';
 import type { NoteKeyRecord } from '../../src/services/noteCrypto.ts';
 
@@ -18,7 +18,7 @@ vaultSetSource({
   replaceNoteKey: async (_old, rec) => { keys.set(me, rec); },
   resetMyNotes: async () => { keys.delete(me); },
 });
-const A_TEXT = { meetingId: 'sp-1', title: 'Tytuł A', note: 'Prywatny tekst osoby A' };
+const A_TEXT = { owner: 'osoba-a', meetingId: 'sp-1', title: 'Tytuł A', note: 'Prywatny tekst osoby A' };
 
 test('niezapisany tekst → zmiana osoby (vaultInit z innym uid) → unsaved i notice znikają', async () => {
   me = 'osoba-a';
@@ -49,11 +49,37 @@ test('para kontrolna: zwykła blokada TEJ SAMEJ osoby zachowuje niezapisany teks
   await vaultInit();
   await vaultSetup('zielony kubek', 'zielony kubek');
   assert.equal(vaultState().status, 'unlocked');
-  vaultUnsaved({ ...A_TEXT, note: 'tekst C' }, 'test');
+  vaultUnsaved({ ...A_TEXT, owner: 'osoba-c', note: 'tekst C' }, 'test');
   await vaultLock();
   assert.equal(vaultState().status, 'locked');
   assert.equal(vaultState().unsaved?.[0]?.note, 'tekst C', 'tekst zostaje w pamięci do odblokowania (UI go nie pokazuje)');
   await assert.rejects(vaultSeal('sp-1', 't', 'n'), /zablokowane/, 'po blokadzie nie da się szyfrować');
   vaultDismissNotice();
   assert.equal(vaultState().unsaved, undefined, '„Zamknij” zapomina tekst');
+});
+
+test('R4-1: spóźniony vaultUnsaved osoby A (pętla odmontowanego edytora) po wylogowaniu A i zalogowaniu B — porzucony', async () => {
+  me = 'osoba-r4a';
+  await vaultInit();
+  await vaultSetup('pin osoby A 1', 'pin osoby A 1');
+  const ownerA = vaultOwner();              // edytor A zapamiętał właściciela przy montowaniu
+  await vaultLock(); vaultForgetUser();     // A się wylogowuje (AuthGate)
+  me = 'osoba-r4b'; await vaultInit();      // B loguje się w tej samej karcie
+  vaultUnsaved({ owner: ownerA, meetingId: 'm1', title: 'Tytuł A', note: 'JAWNA TREŚĆ OSOBY A' }, 'Failed to fetch');
+  await vaultSetup('pin osoby B 1', 'pin osoby B 1');
+  assert.equal(vaultState().status, 'unlocked');
+  assert.equal(vaultState().unsaved, undefined, 'B nie widzi tekstu A');
+  assert.equal(vaultState().notice, undefined);
+  assert.ok(!JSON.stringify(vaultState()).includes('JAWNA TREŚĆ OSOBY A'));
+});
+
+test('R4-1 para kontrolna: spóźniony vaultUnsaved TEJ SAMEJ osoby (bez zmiany konta) — tekst zostaje', async () => {
+  me = 'osoba-r4c';
+  await vaultInit();
+  await vaultSetup('pin osoby C 1', 'pin osoby C 1');
+  const owner = vaultOwner();
+  await vaultLock();
+  vaultUnsaved({ owner, meetingId: 'm1', title: 'Tytuł C', note: 'tekst C po blokadzie' }, 'Failed to fetch');
+  assert.equal(vaultState().unsaved?.[0]?.note, 'tekst C po blokadzie');
+  vaultDismissNotice();
 });

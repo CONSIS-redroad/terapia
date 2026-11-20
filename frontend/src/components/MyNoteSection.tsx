@@ -17,7 +17,7 @@ import { AlertTriangle, Check, Lock, NotebookPen, Save, Trash2, X } from 'lucide
 import type { MeetingNote } from '../types/group';
 import { NoteLock, NoteLockBar } from './NoteLock';
 import { useNoteVault } from '../hooks/useGroup';
-import { vaultIsDraining, vaultRegisterFlusher, vaultSavedOk, vaultState, vaultTrack, vaultUnsaved } from '../services/noteVault';
+import { vaultIsDraining, vaultOwner, vaultRegisterFlusher, vaultSavedOk, vaultState, vaultTrack, vaultUnsaved } from '../services/noteVault';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'empty' | 'deleted';
 type Snap = { title: string; text: string };
@@ -73,6 +73,7 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
   const curRef = useRef<Snap>(initial);      // to, co jest w polach
   const savedRef = useRef<Snap>(initial);    // to, co na pewno jest w bazie
   const loopRef = useRef<Promise<boolean> | null>(null); // trwa pętla zapisów (jeden zapis naraz)
+  const ownerRef = useRef(vaultOwner());     // R4-1: czyj to tekst — spóźniony błąd zapisu nie trafi do następnej osoby
   const mounted = useRef(true);
   const set = (s: SaveState) => { if (mounted.current) setState(s); };
 
@@ -116,7 +117,7 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
     return loop;
   };
   /** To, co jest w polach, a czego (jeszcze) nie ma w bazie — tylko do pamięci karty (R2-3). */
-  function unsavedNow() { return { meetingId, title: curRef.current.title, note: curRef.current.text }; }
+  function unsavedNow() { return { owner: ownerRef.current, meetingId, title: curRef.current.title, note: curRef.current.text }; }
   const flushRef = useRef(flush);
   flushRef.current = flush;
 

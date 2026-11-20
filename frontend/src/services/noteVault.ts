@@ -36,7 +36,8 @@ const source = (): VaultSource => {
 };
 
 export type VaultStatus = 'loading' | 'unavailable' | 'error' | 'nokey' | 'locked' | 'unlocked';
-export interface UnsavedNote { meetingId: string; title: string; note: string }
+/** Niezapisany tekst + WŁAŚCICIEL (uid osoby, która go pisała) — R4-1: spóźnione wywołanie po zmianie osoby jest porzucane. */
+export interface UnsavedNote { owner: string; meetingId: string; title: string; note: string }
 export interface VaultState {
   status: VaultStatus;
   /** Trwa blokada: ekran już zablokowany, w tle dokańczam rozpoczęte zapisy (R2-2). */
@@ -86,6 +87,8 @@ export function vaultNotice(text: string) { state = { ...state, notice: text }; 
 export function vaultDismissNotice() { state = { ...state, notice: undefined, unsaved: undefined }; listeners.forEach(f => f()); }
 /** Zapamiętaj (w pamięci karty) niezapisany tekst notatki + komunikat (R2-3). Jedna pozycja na zajęcia — najnowsza. */
 export function vaultUnsaved(u: UnsavedNote, why: string) {
+  // R4-1: tekst tylko dla właściciela — po wylogowaniu / zmianie osoby porzucamy go po cichu (bez logu treści)
+  if (!u.owner || u.owner !== uid) return;
   const list = (state.unsaved ?? []).filter(x => x.meetingId !== u.meetingId);
   state = { ...state, unsaved: [...list, u], notice: `Ostatnia zmiana w notatce NIE została zapisana (${why}). Niezapisany tekst jest tylko w tej karcie — skopiuj go.` };
   listeners.forEach(f => f());
@@ -97,6 +100,8 @@ export function vaultSavedOk(meetingId: string) {
   state = { ...state, unsaved: unsaved.length ? unsaved : undefined, notice: unsaved.length ? state.notice : undefined };
   listeners.forEach(f => f());
 }
+/** Kto jest teraz zalogowany w sejfie (edytor zapamiętuje to przy montowaniu jako właściciela tekstu). */
+export const vaultOwner = () => uid;
 /** Czy trwa blokada z dokańczaniem zapisów (edytor może jeszcze dosłać rozpoczęty zapis). */
 export const vaultIsDraining = () => draining;
 
