@@ -17,7 +17,7 @@ import { AlertTriangle, Check, Lock, NotebookPen, Save, Trash2, X } from 'lucide
 import type { MeetingNote } from '../types/group';
 import { NoteLock, NoteLockBar } from './NoteLock';
 import { useNoteVault } from '../hooks/useGroup';
-import { vaultNotice, vaultRegisterFlusher, vaultState, vaultTrack } from '../services/noteVault';
+import { vaultIsDraining, vaultRegisterFlusher, vaultSavedOk, vaultState, vaultTrack, vaultUnsaved } from '../services/noteVault';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'empty' | 'deleted';
 type Snap = { title: string; text: string };
@@ -84,9 +84,10 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
     if (same(curRef.current, savedRef.current)) { set(isEmpty(savedRef.current) ? 'idle' : 'saved'); return Promise.resolve(true); }
     if (isEmpty(curRef.current)) { set('empty'); return Promise.resolve(true); } // autozapis NIGDY nie kasuje
     const vs = vaultState();
-    if (vs.status !== 'unlocked' && vs.status !== 'unavailable') {
-      // sejf już zablokowany (blokada sama dokończyła kolejkę i zgłosiła błąd) — nie zgłaszaj drugi raz innym powodem
-      if (!vs.notice) vaultNotice('Ostatnia zmiana w notatce NIE została zapisana (notatki zablokowano). Odblokuj notatki i sprawdź treść.');
+    // R2-2: w trakcie blokady wolno DOSŁAĆ to, co wpisano przed blokadą (edytor już zniknął); po blokadzie — nie,
+    // wtedy niezapisany tekst idzie do pamięci karty (R2-3), żeby dało się go skopiować
+    if (vs.status !== 'unlocked' && vs.status !== 'unavailable' && !vaultIsDraining()) {
+      vaultUnsaved(unsavedNow(), 'notatki zablokowano');
       return Promise.resolve(false);
     }
     const loop = (async (): Promise<boolean> => {
@@ -103,15 +104,19 @@ const NoteEditor: React.FC<Props & { encrypted: boolean }> = ({ meetingId, note,
           const m = e instanceof Error ? e.message : String(e);
           set('error');
           if (mounted.current) setErr(m);
-          else vaultNotice(`Ostatnia zmiana w notatce NIE została zapisana: ${m}`); // edytora już nie ma — komunikat globalny
+          // edytora nie widać (zablokowano / zmiana zajęć) — komunikat globalny z tekstem do skopiowania (R2-3)
+          if (!mounted.current || vaultState().status !== 'unlocked') vaultUnsaved(unsavedNow(), m);
           return false;
         }
+        if (same(curRef.current, savedRef.current)) vaultSavedOk(meetingId);
       }                                         // dopisane w trakcie zapisu → pętla wysyła jeszcze raz
     })().finally(() => { loopRef.current = null; });
     loopRef.current = loop;
-    vaultTrack(loop);
+    vaultTrack(loop, () => (same(curRef.current, savedRef.current) ? null : unsavedNow()));
     return loop;
   };
+  /** To, co jest w polach, a czego (jeszcze) nie ma w bazie — tylko do pamięci karty (R2-3). */
+  function unsavedNow() { return { meetingId, title: curRef.current.title, note: curRef.current.text }; }
   const flushRef = useRef(flush);
   flushRef.current = flush;
 

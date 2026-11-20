@@ -10,6 +10,7 @@ import {
 } from '../demo/demoData';
 import { DATA_MODE } from './supabaseClient';
 import { clipUnits, isEncrypted, type NoteKeyRecord } from './noteCrypto';
+import { URL_SAFE_MAX, filterQueryString, migrationFilter } from './noteMigration';
 import { SupabaseSource } from './supabaseSource';
 
 export interface GroupDataSource {
@@ -53,9 +54,9 @@ export interface GroupDataSource {
   /** Zapisz moją notatkę. NIGDY nie kasuje — pusty tytuł i pusta treść = błąd (usuwanie tylko przez deleteMyNote).
    *  `dekId` = id klucza, którym zaszyfrowano (D042); baza odrzuca szyfrogram nieaktualnym kluczem → Error('KEY_STALE…'). */
   saveMyNote(meetingId: string, title: string, note: string, dekId?: string | null): Promise<MeetingNote>;
-  /** Migracja starej JAWNEJ notatki: zapis WARUNKOWY — tylko gdy w bazie wciąż jest dokładnie `expected` (O1 adwersarza:
-   *  inne urządzenie mogło ją już zmigrować i zmienić). `null` = notatka się zmieniła, nic nie nadpisano. */
-  migrateMyNote(meetingId: string, expected: { title: string; note: string }, sealed: { title: string; note: string }, dekId: string): Promise<MeetingNote | null>;
+  /** Migracja starej JAWNEJ notatki: zapis WARUNKOWY — tylko gdy wiersz ma wciąż `updated_at` z migawki (O1: inne urządzenie
+   *  mogło ją zmigrować/zmienić). Warunek BEZ treści (R2-1: treść w URL = 400/414 i wyciek do logów). `null` = zmieniona, nic nie nadpisano. */
+  migrateMyNote(meetingId: string, expectedUpdatedAt: string, sealed: { title: string; note: string }, dekId: string): Promise<MeetingNote | null>;
   /** Świadome usunięcie mojej notatki (przycisk „Usuń moją notatkę” z potwierdzeniem). */
   deleteMyNote(meetingId: string): Promise<void>;
   // ── Szyfrowanie notatek (D042, migracja 0016). Pola notatek mogą przychodzić/wychodzić jako szyfrogram „rr1:…” —
@@ -259,12 +260,16 @@ class DemoSource implements GroupDataSource {
     s.myNotes = { ...(s.myNotes ?? {}), [meetingId]: saved }; writeLocal(s);
     return saved;
   }
-  async migrateMyNote(meetingId: string, expected: { title: string; note: string }, sealed: { title: string; note: string }, dekId: string) {
+  async migrateMyNote(meetingId: string, expectedUpdatedAt: string, sealed: { title: string; note: string }, dekId: string) {
     const delay = Number(testFlag('terapia_test_save_delay')) || 0;
     if (delay > 0) await new Promise(r => setTimeout(r, delay));
+    const failSave = testFlag('terapia_test_save_fail');
+    if (failSave) throw new Error(failSave);
+    // demo udaje bramkę: ten sam warunek co w Supabase musi zmieścić się w URL (R2-1)
+    if (filterQueryString(migrationFilter(meetingId, DEMO_CURRENT_USER_ID, expectedUpdatedAt)).length > URL_SAFE_MAX) throw new Error('HTTP 414 (za długi adres)');
     const s = readLocal();
     const cur = s.myNotes?.[meetingId];
-    if (!cur || cur.title !== expected.title || cur.note !== expected.note) return null; // zmieniona w międzyczasie — nie nadpisuj
+    if (!cur || cur.updatedAt !== expectedUpdatedAt) return null; // zmieniona w międzyczasie — nie nadpisuj
     demoNoteGuard(s, sealed.title, sealed.note, dekId);
     const saved: MeetingNote = { meetingId, title: sealed.title, note: sealed.note, updatedAt: new Date().toISOString() };
     s.myNotes = { ...(s.myNotes ?? {}), [meetingId]: saved }; writeLocal(s);

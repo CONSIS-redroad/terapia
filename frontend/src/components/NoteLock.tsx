@@ -74,13 +74,14 @@ export const NoteLock: React.FC = () => {
   // locked
   return (
     <div className="mt-2 space-y-2 min-w-0">
+      {v.draining && <p role="status" className="text-sm text-mut">Blokuję… dokańczam zapis</p>}
       <form className="space-y-2" onSubmit={e => { e.preventDefault(); void run(() => vaultUnlock(pin)); }}>
         <p className="flex items-start gap-1.5 text-sm text-fg"><Lock className="w-4 h-4 mt-0.5 shrink-0 text-acc" />Notatki są zaszyfrowane. Wpisz PIN do notatek, żeby je otworzyć.</p>
         {v.error && !err && <p role="alert" className="text-sm text-warn">{v.error}</p>}
         <PinInput name="note-pin" label="PIN do notatek" value={pin} onChange={setPin} autoFocus={false} />
         {err && <p role="alert" className="text-sm text-bad">{err}</p>}
         <div className="flex flex-wrap gap-2">
-          <button type="submit" className={btnMain} disabled={busy || !pin}><LockOpen className="w-4 h-4" />{busy ? 'Otwieram…' : 'Odblokuj notatki'}</button>
+          <button type="submit" className={btnMain} disabled={busy || !pin || !!v.draining}><LockOpen className="w-4 h-4" />{busy ? 'Otwieram…' : 'Odblokuj notatki'}</button>
           {!forget && <button type="button" className={btnGhost} onClick={() => setForget(true)}>Nie pamiętam PIN-u</button>}
         </div>
       </form>
@@ -146,16 +147,36 @@ export const NoteLockBar: React.FC = () => {
   );
 };
 
-/** Trwały komunikat globalny (O4): zmiana notatki nie została zapisana, a edytora już nie ma (blokada, wylogowanie, zmiana zajęć). */
+/** Trwały komunikat globalny (O4/R2-3): zmiana notatki nie została zapisana, a edytora już nie ma (blokada, wylogowanie,
+ *  zmiana zajęć). Niezapisany tekst — tylko z pamięci tej karty, do skopiowania; „Zamknij” go zapomina. */
 export const NoteNotice: React.FC = () => {
   const v = useNoteVault();
+  const [show, setShow] = useState(false);
+  const [copied, setCopied] = useState('');
   if (!v.notice) return null;
+  const list = v.unsaved ?? [];
+  const asText = (u: { title: string; note: string }) => (u.title ? `${u.title}\n\n${u.note}` : u.note);
+  const copy = async (t: string, id: string) => {
+    try { await navigator.clipboard.writeText(t); setCopied(id); } catch { setCopied(''); }
+  };
   return (
     <div role="alert" className="fixed inset-x-0 top-20 z-[60] flex justify-center px-4 pointer-events-none">
-      <div className="pointer-events-auto max-w-md w-full rounded-xl border border-rose-400/40 bg-panel shadow-lg p-3 flex items-start gap-2">
-        <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0 text-bad" />
-        <p className="text-sm text-fg flex-1">{v.notice}</p>
-        <button onClick={vaultDismissNotice} className="tap shrink-0 inline-flex items-center justify-center min-w-11 rounded-full border border-line text-fg2 cursor-pointer" aria-label="Zamknij komunikat"><X className="w-4 h-4" /></button>
+      <div className="pointer-events-auto max-w-md w-full max-h-[70vh] overflow-y-auto rounded-xl border border-rose-400/40 bg-panel shadow-lg p-3 space-y-2">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0 text-bad" />
+          <p className="text-sm text-fg flex-1">{v.notice}</p>
+          <button onClick={() => { setShow(false); vaultDismissNotice(); }} className="tap shrink-0 inline-flex items-center justify-center min-w-11 rounded-full border border-line text-fg2 cursor-pointer" aria-label="Zamknij komunikat"><X className="w-4 h-4" /></button>
+        </div>
+        {list.length > 0 && !show && (
+          <button onClick={() => setShow(true)} className={btnGhost}>Pokaż niezapisany tekst</button>
+        )}
+        {show && list.map(u => (
+          <div key={u.meetingId} className="space-y-1">
+            <textarea readOnly value={asText(u)} rows={5} aria-label="Niezapisany tekst notatki"
+              className="w-full bg-surf border border-line rounded-lg px-3 py-2 text-base text-fg leading-relaxed" />
+            <button onClick={() => void copy(asText(u), u.meetingId)} className={btnGhost}>{copied === u.meetingId ? 'Skopiowano' : 'Kopiuj'}</button>
+          </div>
+        ))}
       </div>
     </div>
   );

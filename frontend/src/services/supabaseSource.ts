@@ -5,6 +5,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { makeThumb, THUMB_SUFFIX } from './files';
 import { clipNote, clipTitle, type GroupDataSource } from './groupData';
 import type { NoteKeyRecord } from './noteCrypto';
+import { migrationFilter } from './noteMigration';
 import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 import { FILES_BUCKET, supabase } from './supabaseClient';
 
@@ -338,12 +339,12 @@ export class SupabaseSource implements GroupDataSource {
     return { meetingId: row.meeting_id, title: row.title, note: row.note, updatedAt: row.updated_at };
   }
 
-  /** Migracja jawnej notatki — UPDATE tylko wiersza, który wciąż ma DOKŁADNIE starą treść (0 wierszy → null, nic nie nadpisane). */
-  async migrateMyNote(meetingId: string, expected: { title: string; note: string }, sealed: { title: string; note: string }, dekId: string): Promise<MeetingNote | null> {
-    const rows = must(await sb().from('meeting_notes')
-      .update({ title: sealed.title, note: sealed.note, dek_id: dekId })
-      .eq('meeting_id', meetingId).eq('member_id', this.uid).eq('title', expected.title).eq('note', expected.note)
-      .select('meeting_id,title,note,updated_at')) as Array<{ meeting_id: string; title: string; note: string; updated_at: string }>;
+  /** Migracja jawnej notatki — UPDATE tylko wiersza, który wciąż ma `updated_at` z migawki (0 wierszy → null, nic nie nadpisane).
+   *  Treść idzie w CIELE żądania; w URL tylko id i znacznik czasu (R2-1). */
+  async migrateMyNote(meetingId: string, expectedUpdatedAt: string, sealed: { title: string; note: string }, dekId: string): Promise<MeetingNote | null> {
+    let q = sb().from('meeting_notes').update({ title: sealed.title, note: sealed.note, dek_id: dekId });
+    for (const [col, val] of migrationFilter(meetingId, this.uid, expectedUpdatedAt)) q = q.eq(col, val);
+    const rows = must(await q.select('meeting_id,title,note,updated_at')) as Array<{ meeting_id: string; title: string; note: string; updated_at: string }>;
     const row = rows?.[0];
     return row ? { meetingId: row.meeting_id, title: row.title, note: row.note, updatedAt: row.updated_at } : null;
   }

@@ -21,13 +21,18 @@ Sprawdza:
      O2 po „Nie pamiętam PIN-u” na A: B nie otwiera się starym PIN-em, B z kluczem w pamięci nie zapisze (KEY_STALE,
         tekst zostaje), nieczytelna notatka ma „Usuń tę notatkę”;
      O3 po zmianie PIN-u na A: B (otwarte wcześniej) przyjmuje NOWY PIN;
-     O4 „Zablokuj” w trakcie wolnego zapisu z dopiskiem — dopisek zapisany; zapis, który padł → trwały komunikat.
+     O4 „Zablokuj” w trakcie wolnego zapisu z dopiskiem — dopisek zapisany; zapis, który padł → trwały komunikat;
+ 13. RUNDA 2 adwersarza: R2-1 długa (20 000 zn., polskie znaki) jawna notatka szyfruje się (warunek migracji bez treści
+     w URL — demo udaje limit bramki); kontrola: migracja, która pada, daje komunikat „Nie udało się zaszyfrować N notatek”;
+     R2-2 po „Zablokuj” edytor znika < 1 s, „Blokuję… dokańczam zapis”; R2-3 zapis dłuższy niż czeka blokada →
+     „Pokaż niezapisany tekst” z dopiskiem (kontrola: krótszy zapis — dopisek w bazie).
 
 Użycie: python tests/flow_notatki.py --url http://127.0.0.1:8156/dist/ --out <katalog> [--only-race]
 Kod wyjścia: 0 = OK, 1 = błędy (lista w raporcie).
 """
 import argparse
 import json
+import time
 import os
 import sys
 
@@ -521,8 +526,16 @@ def o4_blokada_w_locie(br, a, fails, delay=4000):
     sec.locator('textarea').first.fill('Część 1.')
     sec.get_by_text('Zapisuję').first.wait_for(timeout=6000)
     sec.locator('textarea').first.fill('Część 1. DOPISEK w trakcie zapisu.')
+    t0 = time.time()
     _tap(sec.get_by_role('button', name='Zablokuj notatki', exact=True))
-    sec.locator('input[name="note-pin"]').wait_for(timeout=delay * 4 + 5000)
+    sec.locator('textarea').first.wait_for(state='detached', timeout=1000)   # R2-2: edytor znika od razu
+    r['R2_2_edytor_znika_s'] = round(time.time() - t0, 2)
+    r['R2_2_status_blokuje'] = sec.get_by_role('status').filter(has_text='Blokuję… dokańczam zapis').count() == 1
+    if r['R2_2_edytor_znika_s'] >= 1 or not r['R2_2_status_blokuje']:
+        fails.append(f"R2-2: edytor po „Zablokuj” {r['R2_2_edytor_znika_s']} s, status „Blokuję…”: {r['R2_2_status_blokuje']}")
+    sec.scroll_into_view_if_needed()
+    pg.screenshot(path=os.path.join(a.out, 'light_13_blokuje_dokanczam.png'))
+    sec.get_by_text('Blokuję… dokańczam zapis').wait_for(state='detached', timeout=delay * 4 + 5000)
     pg.evaluate("localStorage.removeItem('terapia_test_save_delay')")
     r['O4_odblokowanie'] = _try_unlock(pg, sec, pin)
     r['O4_po_odblokowaniu'] = list(_vals(sec))
@@ -535,12 +548,106 @@ def o4_blokada_w_locie(br, a, fails, delay=4000):
     sec.locator('input[name="note-pin"]').wait_for(timeout=15000)
     notice = pg.get_by_role('alert').filter(has_text='NIE została zapisana')
     r['O4_kontrola_komunikat'] = notice.first.inner_text() if notice.count() else ''
-    if 'przed zablokowaniem' not in r['O4_kontrola_komunikat']:
+    if 'NIE została zapisana' not in r['O4_kontrola_komunikat']:
         fails.append(f"O4 kontrola: nieudany zapis przy blokadzie bez trwałego komunikatu ({r['O4_kontrola_komunikat']!r})")
+    r['R2_3_tekst_w_komunikacie'] = _unsaved_text(pg)
+    if 'Zmiana, której nie da się zapisać' not in r['R2_3_tekst_w_komunikacie']:
+        fails.append(f"R2-3: niezapisanego tekstu nie da się odzyskać z komunikatu ({r['R2_3_tekst_w_komunikacie']!r})")
     pg.screenshot(path=os.path.join(a.out, 'light_12_komunikat_niezapisane.png'))
     pg.evaluate("localStorage.removeItem('terapia_test_save_fail')")
     r['bledy_konsoli'] = errs[:]
     fails += [f'O4: {e}' for e in errs]
+    ctx.close()
+    return r
+
+
+def _unsaved_text(pg):
+    """„Pokaż niezapisany tekst” w trwałym komunikacie → treść pola (albo '')."""
+    btn = pg.get_by_role('button', name='Pokaż niezapisany tekst', exact=True)
+    if not btn.count():
+        return ''
+    _tap(btn)
+    box = pg.get_by_label('Niezapisany tekst notatki')
+    return box.first.input_value() if box.count() else ''
+
+
+def r2_3_zapis_dluzszy_niz_blokada(br, a, fails, delay=6000, drain_ms=1500):
+    """R2-3: zapis trwa dłużej, niż blokada czeka → dopisek do skopiowania z komunikatu (tylko pamięć karty).
+    Kontrola: tekst nie trafił do localStorage jako jawny (pamięć karty, nie storage)."""
+    r: dict = {}
+    pin = 'dlugi zapis 1'
+    ctx, pg, errs = _ctx(br)
+    pg.goto(a.url, wait_until='load'); pg.wait_for_timeout(800)
+    pg.evaluate(RESET_JS)
+    pg.reload(wait_until='load')
+    sec = _goto_notes(pg); pg.wait_for_function(WAIT_GONE, timeout=10000)
+    _setup_pin(pg, sec, pin); pg.wait_for_function(NOTES_READY, timeout=15000)
+    pg.evaluate(f"localStorage.setItem('terapia_test_save_delay', '{delay}'); localStorage.setItem('terapia_test_drain_ms', '{drain_ms}')")
+    if sec.get_by_role('button', name='Dodaj moją notatkę', exact=True).count():
+        _tap(sec.get_by_role('button', name='Dodaj moją notatkę', exact=True))
+    sec.locator('input').first.fill('Długi')
+    sec.locator('textarea').first.fill('Część A.')
+    sec.get_by_text('Zapisuję').first.wait_for(timeout=delay + 4000)
+    sec.locator('textarea').first.fill('Część A. DOPISEK przy wolnym łączu.')
+    _tap(sec.get_by_role('button', name='Zablokuj notatki', exact=True))
+    notice = pg.get_by_role('alert').filter(has_text='NIE została zapisana')
+    notice.first.wait_for(timeout=drain_ms + 5000)
+    r['komunikat'] = notice.first.inner_text()
+    r['tekst'] = _unsaved_text(pg)
+    if 'DOPISEK przy wolnym łączu' not in r['tekst']:
+        fails.append(f"R2-3: zapis > czasu blokady — dopisek nie do odzyskania ({r['tekst']!r})")
+    pg.screenshot(path=os.path.join(a.out, 'light_14_niezapisany_tekst.png'))
+    r['kontrola_brak_jawnego_w_storage'] = 'DOPISEK przy wolnym łączu' not in _local(pg)
+    if not r['kontrola_brak_jawnego_w_storage']:
+        fails.append('R2-3 kontrola: niezapisany tekst trafił jawnie do localStorage')
+    pg.evaluate("localStorage.removeItem('terapia_test_save_delay'); localStorage.removeItem('terapia_test_drain_ms')")
+    pg.wait_for_timeout(delay + 500)
+    r['bledy_konsoli'] = errs[:]
+    fails += [f'R2-3: {e}' for e in errs]
+    ctx.close()
+    return r
+
+
+def r2_1_dluga_notatka(br, a, fails):
+    """R2-1: jawne notatki po 20 000 znaków z polskimi literami szyfrują się (warunek migracji bez treści w URL).
+    Kontrola: migracja, która pada (terapia_test_save_fail), daje komunikat „Nie udało się zaszyfrować N notatek”, a po
+    naprawie (kolejne odblokowanie) notatki się szyfrują."""
+    r: dict = {}
+    pin = 'dluga notatka 1'
+    longtxt = ('Zażółć gęślą jaźń — ćwiczenie z asertywności. ' * 500)[:20000]
+    ctx, pg, errs = _ctx(br)
+    pg.goto(a.url, wait_until='load'); pg.wait_for_timeout(800)
+    pg.evaluate(RESET_JS)
+    pg.evaluate("""(t) => { const s = JSON.parse(localStorage.getItem('terapia_demo_local_v1'));
+        s.myNotes = {}; for (let i = 1; i <= 12; i++) { const id = 'sp-' + i; s.myNotes[id] = { meetingId: id, title: 'Długa ' + id, note: t, updatedAt: new Date(Date.now() - i * 1000).toISOString() }; }
+        localStorage.setItem('terapia_demo_local_v1', JSON.stringify(s)); localStorage.setItem('terapia_test_save_fail', 'brak sieci (test)'); }""", longtxt)
+    pg.reload(wait_until='load')
+    sec = _goto_notes(pg); pg.wait_for_function(WAIT_GONE, timeout=10000)
+    _setup_pin(pg, sec, pin); pg.wait_for_function(NOTES_READY, timeout=30000)
+    notice = pg.get_by_role('alert').filter(has_text='Nie udało się zaszyfrować')
+    try:
+        notice.first.wait_for(timeout=8000)
+        r['kontrola_komunikat_bledu'] = notice.first.inner_text()
+    except Exception:
+        r['kontrola_komunikat_bledu'] = ''
+    if '12 notatek' not in r['kontrola_komunikat_bledu']:
+        fails.append(f"R2-1 kontrola: nieudana migracja po cichu ({r['kontrola_komunikat_bledu']!r})")
+    _tap(pg.get_by_role('button', name='Zamknij komunikat', exact=True))
+    pg.evaluate("localStorage.removeItem('terapia_test_save_fail')")
+    _tap(sec.get_by_role('button', name='Zablokuj notatki', exact=True))
+    sec.get_by_text('Blokuję… dokańczam zapis').wait_for(state='detached', timeout=10000)
+    r['odblokowanie'] = _try_unlock(pg, sec, pin)
+    pg.wait_for_timeout(1000)
+    t, n = _vals(sec)
+    r['edytor'] = {'tytul': t, 'dlugosc': len(n or ''), 'zgodna': n == longtxt}
+    raw = _local(pg)
+    r['jawnych_w_storage'] = raw.count('Zażółć')
+    r['rr1'] = raw.count('rr1:')
+    r['komunikat_po_naprawie'] = pg.get_by_role('alert').filter(has_text='Nie udało się zaszyfrować').count()
+    if not r['edytor']['zgodna'] or r['jawnych_w_storage'] or r['rr1'] < 24 or r['komunikat_po_naprawie']:
+        fails.append(f"R2-1: długie notatki nie zaszyfrowane ({r['edytor']}, jawnych {r['jawnych_w_storage']}, rr1 {r['rr1']})")
+    r['bledy_konsoli'] = errs[:]
+    fails += [f'R2-1: {e}' for e in errs]
     ctx.close()
     return r
 
@@ -569,6 +676,8 @@ def main() -> int:
         rep['O1_migracja_wyscig'] = o1_migracja_wyscig(br, a, fails)
         rep['O2_O3_dwa_urzadzenia'] = o23_dwa_urzadzenia(br, a, fails)
         rep['O4_blokada_w_locie'] = o4_blokada_w_locie(br, a, fails)
+        rep['R2_1_dluga_notatka'] = r2_1_dluga_notatka(br, a, fails)
+        rep['R2_3_zapis_dluzszy_niz_blokada'] = r2_3_zapis_dluzszy_niz_blokada(br, a, fails)
         for scheme in ('light', 'dark'):
             r: dict = {}
             rep['schemes'][scheme] = r

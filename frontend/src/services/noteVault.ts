@@ -10,8 +10,12 @@
 //   O2/O3 — rekord klucza (note_keys) pobierany ŚWIEŻO przed każdym odblokowaniem i zmianą PIN-u (inne urządzenie mogło zmienić
 //           PIN albo zrobić „Nie pamiętam PIN-u”); każdy zapis niesie `dekId`, baza odrzuca nieaktualny klucz (KEY_STALE);
 //           nieczytelne notatki → najpierw sprawdzenie, czy klucz w pamięci jest aktualny (vaultCheckFresh).
-//   O4    — blokada NAJPIERW dokańcza kolejkę zapisów edytorów (z kluczem), dopiero potem czyści klucz; nieudany zapis =
+//   O4    — blokada dokańcza kolejkę zapisów edytorów (z kluczem), dopiero potem czyści klucz; nieudany zapis =
 //           trwały komunikat (`notice`, pokazuje NoteNotice w App), nie w edytorze, który i tak znika.
+// Runda 2 (R2-2): ekran blokuje się NATYCHMIAST (status „locked”, edytor znika, nie da się pisać); klucz zostaje w pamięci
+//           (`drainDek`) WYŁĄCZNIE do szyfrowania zapisów już rozpoczętych, odczytu nim nie ma. `draining` → „Blokuję… dokańczam zapis”.
+// (R2-3): niezapisany tekst (błąd zapisu, zapis > 30 s) trzymamy TYLKO w pamięci karty (`unsaved`) — NoteNotice pokazuje go
+//           do skopiowania („Pokaż niezapisany tekst”); nigdy do localStorage ani do bazy.
 // Ekrany nie dotykają kluczy — tylko seal()/open() (useGroup) i formularze PIN-u (NoteLock).
 import { groupData } from './groupData';
 import {
@@ -20,8 +24,13 @@ import {
 import type { MeetingNote } from '../types/group';
 
 export type VaultStatus = 'loading' | 'unavailable' | 'error' | 'nokey' | 'locked' | 'unlocked';
+export interface UnsavedNote { meetingId: string; title: string; note: string }
 export interface VaultState {
   status: VaultStatus;
+  /** Trwa blokada: ekran już zablokowany, w tle dokańczam rozpoczęte zapisy (R2-2). */
+  draining?: boolean;
+  /** Niezapisany tekst do skopiowania — tylko w pamięci tej karty (R2-3). */
+  unsaved?: UnsavedNote[];
   /** Komunikat przy formularzu PIN-u (np. „klucz zmieniono na innym urządzeniu”). */
   error?: string;
   /** Trwały komunikat globalny: zmiana notatki NIE została zapisana (blokada / wylogowanie / zapis z odmontowanego edytora). */
@@ -36,12 +45,19 @@ const DRAIN_MAX_MS = 30_000;
 let state: VaultState = { status: 'loading' };
 let record: NoteKeyRecord | null = null;
 let dek: CryptoKey | null = null;
+/** Klucz tylko do dokończenia rozpoczętych zapisów podczas blokady (R2-2) — nigdy do odczytu. */
+let drainDek: CryptoKey | null = null;
+let draining = false;
 let uid = '';
 let unlockGen = 0;
 let locking: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
-const emit = (s: VaultState) => { state = { ...s, notice: s.notice ?? state.notice }; listeners.forEach(f => f()); };
+const emit = (s: VaultState) => {
+  state = { ...s, notice: s.notice ?? state.notice, unsaved: state.unsaved, draining };
+  listeners.forEach(f => f());
+};
+const touch = () => { state = { ...state, draining }; listeners.forEach(f => f()); };
 export const vaultState = () => state;
 export const vaultSubscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 /** Numer odblokowania — rośnie przy każdym „unlocked” (useGroup migruje stare jawne notatki raz na odblokowanie). */
@@ -54,34 +70,65 @@ export const STALE_MSG = 'Klucz notatek zmieniono na innym urządzeniu (nowy PIN
 
 // ── trwały komunikat ─────────────────────────────────────────────────────────
 export function vaultNotice(text: string) { state = { ...state, notice: text }; listeners.forEach(f => f()); }
-export function vaultDismissNotice() { state = { ...state, notice: undefined }; listeners.forEach(f => f()); }
+/** Zamknięcie komunikatu kasuje też niezapisany tekst z pamięci (użytkownik zdecydował). */
+export function vaultDismissNotice() { state = { ...state, notice: undefined, unsaved: undefined }; listeners.forEach(f => f()); }
+/** Zapamiętaj (w pamięci karty) niezapisany tekst notatki + komunikat (R2-3). Jedna pozycja na zajęcia — najnowsza. */
+export function vaultUnsaved(u: UnsavedNote, why: string) {
+  const list = (state.unsaved ?? []).filter(x => x.meetingId !== u.meetingId);
+  state = { ...state, unsaved: [...list, u], notice: `Ostatnia zmiana w notatce NIE została zapisana (${why}). Skopiuj niezapisany tekst poniżej.` };
+  listeners.forEach(f => f());
+}
+/** Zapis jednak doszedł (np. po przekroczeniu czasu blokady) — usuń tę pozycję z niezapisanych. */
+export function vaultSavedOk(meetingId: string) {
+  if (!state.unsaved?.some(x => x.meetingId === meetingId)) return;
+  const unsaved = state.unsaved.filter(x => x.meetingId !== meetingId);
+  state = { ...state, unsaved: unsaved.length ? unsaved : undefined, notice: unsaved.length ? state.notice : undefined };
+  listeners.forEach(f => f());
+}
+/** Czy trwa blokada z dokańczaniem zapisów (edytor może jeszcze dosłać rozpoczęty zapis). */
+export const vaultIsDraining = () => draining;
 
 // ── kolejka zapisów edytorów (O4) ────────────────────────────────────────────
-const pending = new Set<Promise<boolean>>();
+const pending = new Map<Promise<boolean>, () => UnsavedNote | null>();
 const flushers = new Set<() => void>();
-/** Edytor zgłasza swoją pętlę zapisów (true = zapisane, false = błąd). Blokada czeka, aż wszystkie się skończą. */
-export function vaultTrack(p: Promise<boolean>): Promise<boolean> {
-  pending.add(p);
+/** Edytor zgłasza swoją pętlę zapisów (true = zapisane, false = błąd) i jak odczytać to, czego jeszcze nie zapisano.
+ *  Blokada czeka, aż wszystkie się skończą; po przekroczeniu czasu zabiera niezapisany tekst do komunikatu (R2-3). */
+export function vaultTrack(p: Promise<boolean>, unsavedOf: () => UnsavedNote | null): Promise<boolean> {
+  pending.set(p, unsavedOf);
   void p.finally(() => pending.delete(p));
   return p;
 }
 /** Edytor rejestruje „zapisz teraz” (niezapisane zmiany czekające na autozapis) — woła je blokada przed czyszczeniem klucza. */
 export function vaultRegisterFlusher(f: () => void): () => void { flushers.add(f); return () => { flushers.delete(f); }; }
 
+/** Zapis trwa dłużej niż czeka blokada — przenieś niezapisany tekst do komunikatu, zanim klucz zniknie (R2-3). */
+function keepUnsaved() {
+  for (const get of pending.values()) {
+    const u = get();
+    if (u) vaultUnsaved(u, 'zapis trwał za długo, notatki zablokowano');
+  }
+}
+
+/** Demo: test może skrócić czas czekania blokady (localStorage 'terapia_test_drain_ms'); wersja z bazą — zawsze 30 s. */
+function drainMax(): number {
+  if (!groupData.isDemo) return DRAIN_MAX_MS;
+  try { return Number(localStorage.getItem('terapia_test_drain_ms')) || DRAIN_MAX_MS; } catch { return DRAIN_MAX_MS; }
+}
+
 async function drain(): Promise<boolean> {
-  const until = Date.now() + DRAIN_MAX_MS;
+  const until = Date.now() + drainMax();
   let ok = true;
   for (let round = 0; round < 20; round++) {
     flushers.forEach(f => { try { f(); } catch { /* edytor sam pokaże błąd */ } });
     await Promise.resolve();
     if (!pending.size) break;
     const left = until - Date.now();
-    if (left <= 0) return false;
+    if (left <= 0) { keepUnsaved(); return false; }
     const res = await Promise.race([
-      Promise.all([...pending]),
+      Promise.all([...pending.keys()]),
       new Promise<'timeout'>(r => setTimeout(() => r('timeout'), left)),
     ]);
-    if (res === 'timeout') return false;
+    if (res === 'timeout') { keepUnsaved(); return false; }
     if (res.some(x => !x)) ok = false;
   }
   return ok;
@@ -204,25 +251,25 @@ async function staleLock(fresh: NoteKeyRecord | null) {
   emit({ status: fresh ? 'locked' : 'nokey', error: STALE_MSG });
 }
 
-/** Ręczna blokada / bezczynność (O4): najpierw dokończ kolejkę zapisów (z kluczem), potem wyczyść klucz. */
+/** Ręczna blokada / bezczynność / wylogowanie. Ekran blokuje się OD RAZU (R2-2); klucz zostaje tylko do dokończenia
+ *  rozpoczętych zapisów (O4), potem znika. Zwraca obietnicę końca dokańczania. */
 export function vaultLock(): Promise<void> {
-  if (state.status !== 'unlocked') return Promise.resolve();
   if (locking) return locking;
+  if (state.status !== 'unlocked') return Promise.resolve();
+  drainDek = dek; dek = null; draining = true;
+  disarmIdle();
+  emit({ status: record ? 'locked' : 'nokey', error: undefined });
   locking = (async () => {
     const ok = await drain();
-    if (!ok) vaultNotice('Ostatnia zmiana w notatce NIE została zapisana przed zablokowaniem (brak połączenia albo błąd zapisu). Odblokuj notatki i sprawdź treść.');
-    if (state.status === 'unlocked') {
-      dek = null;
-      disarmIdle();
-      emit({ status: record ? 'locked' : 'nokey', error: undefined });
-    }
-  })().finally(() => { locking = null; });
+    if (!ok && !state.unsaved?.length)
+      vaultNotice('Ostatnia zmiana w notatce NIE została zapisana przed zablokowaniem (brak połączenia albo błąd zapisu). Odblokuj notatki i sprawdź treść.');
+  })().finally(() => { drainDek = null; draining = false; locking = null; touch(); });
   return locking;
 }
 
 /** Natychmiast, bez zapisów (sesja już nie istnieje: wylogowanie w innej karcie, zmiana osoby). */
 export function hardLock() {
-  dek = null; disarmIdle(); badTries = 0;
+  dek = null; drainDek = null; disarmIdle(); badTries = 0;
   if (state.status === 'unlocked') emit({ status: record ? 'locked' : 'nokey' });
 }
 
@@ -231,7 +278,7 @@ export function hardLock() {
  *  Zablokowane → błąd (nic nie idzie jawnie). */
 export async function vaultSeal(meetingId: string, title: string, note: string): Promise<{ title: string; note: string; dekId?: string }> {
   if (state.status === 'unavailable') return { title, note };
-  const key = dek;
+  const key = dek ?? drainDek; // drainDek: tylko dokończenie zapisów rozpoczętych przed blokadą (R2-2)
   const rec = record;
   if (!key || !rec) throw new Error('Notatki są zablokowane — odblokuj je PIN-em.');
   const t = await encryptField(title, key, uid, meetingId, 'title');

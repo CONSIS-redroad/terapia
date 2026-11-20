@@ -1,7 +1,8 @@
 // PATH: src/hooks/useGroup.ts | REQ-ID: TERAPIA-HOOK-01
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { groupData } from '../services/groupData';
-import { STALE_MSG, isPlainNote, vaultCheckFresh, vaultGeneration, vaultInit, vaultOpen, vaultSeal, vaultState, vaultSubscribe } from '../services/noteVault';
+import { STALE_MSG, isPlainNote, vaultCheckFresh, vaultGeneration, vaultInit, vaultNotice, vaultOpen, vaultSeal, vaultState, vaultSubscribe } from '../services/noteVault';
+import { notatekGen } from '../services/noteMigration';
 import { clipUnits } from '../services/noteCrypto';
 import type { Announcement, Attachment, Group, Homework, Material, Meeting, MeetingNote, Member, MembershipStatus, Message, ProgramTopic } from '../types/group';
 
@@ -104,18 +105,25 @@ export function useGroup() {
         let raw: Record<string, MeetingNote> | null = null;
         try { raw = await groupData.myNotes(); } catch { /* odczyt padł — niżej stan error */ }
         if (raw) {
+          const failed: string[] = [];
           for (const n of Object.values(raw).filter(isPlainNote)) {
             try {
+              if (!n.updatedAt) throw new Error('brak updated_at');
               const plain = (await vaultOpen({ [n.meetingId]: n }))[n.meetingId];
               if (!plain || plain.unreadable) continue;
               const sealed = await vaultSeal(n.meetingId, plain.title, plain.note);
-              // O1: zapis WARUNKOWY — tylko gdy w bazie wciąż jest ta sama jawna treść co w naszej migawce;
+              // O1: zapis WARUNKOWY — tylko gdy wiersz ma wciąż updated_at z naszej migawki (R2-1: warunek bez treści);
               // inaczej inne urządzenie już ją zmigrowało/zmieniło → nie nadpisujemy, bierzemy stan z bazy
-              const done = await groupData.migrateMyNote(n.meetingId, { title: n.title, note: n.note }, sealed, sealed.dekId ?? '');
+              const done = await groupData.migrateMyNote(n.meetingId, n.updatedAt, sealed, sealed.dekId ?? '');
               if (done) raw[n.meetingId] = done;
               else { const fresh = await groupData.myNotes(); if (fresh) raw = fresh; }
-            } catch { /* zostaje jawna — spróbujemy przy następnym odblokowaniu */ }
+            } catch (e) {
+              // zostaje jawna — spróbujemy przy następnym odblokowaniu; NIE po cichu (R2-1). Log BEZ treści notatki.
+              failed.push(n.meetingId);
+              console.warn('[notatki] migracja do szyfrogramu nieudana', { zajecia: n.meetingId, blad: (e instanceof Error ? e.message : String(e)).slice(0, 80) });
+            }
           }
+          if (failed.length) vaultNotice(`Nie udało się zaszyfrować ${failed.length} ${notatekGen(failed.length)} — zostają jak były; spróbujemy przy następnym odblokowaniu.`);
         }
         if (vaultGeneration() === gen) migratedGen.current = gen;
         const view = await viewNotes(raw ?? 'error');
