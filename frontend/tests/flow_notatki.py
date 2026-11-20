@@ -25,7 +25,9 @@ Sprawdza:
  13. RUNDA 2 adwersarza: R2-1 długa (20 000 zn., polskie znaki) jawna notatka szyfruje się (warunek migracji bez treści
      w URL — demo udaje limit bramki); kontrola: migracja, która pada, daje komunikat „Nie udało się zaszyfrować N notatek”;
      R2-2 po „Zablokuj” edytor znika < 1 s, „Blokuję… dokańczam zapis”; R2-3 zapis dłuższy niż czeka blokada →
-     „Pokaż niezapisany tekst” z dopiskiem (kontrola: krótszy zapis — dopisek w bazie).
+     „Pokaż niezapisany tekst” z dopiskiem (kontrola: krótszy zapis — dopisek w bazie);
+ 14. RUNDA 3: R3-1 po blokadzie NIE da się pokazać jawnego niezapisanego tekstu bez PIN-u (brak przycisku, tekstu nie ma
+     na stronie); kontrola: po odblokowaniu PIN-em przycisk wraca i tekst jest do skopiowania.
 
 Użycie: python tests/flow_notatki.py --url http://127.0.0.1:8156/dist/ --out <katalog> [--only-race]
 Kod wyjścia: 0 = OK, 1 = błędy (lista w raporcie).
@@ -550,15 +552,32 @@ def o4_blokada_w_locie(br, a, fails, delay=4000):
     r['O4_kontrola_komunikat'] = notice.first.inner_text() if notice.count() else ''
     if 'NIE została zapisana' not in r['O4_kontrola_komunikat']:
         fails.append(f"O4 kontrola: nieudany zapis przy blokadzie bez trwałego komunikatu ({r['O4_kontrola_komunikat']!r})")
+    r['R3_1_zablokowane'] = _locked_hides_unsaved(pg, 'Zmiana, której nie da się zapisać', fails, 'O4')
+    pg.screenshot(path=os.path.join(a.out, 'light_15_niezapisany_zablokowane.png'))
+    sec.get_by_text('Blokuję… dokańczam zapis').wait_for(state='detached', timeout=15000)
+    pg.evaluate("localStorage.removeItem('terapia_test_save_fail')")
+    r['R3_1_kontrola_odblokowanie'] = _try_unlock(pg, sec, pin)
     r['R2_3_tekst_w_komunikacie'] = _unsaved_text(pg)
     if 'Zmiana, której nie da się zapisać' not in r['R2_3_tekst_w_komunikacie']:
-        fails.append(f"R2-3: niezapisanego tekstu nie da się odzyskać z komunikatu ({r['R2_3_tekst_w_komunikacie']!r})")
+        fails.append(f"R2-3/R3-1 kontrola: po odblokowaniu niezapisanego tekstu nie da się odzyskać ({r['R2_3_tekst_w_komunikacie']!r})")
     pg.screenshot(path=os.path.join(a.out, 'light_12_komunikat_niezapisane.png'))
     pg.evaluate("localStorage.removeItem('terapia_test_save_fail')")
     r['bledy_konsoli'] = errs[:]
     fails += [f'O4: {e}' for e in errs]
     ctx.close()
     return r
+
+
+def _locked_hides_unsaved(pg, secret, fails, label):
+    """R3-1: notatki zablokowane → komunikat bez przycisku i bez jawnego tekstu na stronie."""
+    btn = pg.get_by_role('button', name='Pokaż niezapisany tekst', exact=True).count()
+    on_page = secret in pg.evaluate("document.body.innerText") or pg.evaluate(
+        "(t) => [...document.querySelectorAll('textarea,input')].some(e => e.value.includes(t))", secret)
+    info = pg.get_by_text('odblokuj notatki PIN-em, żeby go zobaczyć').count()
+    ok = btn == 0 and not on_page and info >= 1
+    if not ok:
+        fails.append(f'R3-1 {label}: po blokadzie jawny niezapisany tekst dostępny bez PIN-u (przycisk {btn}, na stronie {on_page}, info {info})')
+    return {'przycisk': btn, 'tekst_na_stronie': on_page, 'informacja': info}
 
 
 def _unsaved_text(pg):
@@ -593,6 +612,10 @@ def r2_3_zapis_dluzszy_niz_blokada(br, a, fails, delay=6000, drain_ms=1500):
     notice = pg.get_by_role('alert').filter(has_text='NIE została zapisana')
     notice.first.wait_for(timeout=drain_ms + 5000)
     r['komunikat'] = notice.first.inner_text()
+    r['R3_1_zablokowane'] = _locked_hides_unsaved(pg, 'DOPISEK przy wolnym łączu', fails, 'R2-3')
+    pg.wait_for_timeout(delay + 1000)                      # rozpoczęty zapis wraca, dopisku nie ma czym zaszyfrować
+    pg.evaluate("localStorage.removeItem('terapia_test_save_delay')")
+    r['R3_1_kontrola_odblokowanie'] = _try_unlock(pg, sec, pin)
     r['tekst'] = _unsaved_text(pg)
     if 'DOPISEK przy wolnym łączu' not in r['tekst']:
         fails.append(f"R2-3: zapis > czasu blokady — dopisek nie do odzyskania ({r['tekst']!r})")
@@ -600,8 +623,7 @@ def r2_3_zapis_dluzszy_niz_blokada(br, a, fails, delay=6000, drain_ms=1500):
     r['kontrola_brak_jawnego_w_storage'] = 'DOPISEK przy wolnym łączu' not in _local(pg)
     if not r['kontrola_brak_jawnego_w_storage']:
         fails.append('R2-3 kontrola: niezapisany tekst trafił jawnie do localStorage')
-    pg.evaluate("localStorage.removeItem('terapia_test_save_delay'); localStorage.removeItem('terapia_test_drain_ms')")
-    pg.wait_for_timeout(delay + 500)
+    pg.evaluate("localStorage.removeItem('terapia_test_drain_ms')")
     r['bledy_konsoli'] = errs[:]
     fails += [f'R2-3: {e}' for e in errs]
     ctx.close()

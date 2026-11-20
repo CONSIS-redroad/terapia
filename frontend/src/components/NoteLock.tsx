@@ -3,7 +3,7 @@
 //   • ustawienie PIN-u raz (min. 6 znaków, dwa razy) + JAWNA zgoda „zapomniany PIN = notatek nie odzyska nikt”;
 //   • odblokowanie raz na sesję (sama blokada po 20 min bezczynności);
 //   • „Zmień PIN” (te same notatki, nowe zabezpieczenie) i „Nie pamiętam PIN-u” (usuwa MOJE notatki, po potwierdzeniu).
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, KeyRound, Lock, LockOpen, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useNoteVault } from '../hooks/useGroup';
 import { vaultChangePin, vaultDismissNotice, vaultForgetAll, vaultInit, vaultLock, vaultSetup, vaultUnlock } from '../services/noteVault';
@@ -148,11 +148,14 @@ export const NoteLockBar: React.FC = () => {
 };
 
 /** Trwały komunikat globalny (O4/R2-3): zmiana notatki nie została zapisana, a edytora już nie ma (blokada, wylogowanie,
- *  zmiana zajęć). Niezapisany tekst — tylko z pamięci tej karty, do skopiowania; „Zamknij” go zapomina. */
+ *  zmiana zajęć). Niezapisany tekst — tylko z pamięci tej karty, do skopiowania; „Zamknij” go zapomina.
+ *  R3-1: tekst WYŁĄCZNIE przy odblokowanych notatkach — po blokadzie sama informacja, po odblokowaniu PIN-em przycisk wraca. */
 export const NoteNotice: React.FC = () => {
   const v = useNoteVault();
   const [show, setShow] = useState(false);
   const [copied, setCopied] = useState('');
+  const open = v.status === 'unlocked' || v.status === 'unavailable';
+  useEffect(() => { if (!open) { setShow(false); setCopied(''); } }, [open]); // blokada chowa pokazany tekst (R3-1)
   if (!v.notice) return null;
   const list = v.unsaved ?? [];
   const asText = (u: { title: string; note: string }) => (u.title ? `${u.title}\n\n${u.note}` : u.note);
@@ -167,10 +170,13 @@ export const NoteNotice: React.FC = () => {
           <p className="text-sm text-fg flex-1">{v.notice}</p>
           <button onClick={() => { setShow(false); vaultDismissNotice(); }} className="tap shrink-0 inline-flex items-center justify-center min-w-11 rounded-full border border-line text-fg2 cursor-pointer" aria-label="Zamknij komunikat"><X className="w-4 h-4" /></button>
         </div>
-        {list.length > 0 && !show && (
+        {list.length > 0 && !open && (
+          <p className="text-sm text-mut">Masz niezapisany tekst — odblokuj notatki PIN-em, żeby go zobaczyć.</p>
+        )}
+        {list.length > 0 && open && !show && (
           <button onClick={() => setShow(true)} className={btnGhost}>Pokaż niezapisany tekst</button>
         )}
-        {show && list.map(u => (
+        {open && show && list.map(u => (
           <div key={u.meetingId} className="space-y-1">
             <textarea readOnly value={asText(u)} rows={5} aria-label="Niezapisany tekst notatki"
               className="w-full bg-surf border border-line rounded-lg px-3 py-2 text-base text-fg leading-relaxed" />

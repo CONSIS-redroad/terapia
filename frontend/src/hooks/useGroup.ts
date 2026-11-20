@@ -118,12 +118,14 @@ export function useGroup() {
               if (done) raw[n.meetingId] = done;
               else { const fresh = await groupData.myNotes(); if (fresh) raw = fresh; }
             } catch (e) {
+              // R3-3: przerwane blokadą (klucza już nie ma) to nie błąd — dokończymy przy następnym odblokowaniu
+              if (vaultState().status !== 'unlocked' || vaultGeneration() !== gen) break;
               // zostaje jawna — spróbujemy przy następnym odblokowaniu; NIE po cichu (R2-1). Log BEZ treści notatki.
               failed.push(n.meetingId);
               console.warn('[notatki] migracja do szyfrogramu nieudana', { zajecia: n.meetingId, blad: (e instanceof Error ? e.message : String(e)).slice(0, 80) });
             }
           }
-          if (failed.length) vaultNotice(`Nie udało się zaszyfrować ${failed.length} ${notatekGen(failed.length)} — zostają jak były; spróbujemy przy następnym odblokowaniu.`);
+          if (failed.length && vaultState().status === 'unlocked') vaultNotice(`Nie udało się zaszyfrować ${failed.length} ${notatekGen(failed.length)} — zostają jak były; spróbujemy przy następnym odblokowaniu.`);
         }
         if (vaultGeneration() === gen) migratedGen.current = gen;
         const view = await viewNotes(raw ?? 'error');

@@ -17,11 +17,23 @@
 // (R2-3): niezapisany tekst (błąd zapisu, zapis > 30 s) trzymamy TYLKO w pamięci karty (`unsaved`) — NoteNotice pokazuje go
 //           do skopiowania („Pokaż niezapisany tekst”); nigdy do localStorage ani do bazy.
 // Ekrany nie dotykają kluczy — tylko seal()/open() (useGroup) i formularze PIN-u (NoteLock).
-import { groupData } from './groupData';
+// Bez wartościowego importu groupData (źródło wstrzykuje groupData.ts przez vaultSetSource) — dzięki temu test jednostkowy
+// w samym Node ładuje ten plik (R3-2). Rozszerzenia „.ts” w importach: Node bez kompilacji ich wymaga, Vite/tsc przyjmują.
 import {
   createKeyRecord, decryptField, encryptField, isEncrypted, openKeyRecord, pinProblem, rewrapKeyRecord, type NoteKeyRecord,
-} from './noteCrypto';
-import type { MeetingNote } from '../types/group';
+} from './noteCrypto.ts';
+import type { GroupDataSource } from './groupData.ts';
+import type { MeetingNote } from '../types/group.ts';
+
+/** To, czego sejf potrzebuje od źródła danych (demo albo Supabase). */
+export type VaultSource = Pick<GroupDataSource, 'isDemo' | 'currentUserId' | 'noteKey' | 'createNoteKey' | 'replaceNoteKey' | 'resetMyNotes'>;
+let src: VaultSource | null = null;
+/** Podpina źródło danych (groupData.ts przy starcie; testy — atrapę). */
+export function vaultSetSource(s: VaultSource) { src = s; }
+const source = (): VaultSource => {
+  if (!src) throw new Error('Sejf notatek bez źródła danych');
+  return src;
+};
 
 export type VaultStatus = 'loading' | 'unavailable' | 'error' | 'nokey' | 'locked' | 'unlocked';
 export interface UnsavedNote { meetingId: string; title: string; note: string }
@@ -75,7 +87,7 @@ export function vaultDismissNotice() { state = { ...state, notice: undefined, un
 /** Zapamiętaj (w pamięci karty) niezapisany tekst notatki + komunikat (R2-3). Jedna pozycja na zajęcia — najnowsza. */
 export function vaultUnsaved(u: UnsavedNote, why: string) {
   const list = (state.unsaved ?? []).filter(x => x.meetingId !== u.meetingId);
-  state = { ...state, unsaved: [...list, u], notice: `Ostatnia zmiana w notatce NIE została zapisana (${why}). Skopiuj niezapisany tekst poniżej.` };
+  state = { ...state, unsaved: [...list, u], notice: `Ostatnia zmiana w notatce NIE została zapisana (${why}). Niezapisany tekst jest tylko w tej karcie — skopiuj go.` };
   listeners.forEach(f => f());
 }
 /** Zapis jednak doszedł (np. po przekroczeniu czasu blokady) — usuń tę pozycję z niezapisanych. */
@@ -111,7 +123,7 @@ function keepUnsaved() {
 
 /** Demo: test może skrócić czas czekania blokady (localStorage 'terapia_test_drain_ms'); wersja z bazą — zawsze 30 s. */
 function drainMax(): number {
-  if (!groupData.isDemo) return DRAIN_MAX_MS;
+  if (!source().isDemo) return DRAIN_MAX_MS;
   try { return Number(localStorage.getItem('terapia_test_drain_ms')) || DRAIN_MAX_MS; } catch { return DRAIN_MAX_MS; }
 }
 
@@ -137,16 +149,16 @@ async function drain(): Promise<boolean> {
 // ── rekord klucza ────────────────────────────────────────────────────────────
 /** Świeży rekord z bazy. undefined = nie udało się (sieć) — wołający decyduje, czy użyć zapamiętanego. */
 async function fetchRecord(): Promise<NoteKeyRecord | null | 'unavailable' | undefined> {
-  try { return await groupData.noteKey(); } catch { return undefined; }
+  try { return await source().noteKey(); } catch { return undefined; }
 }
 
 /** Wczytaj (albo odśwież po zalogowaniu) rekord klucza zalogowanej osoby. */
 export async function vaultInit(): Promise<void> {
-  const me = groupData.currentUserId();
-  if (me !== uid) { hardLock(); uid = me; record = null; }
+  const me = source().currentUserId();
+  if (me !== uid) { vaultForgetUser(); uid = me; } // R3-2: nic po poprzedniej osobie (klucz, niezapisany tekst, komunikat)
   if (state.status === 'unlocked') return;
   try {
-    const r = await groupData.noteKey();
+    const r = await source().noteKey();
     if (r === 'unavailable') { record = null; emit({ status: 'unavailable' }); return; }
     record = r;
     emit({ status: r ? 'locked' : 'nokey', error: state.error });
@@ -168,7 +180,7 @@ export async function vaultSetup(pin: string, pin2: string): Promise<void> {
   if (state.status !== 'nokey') throw new Error('PIN do notatek jest już ustawiony.');
   const { record: rec, dek: key } = await createKeyRecord(pin, uid);
   try {
-    await groupData.createNoteKey(rec);
+    await source().createNoteKey(rec);
   } catch (e) {
     if (msg(e) === 'KEY_EXISTS') { await vaultInit(); throw new Error('PIN ustawiono w międzyczasie na innym urządzeniu — odblokuj nim notatki.'); }
     if (msg(e) === 'NO_ACCOUNT') throw new Error('Twoje konto nie ma jeszcze profilu w grupie, więc notatek nie da się zaszyfrować. Napisz do prowadzącej.');
@@ -221,7 +233,7 @@ export async function vaultChangePin(oldPin: string, newPin: string, newPin2: st
   try { rec = await rewrapKeyRecord(record, oldPin, newPin, uid); }
   catch (e) { throw new Error(msg(e) === 'BAD_PIN' ? 'Obecny PIN jest zły.' : msg(e)); }
   try {
-    await groupData.replaceNoteKey(record.wrappedDek, rec);
+    await source().replaceNoteKey(record.wrappedDek, rec);
   } catch (e) {
     if (msg(e) === 'KEY_CHANGED') { hardLock(); await vaultInit(); throw new Error('PIN zmieniono w międzyczasie na innym urządzeniu — odblokuj nowym PIN-em.'); }
     throw e;
@@ -231,7 +243,7 @@ export async function vaultChangePin(oldPin: string, newPin: string, newPin2: st
 
 /** „Nie pamiętam PIN-u”: kasuje MOJE notatki i klucz jedną transakcją (świadomie, po potwierdzeniu) → można ustawić nowy PIN. */
 export async function vaultForgetAll(): Promise<void> {
-  await groupData.resetMyNotes();
+  await source().resetMyNotes();
   hardLock(); record = null;
   emit({ status: 'nokey', error: undefined });
 }
@@ -268,6 +280,15 @@ export function vaultLock(): Promise<void> {
 }
 
 /** Natychmiast, bez zapisów (sesja już nie istnieje: wylogowanie w innej karcie, zmiana osoby). */
+/** Wylogowanie / zmiana osoby (R3-2): klucz, rekord, niezapisany tekst i komunikat — wszystko z pamięci; następna osoba
+ *  w tej karcie nie zobaczy niczego po poprzedniej. */
+export function vaultForgetUser() {
+  hardLock();
+  record = null; uid = '';
+  state = { status: 'loading' };   // bez unsaved/notice/error poprzedniej osoby
+  listeners.forEach(f => f());
+}
+
 export function hardLock() {
   dek = null; drainDek = null; disarmIdle(); badTries = 0;
   if (state.status === 'unlocked') emit({ status: record ? 'locked' : 'nokey' });

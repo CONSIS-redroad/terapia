@@ -7,7 +7,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Clock, LogOut, Mail, ShieldX } from 'lucide-react';
 import { DATA_MODE, GOOGLE_LOGIN, redirectUrl, supabase } from '../services/supabaseClient';
 import { supabaseSource } from '../services/groupData';
-import { hardLock, vaultLock } from '../services/noteVault';
+import { vaultForgetUser, vaultLock } from '../services/noteVault';
 import { RULES_VERSION } from '../demo/rules';
 import { Onboarding } from './Onboarding';
 import { CrisisBox } from './RulesPanel';
@@ -183,7 +183,7 @@ const SupabaseGate: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     const { data } = sb.auth.onAuthStateChange((e, s) => {
       // D042/O4: wylogowanie w INNEJ karcie albo zmiana osoby — klucz notatek znika z pamięci od razu (sesji już nie ma, nie da się zapisać)
       const id = s?.user.id ?? '';
-      if (e === 'SIGNED_OUT' || !s || (lastUid && id !== lastUid)) hardLock();
+      if (e === 'SIGNED_OUT' || !s || (lastUid && id !== lastUid)) vaultForgetUser(); // R3-2: też niezapisany tekst i komunikat
       lastUid = id;
       setSession(s);
     });
@@ -248,7 +248,7 @@ const SupabaseGate: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   const signOut = useCallback(async () => {
     await vaultLock(); // D042/O4: najpierw dokończ zapisy notatek (z kluczem), potem czyść klucz
-    hardLock();
+    vaultForgetUser(); // R3-2: niezapisany tekst osoby nie zostaje dla następnej
     await sb.auth.signOut();
     setMember(undefined); setAcceptedAt(undefined); setIsAdmin(false);
   }, [sb]);

@@ -11,6 +11,7 @@ import {
 import { DATA_MODE } from './supabaseClient';
 import { clipUnits, isEncrypted, type NoteKeyRecord } from './noteCrypto';
 import { URL_SAFE_MAX, filterQueryString, migrationFilter } from './noteMigration';
+import { vaultSetSource } from './noteVault';
 import { SupabaseSource } from './supabaseSource';
 
 export interface GroupDataSource {
@@ -326,5 +327,6 @@ function demoNoteGuard(s: LocalState, title: string, note: string, dekId?: strin
 
 /** Jedno źródło danych całej aplikacji — demo albo Supabase grupy (decyduje build). */
 export const groupData: GroupDataSource = DATA_MODE === 'supabase' ? new SupabaseSource() : new DemoSource();
+vaultSetSource(groupData); // sejf notatek (D042) korzysta z tego samego źródła
 /** Dostęp do implementacji Supabase (logowanie ustawia zalogowanego użytkownika). */
 export const supabaseSource = groupData instanceof SupabaseSource ? groupData : null;
